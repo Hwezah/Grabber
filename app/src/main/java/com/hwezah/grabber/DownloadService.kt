@@ -45,6 +45,7 @@ class DownloadService : Service() {
     private val limiter = RateLimiter()
     private var wake: PowerManager.WakeLock? = null
     private val last = HashMap<Long, Long>()
+    @Volatile private var updating = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -72,6 +73,15 @@ class DownloadService : Service() {
         when (intent?.action) {
             PAUSE_ALL -> Downloads.pauseAll()
             RESUME_ALL -> Downloads.resumeAll()
+            UPDATE -> if (!updating) {
+                updating = true
+                scope.launch {
+                    try { Updater.fetchAndInstall(this@DownloadService) } finally {
+                        updating = false
+                        pump()
+                    }
+                }
+            }
         }
         return START_STICKY
     }
@@ -98,7 +108,8 @@ class DownloadService : Service() {
             running[item.id] = Running(job)
             job.start()
         }
-        if (running.isEmpty() && items.none { it.state == State.Queued }) finish()
+        val updateBusy = updating || Updater.status is Updater.Status.Downloading || Updater.status is Updater.Status.Installing
+        if (running.isEmpty() && items.none { it.state == State.Queued } && !updateBusy) finish()
     }
 
     private suspend fun work(id: Long) {
@@ -228,7 +239,12 @@ class DownloadService : Service() {
         val live = snap.mapValues { (id, bytes) -> Live(bytes, rates[id]?.takeIf { it >= 0 } ?: (bytes - (last[id] ?: bytes)).coerceAtLeast(0), texts[id]) }
         last.clear(); last.putAll(snap)
         Downloads.live.value = live
-        if (snap.isEmpty()) return
+        if (snap.isEmpty()) {
+            (Updater.status as? Updater.Status.Downloading)?.let {
+                runCatching { NotificationManagerCompat.from(this).notify(NOTE, note("Updating Grabber", "${it.pct}%", it.pct, false)) }
+            }
+            return
+        }
         val items = Downloads.items.value.filter { it.id in snap }
         val speed = live.values.sumOf { it.speed }
         val size = items.sumOf { maxOf(it.size, 0) }
@@ -280,6 +296,7 @@ class DownloadService : Service() {
         const val DONE_NOTE = 2
         const val PAUSE_ALL = "com.hwezah.grabber.PAUSE_ALL"
         const val RESUME_ALL = "com.hwezah.grabber.RESUME_ALL"
+        const val UPDATE = "com.hwezah.grabber.UPDATE"
 
         fun channel(c: Context) {
             if (Build.VERSION.SDK_INT >= 26) {

@@ -77,30 +77,63 @@ object Updater {
             scope.launch { kotlinx.coroutines.delay(800); status = ready }
             return
         }
+        last = ready
         status = Status.Downloading(0)
-        scope.launch {
-            runCatching {
-                val file = File(app.cacheDir, "update.apk")
-                Http.client.newCall(Request.Builder().url(ready.url).build()).execute().use { r ->
-                    if (!r.isSuccessful) error("Download failed (${r.code})")
-                    val total = r.body!!.contentLength().takeIf { it > 0 } ?: ready.size
-                    r.body!!.byteStream().use { input ->
-                        file.outputStream().use { out ->
-                            val buf = ByteArray(64 * 1024)
-                            var done = 0L
-                            while (true) {
-                                val n = input.read(buf)
-                                if (n < 0) break
-                                out.write(buf, 0, n)
-                                done += n
-                                if (total > 0) status = Status.Downloading((done * 100 / total).toInt())
+        // In the download service: kept alive with the app in the background, like any download.
+        runCatching {
+            androidx.core.content.ContextCompat.startForegroundService(app, Intent(app, DownloadService::class.java).setAction(DownloadService.UPDATE))
+        }.onFailure { status = Status.Failed("Couldn't start the update: ${it.message}") }
+    }
+
+    /** The update we're fetching, so Retry can carry on with it. */
+    @Volatile var last: Status.Ready? = null
+    private var segments = mutableListOf<com.hwezah.grabber.engine.Segment>()
+    private var segmentsFor: String? = null
+
+    /** Called by the download service: fetch the APK (resuming across failures), then install it. */
+    suspend fun fetchAndInstall(context: Context) {
+        val ready = last ?: return
+        try {
+            val file = File(context.cacheDir, "update.apk")
+            val info = Http.probe(ready.url)
+            if (segmentsFor != info.finalUrl.substringBefore('?') + ready.code) {
+                segments = mutableListOf()
+                segmentsFor = info.finalUrl.substringBefore('?') + ready.code
+                file.delete()
+            }
+            var tries = 0
+            while (true) {
+                try {
+                    java.io.RandomAccessFile(file, "rw").channel.use { ch ->
+                        val dl = com.hwezah.grabber.engine.HttpDownload(
+                            url = info.finalUrl, headers = emptyMap(), size = info.size, resumable = info.resumable,
+                            sink = com.hwezah.grabber.engine.ChannelSink(ch), segments = segments, connections = 8,
+                            limiter = com.hwezah.grabber.engine.RateLimiter(),
+                        )
+                        kotlinx.coroutines.coroutineScope {
+                            val ticker = launch {
+                                while (true) {
+                                    if (info.size > 0) status = Status.Downloading((dl.downloaded() * 100 / info.size).toInt())
+                                    kotlinx.coroutines.delay(500)
+                                }
                             }
+                            try { dl.run() } finally { ticker.cancel() }
                         }
                     }
+                    break
+                } catch (e: java.io.IOException) {
+                    if (++tries > 5) throw e
+                    kotlinx.coroutines.delay(2000L * tries)
                 }
-                status = Status.Installing
-                install(app, file)
-            }.onFailure { status = Status.Failed(it.message ?: "Update failed") }
+            }
+            status = Status.Installing
+            install(context.applicationContext, file)
+            segments = mutableListOf()
+            segmentsFor = null
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            status = Status.Failed("Update interrupted (${e.message ?: "network"}). Tap Retry to carry on.")
         }
     }
 

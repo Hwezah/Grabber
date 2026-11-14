@@ -67,7 +67,13 @@ fun UpdateBar(modifier: Modifier = Modifier) {
         }
         when (s) {
             is Updater.Status.Ready -> Button("Update", { Updater.update(context) }, accent = Ink.green, compact = true)
-            is Updater.Status.Failed -> Button("", { Updater.dismissed = true; Updater.status = Updater.Status.None }, icon = L.drawable.lucide_ic_x, compact = true)
+            is Updater.Status.Failed -> {
+                Updater.last?.let { r ->
+                    Button("Retry", { Updater.status = r; Updater.update(context) }, accent = Ink.green, compact = true)
+                    Spacer(Modifier.width(6.dp))
+                }
+                Button("", { Updater.dismissed = true; Updater.status = Updater.Status.None }, icon = L.drawable.lucide_ic_x, compact = true)
+            }
             else -> {}
         }
     }
