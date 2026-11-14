@@ -22,6 +22,7 @@ data class MediaInfo(val title: String, val heights: List<Int>, val duration: In
  */
 object Media {
     @Volatile private var ready = false
+    @Volatile private var aria2c = false
 
     /** Unpacks yt-dlp and FFmpeg the first time (a few seconds). Blocking. */
     @Synchronized
@@ -29,6 +30,13 @@ object Media {
         if (ready) return
         YoutubeDL.getInstance().init(context.applicationContext)
         FFmpeg.getInstance().init(context.applicationContext)
+        // aria2c is optional: if it won't start, yt-dlp downloads by itself.
+        aria2c = runCatching {
+            val c = Class.forName("com.yausername.aria2c.Aria2c")
+            val inst = c.getMethod("getInstance").invoke(null)
+            c.getMethod("init", Context::class.java).invoke(inst, context.applicationContext)
+            true
+        }.getOrDefault(false)
         ready = true
         // Sites change often: keep yt-dlp fresh, quietly, about once a week.
         val sp = context.getSharedPreferences("media", Context.MODE_PRIVATE)
@@ -92,6 +100,12 @@ object Media {
             .addOption("-N", 8)
             .addOption("-o", File(work, "%(title).120B.%(ext)s").absolutePath)
         item.headers.forEach { (k, v) -> req.addOption("--add-header", "$k:$v") }
+        // Many connections per file through aria2c, sized like Grabber's own downloads.
+        if (aria2c && !item.url.startsWith("file://")) {
+            val n = Prefs.connections.coerceIn(4, 16)
+            req.addOption("--downloader", "libaria2c.so")
+            req.addOption("--downloader-args", "aria2c:-x $n -s $n -k 1M --summary-interval=1 --console-log-level=warn --file-allocation=none")
+        }
         if (item.url.startsWith("file://")) req.addOption("--enable-file-urls")
         val f = item.format
         when {

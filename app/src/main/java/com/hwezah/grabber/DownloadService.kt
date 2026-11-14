@@ -199,8 +199,12 @@ class DownloadService : Service() {
     private suspend fun media(item: Item) {
         val id = item.id
         Downloads.edit(id) { it.copy(size = 1000) }
-        val (doc, name, size) = Media.run(this, item) { p ->
+        val (doc, name, size) = Media.run(this, item) { p0 ->
+            // aria2c reports its own way: "[#ab12 12MiB/120MiB(10%) CN:16 DL:4.5MiB ETA:24s]".
+            val ariaPct = Regex("""\((\d+)%\)""").find(p0.line)?.groupValues?.get(1)?.toFloatOrNull()
+            val p = if (p0.pct <= 0f && ariaPct != null) Media.Progress(ariaPct, p0.eta, p0.line) else p0
             val speed = Regex("""at\s+([\d.]+\s*[KMG]i?B/s)""").find(p.line)?.groupValues?.get(1)
+                ?: Regex("""DL:([\d.]+[KMG]?i?B)""").find(p.line)?.groupValues?.get(1)?.let { "$it/s" }
             val text = listOfNotNull(
                 if (p.pct >= 0) "${p.pct.toInt()}%" else null,
                 speed,

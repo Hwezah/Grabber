@@ -72,6 +72,8 @@ dependencies {
     // Video from YouTube and ~1,800 sites (yt-dlp, Unlicense; wrapper GPL-3.0), and FFmpeg for audio conversion.
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
     implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
+    // aria2c: a multi-connection downloader yt-dlp hands video files to (GPL-2.0).
+    implementation("io.github.junkfood02.youtubedl-android:aria2c:0.18.1")
     // Torrents: libtorrent (BSD) through libtorrent4j (MIT), the version WatchHub ships.
     val lt = "2.1.0-38"
     implementation("org.libtorrent4j:libtorrent4j:$lt")

@@ -3,7 +3,9 @@ package com.hwezah.grabber.engine
 /** Bytes [start, end] of the file; [pos] is the next byte to write. Done when pos > end. */
 class Segment(val start: Long, @Volatile var end: Long, @Volatile var pos: Long) {
     @Volatile var busy = false
-    val remaining get() = (end - pos + 1).coerceAtLeast(0)
+    /** Bytes read but not yet written (a connection batches its writes). */
+    @Volatile var pending = 0L
+    val remaining get() = (end - pos - pending + 1).coerceAtLeast(0)
     val done get() = pos > end
 }
 

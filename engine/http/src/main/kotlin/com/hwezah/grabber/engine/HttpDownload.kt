@@ -107,9 +107,13 @@ object Http {
 }
 
 /**
- * One file, fetched over up to [connections] parallel range requests. When a connection finishes its part it
- * takes half of the largest part still going, so all of them stay busy to the end. Progress lives in [segments],
- * which the caller saves ([onCheckpoint]) and passes back to resume.
+ * One file over many range connections, the way IDM/1DM do it, plus:
+ * - work stealing: an idle connection takes half of the biggest part still going;
+ * - ramp-up: starts with a few connections and adds more while total speed keeps rising, up to [connections];
+ * - stall watch: a connection that sends nothing for [stallMs], or crawls far below the others, is dropped and
+ *   its part handed on (it reconnects, often to a faster path);
+ * - batched writes: each connection writes in 512 KB blocks, and the file's size is reserved up front.
+ * Progress lives in [segments], which the caller saves ([onCheckpoint]) and passes back to resume.
  */
 class HttpDownload(
     private val url: String,
@@ -124,20 +128,41 @@ class HttpDownload(
     private val client: OkHttpClient = Http.client,
     private val minSplit: Long = 256 * 1024,
     private val maxRetries: Int = 10,
+    private val stallMs: Long = 8_000,
+    private val startWith: Int = 4,
 ) {
     private val lock = Any()
 
-    /** Bytes written so far. */
+    /** A live connection, for the stall watch. */
+    private class Conn(val call: Call) {
+        @Volatile var lastByte = System.nanoTime()
+        @Volatile var bytes = 0L
+        @Volatile var mark = 0L
+        @Volatile var speed = 0L
+        @Volatile var kicked = false
+        val born = System.nanoTime()
+    }
+    private val conns = java.util.concurrent.ConcurrentHashMap.newKeySet<Conn>()
+    private val alive = java.util.concurrent.atomic.AtomicInteger()
+
+    /** Bytes written so far (batched bytes count once written). */
     fun downloaded(): Long = synchronized(lock) {
         if (segments.isEmpty()) 0 else segments.sumOf { it.pos - it.start }
     }
 
+    /** Connections open right now. */
+    fun active() = conns.size
+
     suspend fun run() {
         if (!resumable || size <= 0) return single()
+        val fresh: Boolean
         synchronized(lock) {
-            if (segments.isEmpty()) segments += Segments.plan(size, connections, minSplit * 4)
-            segments.forEach { it.busy = false }
+            fresh = segments.isEmpty()
+            if (fresh) segments += Segments.plan(size, minOf(connections, startWith), minSplit * 4)
+            segments.forEach { it.busy = false; it.pending = 0 }
         }
+        // Reserve the whole size now: one byte at the end. Fewer, cheaper extensions of the file later.
+        if (fresh) runCatching { sink.write(size - 1, ByteBuffer.wrap(ByteArray(1))) }
         coroutineScope {
             val ticker = launch {
                 while (isActive) {
@@ -145,14 +170,67 @@ class HttpDownload(
                     checkpoint()
                 }
             }
+            val watch = launch { watchdog() }
             try {
-                coroutineScope { repeat(connections) { launch(Dispatchers.IO) { worker() } } }
+                coroutineScope {
+                    val first = minOf(connections, startWith)
+                    repeat(first) { spawn(this) }
+                    launch { rampUp(this@coroutineScope, first) }
+                }
             } finally {
                 ticker.cancel()
+                watch.cancel()
                 checkpoint()
             }
         }
         if (downloaded() < size) throw IOException("Download stopped short")
+    }
+
+    private fun spawn(scope: kotlinx.coroutines.CoroutineScope) {
+        alive.incrementAndGet()
+        scope.launch(Dispatchers.IO) {
+            try { worker() } finally { alive.decrementAndGet() }
+        }
+    }
+
+    /** Adds connections in steps while the total speed keeps climbing; stops when it levels off. */
+    private suspend fun rampUp(scope: kotlinx.coroutines.CoroutineScope, first: Int) {
+        var running = first
+        var last = 0L
+        var flat = 0
+        while (running < connections) {
+            delay(2500)
+            val nothingToSplit = synchronized(lock) { segments.all { it.done || it.remaining < minSplit * 2 && it.busy } }
+            if (alive.get() == 0 || nothingToSplit) return
+            val now = conns.sumOf { it.speed }
+            if (last > 0 && now < last * 11 / 10) { if (++flat >= 2) return } else flat = 0
+            last = now
+            val add = minOf(connections - running, maxOf(2, running / 2))
+            repeat(add) { spawn(scope) }
+            running += add
+        }
+    }
+
+    /** Every second: drop connections that went silent, or crawl at under a tenth of the typical speed. */
+    private suspend fun watchdog() {
+        while (true) {
+            delay(1000)
+            val now = System.nanoTime()
+            conns.forEach { c ->
+                c.speed = c.bytes - c.mark
+                c.mark = c.bytes
+            }
+            val speeds = conns.filter { now - it.born > 6_000_000_000L }.map { it.speed }.sorted()
+            val typical = if (speeds.size >= 4) speeds[speeds.size / 2] else 0L
+            conns.forEach { c ->
+                val silent = now - c.lastByte > stallMs * 1_000_000L
+                val crawling = typical > 64 * 1024 && now - c.born > 10_000_000_000L && c.speed < typical / 10
+                if ((silent || crawling) && !c.kicked) {
+                    c.kicked = true
+                    c.call.cancel()
+                }
+            }
+        }
     }
 
     private fun checkpoint() {
@@ -168,7 +246,7 @@ class HttpDownload(
         }
         val big = segments.filter { it.busy && !it.done }.maxByOrNull { it.remaining } ?: return null
         if (big.remaining < minSplit * 2) return null
-        val mid = big.pos + big.remaining / 2
+        val mid = big.pos + big.pending + big.remaining / 2
         val part = Segment(mid, big.end, mid).also { it.busy = true }
         big.end = mid - 1
         segments += part
@@ -180,11 +258,13 @@ class HttpDownload(
         while (true) {
             val seg = take() ?: return
             var failures = 0
+            var stalls = 0
             while (!seg.done) {
                 coroutineContext.ensureActive()
+                var kicked = false
                 try {
                     val before = seg.pos
-                    fetch(seg)
+                    kicked = fetch(seg)
                     if (seg.pos > before) failures = 0
                 } catch (e: CancellationException) {
                     throw e
@@ -197,39 +277,79 @@ class HttpDownload(
                     if (++failures > maxRetries || e.code in 400..499 && e.code != 408 && e.code != 429) throw e
                     delay(backoff(failures))
                 } catch (e: IOException) {
+                    // Dropped by the stall watch: straight back with a new connection, not counted as a failure.
+                    if (e is StallException && ++stalls <= 30) continue
                     if (++failures > maxRetries) throw e
                     delay(backoff(failures))
                 }
+                if (kicked) continue
             }
             synchronized(lock) { seg.busy = false }
         }
     }
 
+    private class StallException : IOException("Connection stalled")
+
     private fun backoff(n: Int) = minOf(30_000L, 500L shl minOf(n, 6))
 
-    private suspend fun fetch(seg: Segment) {
+    /** Reads [seg] over one connection, writing in batches. Returns true if the stall watch dropped it. */
+    private suspend fun fetch(seg: Segment): Boolean {
         val call = client.newCall(Http.request(url, headers, "bytes=${seg.pos}-${seg.end}"))
-        Http.execute(call) { r ->
-            if (r.code != 206) {
-                if (r.isSuccessful) throw IOException("The server stopped allowing parts (answered ${r.code})")
-                throw HttpException(r.code, "Server answered ${r.code}")
+        val conn = Conn(call)
+        conns += conn
+        try {
+            Http.execute(call) { r ->
+                if (r.code != 206) {
+                    if (r.isSuccessful) throw IOException("The server stopped allowing parts (answered ${r.code})")
+                    throw HttpException(r.code, "Server answered ${r.code}")
+                }
+                val total = Http.totalOf(r)
+                if (total > 0 && total != size) throw HttpException(412, "The file changed on the server")
+                val source = r.body!!.source()
+                val block = ByteArray(BLOCK)
+                var fill = 0
+                fun flush() {
+                    if (fill == 0) return
+                    val at = synchronized(lock) { seg.pos }
+                    sink.write(at, ByteBuffer.wrap(block, 0, fill))
+                    synchronized(lock) {
+                        seg.pos += fill
+                        seg.pending = 0
+                    }
+                    fill = 0
+                }
+                try {
+                    while (true) {
+                        coroutineContext.ensureActive()
+                        val n = source.read(block, fill, minOf(64 * 1024, BLOCK - fill))
+                        if (n <= 0) break
+                        conn.lastByte = System.nanoTime()
+                        conn.bytes += n
+                        val take = synchronized(lock) {
+                            val room = seg.end - (seg.pos + fill) + 1
+                            val t = minOf(n.toLong(), room).toInt().coerceAtLeast(0)
+                            seg.pending = (fill + t).toLong()
+                            t
+                        }
+                        limiter.take(take)
+                        fill += take
+                        val reachedEnd = synchronized(lock) { seg.pos + fill > seg.end }
+                        if (fill >= BLOCK - 64 * 1024 || take < n || reachedEnd) flush()
+                        if (take < n || reachedEnd) break
+                    }
+                } finally {
+                    // Whatever arrived before a drop is kept.
+                    runCatching { flush() }
+                    synchronized(lock) { seg.pending = 0 }
+                }
             }
-            val total = Http.totalOf(r)
-            if (total > 0 && total != size) throw HttpException(412, "The file changed on the server")
-            val source = r.body!!.source()
-            val buf = ByteArray(64 * 1024)
-            while (true) {
-                coroutineContext.ensureActive()
-                val n = source.read(buf)
-                if (n <= 0) break
-                val (at, take) = synchronized(lock) { seg.pos to minOf(n.toLong(), seg.remaining).toInt() }
-                if (take <= 0) break
-                limiter.take(take)
-                sink.write(at, ByteBuffer.wrap(buf, 0, take))
-                synchronized(lock) { seg.pos += take }
-                if (take < n || seg.done) break
-            }
+        } catch (e: IOException) {
+            if (conn.kicked) throw StallException()
+            throw e
+        } finally {
+            conns -= conn
         }
+        return conn.kicked
     }
 
     /** No ranges (or no size): one connection from the start; a failure starts over. */
@@ -245,7 +365,7 @@ class HttpDownload(
                 Http.execute(client.newCall(Http.request(url, headers))) { r ->
                     if (!r.isSuccessful) throw HttpException(r.code, "Server answered ${r.code}")
                     val source = r.body!!.source()
-                    val buf = ByteArray(64 * 1024)
+                    val buf = ByteArray(BLOCK)
                     val seg = segments[0]
                     while (true) {
                         coroutineContext.ensureActive()
@@ -265,5 +385,10 @@ class HttpDownload(
                 delay(backoff(failures))
             }
         }
+    }
+
+    companion object {
+        /** Each connection's write batch. */
+        const val BLOCK = 512 * 1024
     }
 }

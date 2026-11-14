@@ -149,6 +149,7 @@ fun SettingsPage() {
                     "yt-dlp" to "Unlicense (public domain)",
                     "youtubedl-android" to "GPL-3.0",
                     "FFmpeg" to "LGPL/GPL",
+                    "aria2" to "GPL-2.0",
                     "Python (bundled for yt-dlp)" to "PSF License",
                     "libtorrent / libtorrent4j" to "BSD-3-Clause / MIT",
                     "OkHttp, Okio" to "Apache-2.0",

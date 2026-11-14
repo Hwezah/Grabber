@@ -75,7 +75,7 @@ class HttpDownloadTest {
         val segs = mutableListOf<Segment>()
         sinkFor(f).use { HttpDownload(url, emptyMap(), data.size.toLong(), true, it, segs, 32, RateLimiter()).run() }
         assertArrayEquals(data, f.readBytes())
-        assertTrue("used many ranged requests", ranged.get() >= 8)
+        assertTrue("used several ranged requests", ranged.get() >= 4)
     }
 
     @Test
@@ -96,6 +96,37 @@ class HttpDownloadTest {
         assertTrue("part done before pause: $done", done in 1 until data.size)
         sinkFor(f).use { HttpDownload(url, emptyMap(), data.size.toLong(), true, it, segs, 8, RateLimiter()).run() }
         assertArrayEquals(data, f.readBytes())
+    }
+
+    @Test
+    fun stalledConnectionIsReplaced() = runBlocking {
+        // The first request for the middle of the file hangs after a little data; the stall watch must move on.
+        val hung = java.util.concurrent.atomic.AtomicBoolean(false)
+        server.removeContext("/file.bin")
+        server.createContext("/file.bin") { ex ->
+            val (a, b) = ex.requestHeaders.getFirst("Range").removePrefix("bytes=").split("-")
+            val s = a.toLong()
+            val e = if (b.isEmpty()) data.size - 1L else minOf(b.toLong(), data.size - 1L)
+            ex.responseHeaders.add("Content-Range", "bytes $s-$e/${data.size}")
+            ex.sendResponseHeaders(206, e - s + 1)
+            val out = ex.responseBody
+            try {
+                if (s > 0 && hung.compareAndSet(false, true)) {
+                    out.write(data, s.toInt(), 1000); out.flush()
+                    Thread.sleep(20_000)
+                }
+                out.write(data, s.toInt(), (e - s + 1).toInt())
+            } catch (_: Exception) {
+            }
+            runCatching { out.close() }
+        }
+        val f = File.createTempFile("grab", ".bin")
+        val t0 = System.currentTimeMillis()
+        sinkFor(f).use {
+            HttpDownload(url, emptyMap(), data.size.toLong(), true, it, mutableListOf(), 4, RateLimiter(), stallMs = 2_000).run()
+        }
+        assertArrayEquals(data, f.readBytes())
+        assertTrue("finished well before the hung connection would have", System.currentTimeMillis() - t0 < 15_000)
     }
 
     @Test
