@@ -38,7 +38,8 @@ class MainActivity : ComponentActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (!hasFocus) return
-        val text = Capture.fresh(this) ?: return
+        // On opening: only a copy from the last 10 minutes, never an old one.
+        val text = Capture.fresh(this, maxAgeMs = 10 * 60_000L) ?: return
         val links = LinkFinder.find(text).isNotEmpty()
         if (links || Prefs.savePlainText) Clips.add(text)
         if (links && Prefs.offerOnOpen) Capture.pending = text

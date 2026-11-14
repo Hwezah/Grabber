@@ -13,15 +13,39 @@ object Capture {
 
     private fun prefs(c: Context) = c.getSharedPreferences("capture", Context.MODE_PRIVATE)
 
-    /** The clipboard's text if it's new since the last look, else null. Call while Grabber has focus. */
-    fun fresh(context: Context): String? {
+    /**
+     * The clipboard's text if it's a new copy, else null. Call while Grabber has focus. New means: copied after the
+     * last copy Grabber handled (Android stamps each copy with its time), not one of the last 50 handled, and, when
+     * [maxAgeMs] is set, copied within that long ago, so an old copy never pops up when Grabber opens.
+     */
+    fun fresh(context: Context, maxAgeMs: Long = 0): String? {
         val text = readClipboard(context).trim()
         if (text.isEmpty()) return null
-        val hash = text.hashCode()
-        if (prefs(context).getInt("last", 0) == hash) return null
-        prefs(context).edit().putInt("last", hash).apply()
-        return text
+        val stamp = runCatching {
+            context.getSystemService(android.content.ClipboardManager::class.java)?.primaryClipDescription?.timestamp
+        }.getOrNull() ?: 0L
+        val p = prefs(context)
+        val handled = p.getString("handled", "").orEmpty().split(',').filter { it.isNotEmpty() }
+        val hash = text.hashCode().toString()
+        val old = hash in handled ||
+            stamp > 0 && stamp <= p.getLong("stamp", 0) ||
+            stamp > 0 && maxAgeMs > 0 && System.currentTimeMillis() - stamp > maxAgeMs
+        remember(context, text, stamp)
+        return if (old) null else text
     }
+
+    private fun remember(context: Context, text: String, stamp: Long = 0) {
+        val p = prefs(context)
+        val handled = p.getString("handled", "").orEmpty().split(',').filter { it.isNotEmpty() }
+        val hash = text.trim().hashCode().toString()
+        val next = (listOf(hash) + handled.filter { it != hash }).take(50)
+        p.edit().putString("handled", next.joinToString(",")).apply {
+            if (stamp > p.getLong("stamp", 0)) putLong("stamp", stamp)
+        }.apply()
+    }
+
+    /** Remember [text] as seen, so it doesn't pop up again. */
+    fun seen(context: Context, text: String) = remember(context, text)
 
     /** The label the copying app gave the clip, when it's a real title rather than a generic word. */
     fun label(context: Context): String? {
@@ -40,8 +64,6 @@ object Capture {
         return rest.takeIf { it.length in 3..150 }
     }
 
-    /** Remember [text] as seen, so it doesn't pop up again. */
-    fun seen(context: Context, text: String) = prefs(context).edit().putInt("last", text.trim().hashCode()).apply()
 
     /** Whether the user has switched on Grabber's copy watcher in Accessibility settings. */
     fun watcherOn(context: Context): Boolean {
