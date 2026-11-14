@@ -71,11 +71,11 @@ fun ClipboardPage() {
         }
     }
     /** Typed or pasted text: kept, and its links offered. */
-    fun take(text: String) {
+    fun take(text: String, title: String? = null) {
         if (text.isBlank()) return
-        Clips.add(text)
+        Clips.add(text, title)
         Capture.seen(context, text)
-        if (LinkFinder.find(text).isNotEmpty()) Capture.pending = text
+        if (LinkFinder.find(text).isNotEmpty()) Capture.offer(text, title)
         query = ""
     }
     val shown = clips.filter { query.isBlank() || it.text.contains(query, ignoreCase = true) }
@@ -83,7 +83,7 @@ fun ClipboardPage() {
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Heading("Clipboard") {
-                Button("Paste", { take(readClipboard(context)) }, icon = L.drawable.lucide_ic_clipboard_paste, accent = Ink.red, compact = true)
+                Button("Paste", { take(readClipboard(context), Capture.label(context)) }, icon = L.drawable.lucide_ic_clipboard_paste, accent = Ink.red, compact = true)
             }
             Field(query, { query = it }, "Search, or paste a link and press Go", Modifier.padding(horizontal = EDGE), onGo = { take(query) })
             if (clips.isNotEmpty()) Text(
@@ -112,14 +112,15 @@ fun ClipboardPage() {
                         Tap({ picked = clip }, Modifier.fillMaxWidth(), shape) {
                             Row(Modifier.frost(shape).padding(horizontal = CARD, vertical = 12.dp), verticalAlignment = Alignment.Top) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(clip.text, style = Type.label, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                    clip.title?.let { Text(it, style = Type.label.copy(fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                                    Text(clip.text, style = if (clip.title != null) Type.meta else Type.label, maxLines = 3, overflow = TextOverflow.Ellipsis)
                                     Text(DateUtils.getRelativeTimeSpanString(clip.time).toString(), Modifier.padding(top = 4.dp), style = Type.meta.copy(color = Ink.faint))
                                 }
                                 if (clip.pinned) Lc(L.drawable.lucide_ic_pin, Modifier.padding(start = 8.dp), tint = Ink.red, size = 16.dp)
                                 // A link in it: download straight from the row.
                                 if (LinkFinder.find(clip.text).isNotEmpty()) {
                                     Spacer(Modifier.width(8.dp))
-                                    Button("", { Capture.pending = clip.text }, icon = L.drawable.lucide_ic_download, accent = Ink.green, compact = true)
+                                    Button("", { Capture.offer(clip.text, clip.title) }, icon = L.drawable.lucide_ic_download, accent = Ink.green, compact = true)
                                 }
                             }
                         }
@@ -164,7 +165,7 @@ private fun ClipSheet(clip: Clip, onDismiss: () -> Unit) {
             }
             if (links) {
                 Spacer(Modifier.height(10.dp))
-                Button("Download links", { onDismiss(); Capture.pending = clip.text }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
+                Button("Download links", { onDismiss(); Capture.offer(clip.text, clip.title) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
             }
         }
     }

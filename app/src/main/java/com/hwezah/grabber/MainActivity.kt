@@ -41,7 +41,8 @@ class MainActivity : ComponentActivity() {
         // On opening: only a copy from the last 10 minutes, never an old one.
         val text = Capture.fresh(this, maxAgeMs = 10 * 60_000L) ?: return
         val links = LinkFinder.find(text).isNotEmpty()
-        if (links || Prefs.savePlainText) Clips.add(text)
-        if (links && Prefs.offerOnOpen) Capture.pending = text
+        val label = Capture.label(this)
+        if (links || Prefs.savePlainText) Clips.add(text, label)
+        if (links && Prefs.offerOnOpen) Capture.offer(text, label)
     }
 }

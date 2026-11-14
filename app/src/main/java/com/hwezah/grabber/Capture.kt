@@ -10,6 +10,14 @@ import androidx.compose.runtime.setValue
 object Capture {
     /** Text the in-app sheet should offer (set when Grabber opens with a new link copied). */
     var pending by mutableStateOf<String?>(null)
+    /** The title that came with [pending] (the copying app's label), used as the file name. */
+    var pendingTitle by mutableStateOf<String?>(null)
+
+    /** Offers [text] in the in-app sheet, with its [title] if known. */
+    fun offer(text: String, title: String?) {
+        pendingTitle = title
+        pending = text
+    }
 
     private fun prefs(c: Context) = c.getSharedPreferences("capture", Context.MODE_PRIVATE)
 

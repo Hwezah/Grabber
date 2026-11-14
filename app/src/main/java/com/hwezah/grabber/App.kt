@@ -95,7 +95,7 @@ fun App() {
                 ) { PillBar(tab, { tab = it; barShown = true }) }
             }
             UpdateBar(Modifier.align(Alignment.TopCenter))
-            Capture.pending?.let { CaptureSheet(it) { Capture.pending = null } }
+            Capture.pending?.let { CaptureSheet(it, title = Capture.pendingTitle) { Capture.pending = null; Capture.pendingTitle = null } }
         }
     }
 }

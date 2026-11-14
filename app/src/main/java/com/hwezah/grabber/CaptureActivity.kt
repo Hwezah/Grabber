@@ -78,7 +78,7 @@ class CaptureActivity : ComponentActivity() {
         if (LinkFinder.find(clip).isEmpty() && !fromTile) {
             // Plain text: kept quietly, no popup over what you're doing.
             if (Prefs.savePlainText) {
-                Clips.add(clip)
+                Clips.add(clip, Capture.label(this))
                 Toast.makeText(this, "Saved to Grabber", Toast.LENGTH_SHORT).show()
             }
             finish()
@@ -99,7 +99,7 @@ class CaptureActivity : ComponentActivity() {
     }
 
     private fun show(t: String) {
-        Clips.add(t)
+        Clips.add(t, title)
         Capture.seen(this, t)
         text = t
     }
