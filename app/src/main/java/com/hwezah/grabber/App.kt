@@ -68,6 +68,7 @@ fun App() {
                 if (!Prefs.pillBar) TabBar(tab) { tab = it }
             }
             if (Prefs.pillBar) PillBar(tab, { tab = it }, Modifier.align(Alignment.BottomCenter))
+            UpdateBar(Modifier.align(Alignment.TopCenter))
             Capture.pending?.let { CaptureSheet(it) { Capture.pending = null } }
         }
     }

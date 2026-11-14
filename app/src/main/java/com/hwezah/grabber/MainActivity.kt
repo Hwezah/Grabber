@@ -29,6 +29,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        Updater.check()
+    }
+
     // Opening Grabber with a new link on the clipboard offers it, as 1DM does.
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)

@@ -96,7 +96,9 @@ fun SettingsPage() {
             Spacer(Modifier.height(20.dp))
             Overline("About")
             Group {
-                SettingRow("Grabber ${BuildConfig.VERSION_NAME}", "Builds come from GitHub; each one installs over the last.") {}
+                SettingRow("Grabber ${BuildConfig.VERSION_NAME}", "Updates come from GitHub; a bar appears up top when one is ready.") {
+                    Button("Check", { Updater.dismissed = false; Updater.check(force = true) }, compact = true)
+                }
             }
             Spacer(Modifier.height(BottomRoom))
         }
