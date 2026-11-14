@@ -1,7 +1,13 @@
 package com.hwezah.grabber
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -38,14 +44,27 @@ fun UpdateBar(modifier: Modifier = Modifier) {
         is Updater.Status.Failed -> s.message
         Updater.Status.None -> ""
     }
+    // Solid, so the page's heading doesn't show through; taller, with room for a progress line.
     Row(
-        modifier.statusBarsPadding().padding(horizontal = EDGE, vertical = 6.dp).fillMaxWidth()
-            .frost(RoundedCornerShape(14.dp), Ink.surface).padding(start = CARD, end = 6.dp, top = 6.dp, bottom = 6.dp),
+        modifier.statusBarsPadding().padding(horizontal = EDGE, vertical = 8.dp).fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp)).background(Ink.sheet)
+            .heightIn(min = 72.dp).padding(start = CARD, end = 10.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Lc(L.drawable.lucide_ic_download, tint = if (s is Updater.Status.Failed) Ink.orange else Ink.green, size = 18.dp)
-        Spacer(Modifier.width(10.dp))
-        Text(text, Modifier.weight(1f), style = Type.label.copy(fontWeight = FontWeight.SemiBold), maxLines = 2)
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(50)).background((if (s is Updater.Status.Failed) Ink.orange else Ink.green).copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+            Lc(L.drawable.lucide_ic_download, tint = if (s is Updater.Status.Failed) Ink.orange else Ink.green, size = 20.dp)
+        }
+        Spacer(Modifier.width(12.dp))
+        androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
+            Text(text, style = Type.title.copy(fontSize = 16.sp), maxLines = 2)
+            if (s is Updater.Status.Downloading) {
+                Box(Modifier.padding(top = 8.dp, end = 4.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(Ink.text.copy(alpha = 0.1f))) {
+                    Box(Modifier.fillMaxWidth(s.pct / 100f).height(4.dp).clip(RoundedCornerShape(50)).background(Ink.green))
+                }
+            } else if (s is Updater.Status.Ready) {
+                Text("Tap Update, then confirm Android's prompt", Modifier.padding(top = 2.dp), style = Type.meta)
+            }
+        }
         when (s) {
             is Updater.Status.Ready -> Button("Update", { Updater.update(context) }, accent = Ink.green, compact = true)
             is Updater.Status.Failed -> Button("", { Updater.dismissed = true; Updater.status = Updater.Status.None }, icon = L.drawable.lucide_ic_x, compact = true)
