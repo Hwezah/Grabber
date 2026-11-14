@@ -43,6 +43,7 @@ import com.hwezah.grabber.design.Button
 import com.hwezah.grabber.design.EDGE
 import com.hwezah.grabber.design.Heading
 import com.hwezah.grabber.design.Ink
+import com.hwezah.grabber.design.solo
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Note
 import com.hwezah.grabber.design.SpreadOut
@@ -128,7 +129,7 @@ private fun ClipSheet(clip: Clip, onDismiss: () -> Unit) {
             }
             if (links) {
                 Spacer(Modifier.height(10.dp))
-                Button("Download links", { onDismiss(); Capture.pending = clip.text }, Modifier.fillMaxWidth(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
+                Button("Download links", { onDismiss(); Capture.pending = clip.text }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
             }
         }
     }

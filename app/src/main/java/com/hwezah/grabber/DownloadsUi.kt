@@ -56,6 +56,7 @@ import com.hwezah.grabber.design.Chip
 import com.hwezah.grabber.design.EDGE
 import com.hwezah.grabber.design.Heading
 import com.hwezah.grabber.design.Ink
+import com.hwezah.grabber.design.solo
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Note
 import com.hwezah.grabber.design.Overline
@@ -215,7 +216,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
             }
             Spacer(Modifier.height(12.dp))
             if (!confirm) {
-                Button("Delete…", { confirm = true }, Modifier.fillMaxWidth(), icon = L.drawable.lucide_ic_trash_2)
+                Button("Delete…", { confirm = true }, Modifier.solo(), icon = L.drawable.lucide_ic_trash_2)
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
                     Button("Remove from list", { Downloads.delete(item.id, false); onDismiss() }, compact = true)
@@ -321,7 +322,7 @@ private fun AddSheet(onDismiss: () -> Unit) {
                     Downloads.add(chosen)
                     onDismiss()
                 },
-                Modifier.fillMaxWidth(), icon = L.drawable.lucide_ic_download, accent = if (chosen.isNotEmpty() && Prefs.folder != null) Ink.green else null,
+                Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = if (chosen.isNotEmpty() && Prefs.folder != null) Ink.green else null,
             )
         }
     }

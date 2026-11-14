@@ -55,6 +55,7 @@ import com.composables.icons.lucide.R as L
 import com.hwezah.grabber.design.BottomSheet
 import com.hwezah.grabber.design.Button
 import com.hwezah.grabber.design.Ink
+import com.hwezah.grabber.design.solo
 import com.hwezah.grabber.design.frost
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Note
@@ -159,7 +160,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
                                 onDismiss()
                             }
                         },
-                        Modifier.fillMaxWidth(), icon = L.drawable.lucide_ic_download,
+                        Modifier.solo(), icon = L.drawable.lucide_ic_download,
                         accent = if (Prefs.folder != null && web.isNotEmpty()) Ink.green else null,
                     )
                 }
@@ -265,7 +266,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
                 onDismiss()
             }
         },
-        Modifier.fillMaxWidth(), icon = L.drawable.lucide_ic_download, accent = if (Prefs.folder != null) Ink.green else null,
+        Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = if (Prefs.folder != null) Ink.green else null,
     )
 }
 
@@ -357,6 +358,6 @@ private fun OneMagnet(magnet: String, onDismiss: () -> Unit) {
             Downloads.add(listOf(magnet), name = mm.name, kind = Kind.Torrent, files = files, sequential = sequential)
             onDismiss()
         },
-        Modifier.fillMaxWidth(), icon = L.drawable.lucide_ic_magnet, accent = if (ready) Ink.orange else null,
+        Modifier.solo(), icon = L.drawable.lucide_ic_magnet, accent = if (ready) Ink.orange else null,
     )
 }

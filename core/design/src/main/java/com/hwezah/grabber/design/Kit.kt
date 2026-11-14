@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -257,3 +258,6 @@ fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
         }
     }
 }
+
+/** A button alone on its row: 80% of the width, centred. */
+fun Modifier.solo() = fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).fillMaxWidth(0.8f)
