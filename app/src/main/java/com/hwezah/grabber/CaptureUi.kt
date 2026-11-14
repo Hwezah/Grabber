@@ -123,6 +123,8 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
         else -> "${found.size} links caught"
     }
     val single = found.size == 1
+    // A name for a lone link: what the sending app said, else words copied around it.
+    val nameHint = title ?: if (single) Capture.nameAround(text) else null
     BottomSheet(if (single && found[0] is Found.Web) "Download file" else heading, onDismiss) {
         Column(Modifier.padding(horizontal = CARD)) {
             if (found.isEmpty()) {
@@ -132,7 +134,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
                     Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))
                     FolderRow()
                 }
-                if (found[0] is Found.Magnet) OneMagnet(found[0].text, onDismiss) else OneLink(found[0].text, onDismiss, title, headers)
+                if (found[0] is Found.Magnet) OneMagnet(found[0].text, onDismiss) else OneLink(found[0].text, onDismiss, nameHint, headers)
             } else {
                 if (Prefs.folder == null) {
                     Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))

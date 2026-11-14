@@ -72,6 +72,7 @@ class CaptureActivity : ComponentActivity() {
             finish()
             return
         }
+        if (title == null) title = Capture.label(this)
         show(clip)
     }
 

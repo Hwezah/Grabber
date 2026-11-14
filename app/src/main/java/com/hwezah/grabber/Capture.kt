@@ -23,6 +23,23 @@ object Capture {
         return text
     }
 
+    /** The label the copying app gave the clip, when it's a real title rather than a generic word. */
+    fun label(context: Context): String? {
+        val l = runCatching {
+            context.getSystemService(android.content.ClipboardManager::class.java)?.primaryClipDescription?.label?.toString()
+        }.getOrNull()?.trim() ?: return null
+        val generic = setOf("text", "label", "link", "url", "uri", "copied", "copy", "clipboard", "plain text", "simple text", "grabber", "magnet")
+        return l.takeIf { it.length in 3..150 && it.lowercase() !in generic && !it.contains("://") }
+    }
+
+    /** Words copied along with a single link ("Title https://…"), as a name for it. */
+    fun nameAround(text: String): String? {
+        var rest = text
+        LinkFinder.find(text).forEach { rest = rest.replace(it.text, " ") }
+        rest = rest.replace(Regex("""\s+"""), " ").trim().trim('-', '|', ':', '·', '—').trim()
+        return rest.takeIf { it.length in 3..150 }
+    }
+
     /** Remember [text] as seen, so it doesn't pop up again. */
     fun seen(context: Context, text: String) = prefs(context).edit().putInt("last", text.trim().hashCode()).apply()
 
