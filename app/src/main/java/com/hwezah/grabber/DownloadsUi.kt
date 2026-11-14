@@ -65,6 +65,7 @@ import com.hwezah.grabber.design.Tap
 import com.hwezah.grabber.design.Type
 import com.hwezah.grabber.design.frost
 import com.hwezah.grabber.engine.Category
+import kotlinx.coroutines.launch
 
 private val FILTERS = listOf("All", "Active", "Done") + Category.entries.map { it.folder }
 
@@ -151,14 +152,15 @@ private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Text(item.name, style = Type.label.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val done = live?.bytes ?: item.done
+                val pctOnly = item.kind == Kind.Media && item.state != State.Done
                 val line = when (item.state) {
-                    State.Running -> if (live == null) "Starting…" else listOf(
+                    State.Running -> live?.text ?: if (live == null) "Starting…" else listOf(
                         Fmt.speed(live.speed),
                         Fmt.bytes(done) + if (item.size > 0) " of ${Fmt.bytes(item.size)}" else "",
                         if (item.size > 0) Fmt.eta(item.size - done, live.speed) else "",
                     ).filter { it.isNotEmpty() }.joinToString(" · ")
                     State.Queued -> "Waiting"
-                    State.Paused -> "Paused · " + Fmt.bytes(done) + if (item.size > 0) " of ${Fmt.bytes(item.size)}" else ""
+                    State.Paused -> "Paused · " + if (pctOnly) "${done / 10}%" else Fmt.bytes(done) + if (item.size > 0) " of ${Fmt.bytes(item.size)}" else ""
                     State.Done -> Fmt.bytes(item.size.coerceAtLeast(item.done))
                     State.Failed -> "Failed: " + (item.error ?: "unknown error")
                 }
@@ -213,6 +215,24 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                     context.getSystemService(android.content.ClipboardManager::class.java)
                         ?.setPrimaryClip(android.content.ClipData.newPlainText("link", item.url))
                 }, icon = L.drawable.lucide_ic_copy, compact = true)
+            }
+            if (item.state == State.Done && item.doc != null && item.category == Category.Video) {
+                Spacer(Modifier.height(10.dp))
+                Text("Convert to audio", style = Type.meta)
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = SpreadOut) {
+                    listOf("mp3", "m4a", "opus").forEach { fmt ->
+                        Button(fmt.uppercase(), {
+                            val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
+                            scope.launch {
+                                runCatching {
+                                    val f = Media.stage(context, item.doc, item.name)
+                                    Downloads.add(listOf("file://" + f.absolutePath), name = item.name.substringBeforeLast('.'), kind = Kind.Media, format = "a:$fmt")
+                                }
+                            }
+                            onDismiss()
+                        }, accent = Ink.orange, compact = true)
+                    }
+                }
             }
             Spacer(Modifier.height(12.dp))
             if (!confirm) {

@@ -1,6 +1,7 @@
 package com.hwezah.grabber
 
 import androidx.compose.foundation.background
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -79,6 +80,9 @@ fun SettingsPage() {
             Overline("Catching links")
             Group { CatchRows() }
             Spacer(Modifier.height(20.dp))
+            Overline("Video sites")
+            Group { YtDlpRow() }
+            Spacer(Modifier.height(20.dp))
             Overline("Look")
             Group {
                 SettingRow("Dark theme", "Near-black page; off for warm paper") { Toggle(Prefs.dark, Prefs::useDark) }
@@ -136,4 +140,27 @@ fun readClipboard(context: android.content.Context): String {
     val clip = cm.primaryClip ?: return ""
     if (clip.itemCount == 0) return ""
     return clip.getItemAt(0).coerceToText(context)?.toString().orEmpty()
+}
+
+/** yt-dlp's version, and a button to update it when a site stops working. */
+@Composable
+fun YtDlpRow() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var version by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { version = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Media.version(context) } }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    SettingRow("yt-dlp " + (version ?: "…"), note ?: "Finds the video on YouTube and ~1,800 sites. Update it if a site stops working.") {
+        Button(if (busy) "Updating…" else "Update", {
+            if (!busy) {
+                busy = true
+                scope.launch {
+                    note = runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Media.update(context) } }
+                        .fold({ version = it; "Up to date" }, { "Update failed: ${it.message}" })
+                    busy = false
+                }
+            }
+        }, compact = true)
+    }
 }

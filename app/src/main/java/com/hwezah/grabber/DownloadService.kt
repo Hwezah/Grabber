@@ -40,7 +40,7 @@ import java.io.FileOutputStream
 class DownloadService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     /** [bytes] reads how far it is; [rate] a speed the engine knows itself (torrents). */
-    private class Running(val job: Job, @Volatile var bytes: (() -> Long)? = null, @Volatile var rate: Long = -1)
+    private class Running(val job: Job, @Volatile var bytes: (() -> Long)? = null, @Volatile var rate: Long = -1, @Volatile var text: String? = null)
     private val running = HashMap<Long, Running>()
     private val limiter = RateLimiter()
     private var wake: PowerManager.WakeLock? = null
@@ -106,6 +106,7 @@ class DownloadService : Service() {
             var item = Downloads.get(id) ?: return
             if (item.kind == Kind.Torrent) return torrent(item)
             if (item.kind == Kind.Hls) return hls(item)
+            if (item.kind == Kind.Media) return media(item)
             if (item.doc == null) {
                 val tree = Prefs.folder ?: throw IllegalStateException("Choose a download folder in Settings")
                 val probed = Http.probe(item.url, item.headers)
@@ -157,6 +158,27 @@ class DownloadService : Service() {
         Downloads.edit(id) { it.copy(state = State.Done, doc = doc, error = null, finished = System.currentTimeMillis(), done = it.size) }
     }
 
+    /** yt-dlp: progress comes as a percentage; it's shown as such. */
+    private suspend fun media(item: Item) {
+        val id = item.id
+        Downloads.edit(id) { it.copy(size = 1000) }
+        val (doc, name, size) = Media.run(this, item) { p ->
+            val speed = Regex("""at\s+([\d.]+\s*[KMG]i?B/s)""").find(p.line)?.groupValues?.get(1)
+            val text = listOfNotNull(
+                if (p.pct >= 0) "${p.pct.toInt()}%" else null,
+                speed,
+                if (p.eta > 0) "${p.eta / 60}:${"%02d".format(p.eta % 60)} left" else null,
+                if (p.line.contains("ExtractAudio") || p.line.contains("Merger")) "converting…" else null,
+            ).joinToString(" · ").ifEmpty { "Working…" }
+            val done = (p.pct.coerceIn(0f, 100f) * 10).toLong()
+            synchronized(this) { running[id]?.let { it.bytes = { done }; it.text = text; it.rate = 0 } }
+            Downloads.edit(id) { it.copy(done = done, size = 1000) }
+        }
+        val src = item.url.takeIf { it.startsWith("file://") }?.let { java.io.File(Uri.parse(it).path ?: "") }
+        src?.delete()
+        Downloads.edit(id) { it.copy(state = State.Done, doc = doc, name = name, size = size, done = size, finished = System.currentTimeMillis()) }
+    }
+
     /** An HLS stream: segments into the cache, then joined into one file in the Video folder. */
     private suspend fun hls(item0: Item) {
         var item = item0
@@ -201,8 +223,9 @@ class DownloadService : Service() {
     private fun tick() {
         limiter.bytesPerSecond = Prefs.speedLimit
         val rates = synchronized(this) { running.mapValues { it.value.rate } }
+        val texts = synchronized(this) { running.mapValues { it.value.text } }
         val snap = synchronized(this) { running.mapValues { it.value.bytes?.invoke() ?: 0L } }
-        val live = snap.mapValues { (id, bytes) -> Live(bytes, rates[id]?.takeIf { it >= 0 } ?: (bytes - (last[id] ?: bytes)).coerceAtLeast(0)) }
+        val live = snap.mapValues { (id, bytes) -> Live(bytes, rates[id]?.takeIf { it >= 0 } ?: (bytes - (last[id] ?: bytes)).coerceAtLeast(0), texts[id]) }
         last.clear(); last.putAll(snap)
         Downloads.live.value = live
         if (snap.isEmpty()) return

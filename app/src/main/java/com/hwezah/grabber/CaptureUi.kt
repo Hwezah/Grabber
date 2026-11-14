@@ -183,6 +183,9 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
     var tries by remember { mutableStateOf(0) }
     /** An HLS stream: its qualities (empty when the link is already a single quality). */
     var stream by remember { mutableStateOf<List<Variant>?>(null) }
+    /** A page yt-dlp understands (YouTube and co.): its qualities, and the choice. */
+    var media by remember { mutableStateOf<MediaInfo?>(null) }
+    var pick by remember { mutableStateOf("v:1080") }
     var variant by remember { mutableStateOf<Variant?>(null) }
     LaunchedEffect(url, tries) {
         checking = true
@@ -190,7 +193,15 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
         val headers = headersNow()
         runCatching {
             withContext(Dispatchers.IO) {
-                val i = Http.probe(url, headers)
+                // Pages from video sites (or anything that answers with a web page) go to yt-dlp.
+                val i = if (Media.looksLikeSite(url)) null else runCatching { Http.probe(url, headers) }.getOrNull()
+                if (i == null || i.mime == "text/html") {
+                    val m = Media.info(context, url)
+                    media = m
+                    pick = m.heights.firstOrNull { it <= 1080 }?.let { "v:$it" } ?: "v:best"
+                    if (name.isEmpty()) name = Names.clean(title ?: m.title)
+                    return@withContext
+                }
                 info = i
                 if (Hls.isPlaylist(i.finalUrl, i.mime)) {
                     val v = Hls.variants(i.finalUrl, Hls.text(i.finalUrl, headers))
@@ -227,7 +238,8 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
     }
     Spacer(Modifier.height(10.dp))
     val status = when {
-        checking -> "Checking with the server…"
+        checking -> "Checking the link…"
+        media != null -> listOfNotNull(media!!.extractor, if (media!!.duration > 0) "${media!!.duration / 60}:${"%02d".format(media!!.duration % 60)}" else null).joinToString(" · ")
         error != null -> "Error: $error"
         stream != null -> "Video stream (HLS) · saved as .ts" + if (stream!!.isNotEmpty()) " · pick a quality" else ""
         else -> info!!.let { i ->
@@ -239,6 +251,21 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
         }
     }
     Text(status, style = Type.meta.copy(color = if (error != null) Ink.orange else Ink.muted))
+    media?.let { m ->
+        val video = m.heights.filter { it in setOf(2160, 1440, 1080, 720, 480, 360, 240) }.ifEmpty { m.heights.take(4) }
+        Text("Video", Modifier.padding(top = 10.dp), style = Type.meta)
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+            (video.map { "v:$it" }.ifEmpty { listOf("v:best") }).forEach { v ->
+                com.hwezah.grabber.design.Chip(if (v == "v:best") "Best" else v.removePrefix("v:") + "p", pick == v, { pick = v }, accent = Ink.green)
+            }
+        }
+        Text("Audio only", Modifier.padding(top = 10.dp), style = Type.meta)
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+            listOf("a:mp3", "a:m4a", "a:opus").forEach { a ->
+                com.hwezah.grabber.design.Chip(a.removePrefix("a:").uppercase(), pick == a, { pick = a }, accent = Ink.orange)
+            }
+        }
+    }
     stream?.takeIf { it.isNotEmpty() }?.let { vs ->
         Row(Modifier.fillMaxWidth().padding(top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
             vs.forEach { v -> com.hwezah.grabber.design.Chip(v.label, v == variant, { variant = v }, accent = Ink.green) }
@@ -255,13 +282,14 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
     }
     Spacer(Modifier.height(10.dp))
     Button(
-        "Download", {
-            if (Prefs.folder != null) {
+        if (media != null && pick.startsWith("a:")) "Download ${pick.removePrefix("a:").uppercase()}" else "Download", {
+            if (Prefs.folder != null && !checking) {
                 val headers = headersNow()
                 if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                     notify.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
-                if (stream != null) Downloads.add(listOf(variant?.url ?: info?.finalUrl ?: url), headers, name.ifBlank { "video" }, kind = Kind.Hls)
+                if (media != null) Downloads.add(listOf(url), headers, name.ifBlank { media!!.title }, kind = Kind.Media, format = pick)
+                else if (stream != null) Downloads.add(listOf(variant?.url ?: info?.finalUrl ?: url), headers, name.ifBlank { "video" }, kind = Kind.Hls)
                 else Downloads.add(listOf(info?.finalUrl ?: url), headers, name.takeIf { it != info?.name })
                 onDismiss()
             }

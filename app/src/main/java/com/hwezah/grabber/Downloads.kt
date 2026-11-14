@@ -13,7 +13,7 @@ import java.io.File
 
 enum class State { Queued, Running, Paused, Done, Failed }
 
-enum class Kind { Http, Hls, Torrent }
+enum class Kind { Http, Hls, Torrent, Media }
 
 data class Item(
     val id: Long,
@@ -39,12 +39,14 @@ data class Item(
     val files: String = "",
     /** Torrent: pieces in order (so a video can play while it downloads). */
     val sequential: Boolean = false,
+    /** Media (yt-dlp): "v:1080" for video up to 1080p, "a:mp3" / "a:m4a" / "a:opus" for audio. */
+    val format: String = "",
 ) {
     val progress get() = if (size > 0) (done.toFloat() / size).coerceIn(0f, 1f) else 0f
 }
 
 /** Live numbers for running downloads, refreshed every second; not saved. */
-data class Live(val bytes: Long, val speed: Long)
+data class Live(val bytes: Long, val speed: Long, val text: String? = null)
 
 /** Every download, kept in a JSON file in the app's private storage. */
 object Downloads {
@@ -65,14 +67,19 @@ object Downloads {
 
     fun add(
         urls: List<String>, headers: Map<String, String> = emptyMap(), name: String? = null,
-        kind: Kind = Kind.Http, files: String = "", sequential: Boolean = false,
+        kind: Kind = Kind.Http, files: String = "", sequential: Boolean = false, format: String = "",
     ) {
         val base = System.currentTimeMillis()
         _items.update { list ->
             urls.mapIndexed { i, u ->
                 Item(id = base + i, url = u, headers = headers, fixedName = name?.takeIf { urls.size == 1 && it.isNotBlank() },
-                    kind = kind, files = files, sequential = sequential,
-                    category = if (kind == Kind.Torrent) Category.Torrents else if (kind == Kind.Hls) Category.Video else Category.Other,
+                    kind = kind, files = files, sequential = sequential, format = format,
+                    category = when {
+                        kind == Kind.Torrent -> Category.Torrents
+                        kind == Kind.Hls -> Category.Video
+                        kind == Kind.Media -> if (format.startsWith("a:")) Category.Audio else Category.Video
+                        else -> Category.Other
+                    },
                     name = name?.takeIf { it.isNotBlank() } ?: u.substringBefore('?').trimEnd('/').substringAfterLast('/').ifBlank { u })
             } + list
         }
@@ -144,7 +151,7 @@ object Downloads {
                 put("state", i.state.name); i.error?.let { put("error", it) }
                 put("segments", i.segments); put("done", i.done); put("created", i.created); put("finished", i.finished)
                 i.fixedName?.let { put("fixedName", it) }
-                put("kind", i.kind.name); put("files", i.files); put("sequential", i.sequential)
+                put("kind", i.kind.name); put("files", i.files); put("sequential", i.sequential); put("format", i.format)
             })
         }
     }.toString()
@@ -167,7 +174,7 @@ object Downloads {
                 created = o.optLong("created"), finished = o.optLong("finished"),
                 fixedName = o.optString("fixedName").ifEmpty { null },
                 kind = runCatching { Kind.valueOf(o.optString("kind")) }.getOrDefault(Kind.Http),
-                files = o.optString("files"), sequential = o.optBoolean("sequential"),
+                files = o.optString("files"), sequential = o.optBoolean("sequential"), format = o.optString("format"),
             )
         }
     }
