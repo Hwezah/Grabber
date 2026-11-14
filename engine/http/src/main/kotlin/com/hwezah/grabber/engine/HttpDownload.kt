@@ -72,17 +72,24 @@ object Http {
         }
     }
 
-    /** One small ranged GET: size, whether ranges work, the name, the type. */
+    /** One small ranged GET: size, whether ranges work, the name, the type. Servers that reject the range get a plain GET. */
     suspend fun probe(url: String, headers: Map<String, String> = emptyMap(), client: OkHttpClient = this.client): Info =
-        execute(client.newCall(request(url, headers, "bytes=0-"))) { r ->
-            if (!r.isSuccessful) throw HttpException(r.code, "Server answered ${r.code}")
+        try {
+            probeWith(url, headers, client, "bytes=0-")
+        } catch (e: HttpException) {
+            if (e.code in setOf(400, 403, 405, 416, 501)) probeWith(url, headers, client, null) else throw e
+        }
+
+    private suspend fun probeWith(url: String, headers: Map<String, String>, client: OkHttpClient, range: String?): Info =
+        execute(client.newCall(request(url, headers, range))) { r ->
+            if (!r.isSuccessful) throw HttpException(r.code, "Server answered ${r.code} ${r.message}".trim())
             val total = totalOf(r)
             val mime = r.header("Content-Type")?.substringBefore(';')?.trim()
             val finalUrl = r.request.url.toString()
             Info(
                 finalUrl = finalUrl,
                 size = total,
-                resumable = r.code == 206 && total > 0,
+                resumable = r.code == 206 && total > 0 || r.header("Accept-Ranges")?.contains("bytes") == true && total > 0,
                 name = Names.fileName(finalUrl, r.header("Content-Disposition"), mime),
                 mime = mime,
                 validator = validatorOf(r.headers),

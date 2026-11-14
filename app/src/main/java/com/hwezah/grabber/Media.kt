@@ -30,6 +30,16 @@ object Media {
         YoutubeDL.getInstance().init(context.applicationContext)
         FFmpeg.getInstance().init(context.applicationContext)
         ready = true
+        // Sites change often: keep yt-dlp fresh, quietly, about once a week.
+        val sp = context.getSharedPreferences("media", Context.MODE_PRIVATE)
+        if (System.currentTimeMillis() - sp.getLong("updated", 0) > 7L * 24 * 3600 * 1000) {
+            thread(name = "yt-dlp-update") {
+                runCatching {
+                    YoutubeDL.getInstance().updateYoutubeDL(context.applicationContext, YoutubeDL.UpdateChannel.STABLE)
+                    sp.edit().putLong("updated", System.currentTimeMillis()).apply()
+                }
+            }
+        }
     }
 
     private val SITES = listOf(
@@ -46,8 +56,12 @@ object Media {
 
     fun info(context: Context, url: String): MediaInfo {
         ensure(context)
-        val req = YoutubeDLRequest(url).addOption("--no-playlist")
-        val v: VideoInfo = YoutubeDL.getInstance().getInfo(req)
+        val req = YoutubeDLRequest(url).addOption("--no-playlist").addOption("--no-update")
+        val v: VideoInfo = try {
+            YoutubeDL.getInstance().getInfo(req)
+        } catch (e: Exception) {
+            throw IllegalStateException(cleanError(e.message), e)
+        }
         val heights = v.formats.orEmpty().filter { it.vcodec != null && it.vcodec != "none" && it.height > 0 }
             .map { it.height }.distinct().sortedDescending()
         return MediaInfo(v.title ?: v.fulltitle ?: "video", heights, v.duration, v.extractorKey)
@@ -74,6 +88,7 @@ object Media {
         val req = YoutubeDLRequest(item.url)
             .addOption("--no-playlist")
             .addOption("--no-mtime")
+            .addOption("--no-update")
             .addOption("-N", 8)
             .addOption("-o", File(work, "%(title).120B.%(ext)s").absolutePath)
         item.headers.forEach { (k, v) -> req.addOption("--add-header", "$k:$v") }
@@ -127,8 +142,10 @@ object Media {
         return f
     }
 
-    private fun cleanError(m: String?): String {
-        val line = m.orEmpty().lineSequence().lastOrNull { it.contains("ERROR") } ?: m.orEmpty().lineSequence().lastOrNull { it.isNotBlank() } ?: "Download failed"
-        return line.substringAfter("ERROR: ").take(200)
+    /** yt-dlp's last ERROR line, without warnings, its [extractor] tag or the Python cause. */
+    fun cleanError(m: String?): String {
+        val lines = m.orEmpty().lineSequence().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("WARNING") }.toList()
+        val line = lines.lastOrNull { it.contains("ERROR") } ?: lines.lastOrNull() ?: "Download failed"
+        return line.substringAfter("ERROR: ").replace(Regex("""^\[[^\]]+\]\s*"""), "").replace(Regex("""\s*\(caused by.*$"""), "").take(200)
     }
 }

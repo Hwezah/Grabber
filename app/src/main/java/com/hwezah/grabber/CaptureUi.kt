@@ -198,9 +198,16 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
         runCatching {
             withContext(Dispatchers.IO) {
                 // Pages from video sites (or anything that answers with a web page) go to yt-dlp.
-                val i = if (Media.looksLikeSite(url)) null else runCatching { Http.probe(url, headers) }.getOrNull()
+                val site = Media.looksLikeSite(url)
+                val probed = if (site) null else runCatching { Http.probe(url, headers) }
+                probed?.exceptionOrNull()?.let { throw it }
+                val i = probed?.getOrNull()
                 if (i == null || i.mime == "text/html") {
-                    val m = Media.info(context, url)
+                    val m = try {
+                        Media.info(context, url)
+                    } catch (e: Exception) {
+                        throw IllegalStateException(if (site) e.message else "This link opens a web page, not a file, and no video was found on it (${e.message})")
+                    }
                     media = m
                     val cap = Prefs.videoQuality.removePrefix("v:").toIntOrNull() ?: Int.MAX_VALUE
                     pick = m.heights.firstOrNull { it <= cap }?.let { "v:$it" } ?: "v:best"
