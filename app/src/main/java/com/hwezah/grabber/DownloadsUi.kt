@@ -174,7 +174,7 @@ private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
             Spacer(Modifier.width(4.dp))
             when (item.state) {
                 State.Running, State.Queued -> Tap({ Downloads.pause(item.id) }, Modifier.size(40.dp), CircleShape) {
-                    Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_pause, tint = Ink.text) }
+                    Box(contentAlignment = Alignment.Center) { PauseBars() }
                 }
                 State.Paused, State.Failed -> Tap({ Downloads.resume(item.id) }, Modifier.size(40.dp), CircleShape) {
                     Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_play, tint = Ink.green) }
@@ -396,5 +396,13 @@ private fun RefreshLink(item: Item) {
                 }.onFailure { note = "That link doesn't work either: ${it.message}" }
             }
         }, accent = Ink.green, compact = true)
+    }
+}
+
+/** Pause as two solid bars (Lucide's is an outline). */
+@Composable
+fun PauseBars(color: Color = Ink.text) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        repeat(2) { Box(Modifier.size(width = 4.5.dp, height = 15.dp).clip(RoundedCornerShape(1.5.dp)).background(color)) }
     }
 }
