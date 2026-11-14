@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "Grabber"
-include(":app", ":core:design")
+include(":app", ":core:design", ":engine:http")

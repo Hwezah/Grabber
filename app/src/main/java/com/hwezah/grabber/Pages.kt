@@ -52,69 +52,6 @@ import com.hwezah.grabber.design.Toggle
 import com.hwezah.grabber.design.Type
 import com.hwezah.grabber.design.glass
 
-private val CATEGORIES = listOf("All", "Video", "Audio", "Docs", "Archives", "Torrents", "Other")
-
-@Composable
-fun DownloadsPage() {
-    var filter by rememberSaveable { mutableStateOf("All") }
-    var adding by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            Heading("Downloads") { Button("Add", { adding = true }, icon = L.drawable.lucide_ic_plus, accent = Ink.red, compact = true) }
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = EDGE), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CATEGORIES.forEach { c -> Chip(c, c == filter, { filter = c }) }
-            }
-            Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = EDGE * 3), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.size(72.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
-                        Lc(L.drawable.lucide_ic_download, tint = Ink.green, size = 30.dp)
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Text("Nothing downloading yet", style = Type.title)
-                    Spacer(Modifier.height(6.dp))
-                    Note("Copy a link anywhere, or tap Add and paste one. Downloads arrive in the next build.")
-                }
-            }
-            Spacer(Modifier.height(BottomRoom))
-        }
-        if (adding) AddSheet { adding = false }
-    }
-}
-
-/** Paste text with one or many links; shows what Grabber found in it. */
-@Composable
-private fun AddSheet(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    var text by remember { mutableStateOf(readClipboard(context)) }
-    val found = remember(text) { LinkFinder.find(text) }
-    BottomSheet("Add links", onDismiss) {
-        Column(Modifier.padding(horizontal = 16.dp)) {
-            val shape = RoundedCornerShape(14.dp)
-            Box(Modifier.fillMaxWidth().heightIn(min = 96.dp).clip(shape).background(Ink.text.copy(alpha = 0.07f)).border(1.dp, Ink.stroke, shape).padding(12.dp)) {
-                if (text.isEmpty()) Text("Paste links, a magnet, or any text with links in it", style = Type.label.copy(color = Ink.faint))
-                BasicTextField(text, { text = it }, Modifier.fillMaxWidth(), textStyle = Type.label, cursorBrush = SolidColor(Ink.red))
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
-                Button("Paste", { text = readClipboard(context) }, icon = L.drawable.lucide_ic_clipboard_paste, compact = true)
-                Button("Clear", { text = "" }, icon = L.drawable.lucide_ic_x, compact = true)
-            }
-            Spacer(Modifier.height(14.dp))
-            Overline(if (found.isEmpty()) "No links found" else "${found.size} found")
-            Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
-                found.forEach { f ->
-                    val magnet = f is Found.Magnet
-                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Lc(if (magnet) L.drawable.lucide_ic_magnet else L.drawable.lucide_ic_link, tint = if (magnet) Ink.orange else Ink.green, size = 18.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Text(f.text, Modifier.weight(1f), style = Type.meta.copy(color = Ink.text), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
-        }
-    }
-}
-
 @Composable
 fun ClipboardPage() {
     var query by rememberSaveable { mutableStateOf("") }
@@ -144,6 +81,25 @@ fun SettingsPage() {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Heading("Settings")
         Column(Modifier.padding(horizontal = EDGE)) {
+            Overline("Downloads")
+            Group {
+                FolderRow()
+                Text("Connections per file", Modifier.padding(top = 10.dp), style = Type.label.copy(fontWeight = FontWeight.SemiBold))
+                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = SpreadOut) {
+                    listOf(8, 16, 32, 48, 64).forEach { n -> Chip("$n", Prefs.connections == n, { Prefs.useConnections(n) }) }
+                }
+                Text("At the same time", Modifier.padding(top = 6.dp), style = Type.label.copy(fontWeight = FontWeight.SemiBold))
+                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = SpreadOut) {
+                    (1..5).forEach { n -> Chip("$n", Prefs.parallel == n, { Prefs.useParallel(n) }) }
+                }
+                Text("Speed limit", Modifier.padding(top = 6.dp), style = Type.label.copy(fontWeight = FontWeight.SemiBold))
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 10.dp), horizontalArrangement = SpreadOut) {
+                    listOf(0L to "Off", 1L to "1 MB/s", 5L to "5 MB/s", 10L to "10 MB/s").forEach { (mb, label) ->
+                        Chip(label, Prefs.speedLimit == mb * 1024 * 1024, { Prefs.useSpeedLimit(mb * 1024 * 1024) })
+                    }
+                }
+            }
+            Spacer(Modifier.height(20.dp))
             Overline("Look")
             Group {
                 SettingRow("Dark theme", "Near-black page; off for warm paper") { Toggle(Prefs.dark, Prefs::useDark) }

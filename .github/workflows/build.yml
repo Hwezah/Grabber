@@ -34,7 +34,7 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
 
       - name: Unit tests
-        run: ./gradlew --no-daemon testDebugUnitTest
+        run: ./gradlew --no-daemon :engine:http:test testDebugUnitTest
 
       - name: Build debug APKs
         run: ./gradlew --no-daemon -PuniversalApk assembleDebug

@@ -64,6 +64,10 @@ android {
 
 dependencies {
     implementation(project(":core:design"))
+    implementation(project(":engine:http"))
+    implementation("androidx.documentfile:documentfile:1.1.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     testImplementation("junit:junit:4.13.2")
+    // org.json is an Android stub on the JVM; the real one for unit tests.
+    testImplementation("org.json:json:20240303")
 }

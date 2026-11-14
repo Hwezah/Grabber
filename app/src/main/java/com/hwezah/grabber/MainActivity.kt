@@ -12,7 +12,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Prefs.init(this)
+        Downloads.init(this)
         Ink.use(Prefs.dark)
+        // Downloads left waiting when the app was closed carry on.
+        Downloads.kick()
         setContent {
             // Status and navigation bar icons follow the theme: light icons on the dark page, dark on paper.
             LaunchedEffect(Prefs.dark) {
