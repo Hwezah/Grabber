@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import com.hwezah.grabber.engine.Hls
+import com.hwezah.grabber.engine.Names
 import com.hwezah.grabber.engine.Http
 import com.hwezah.grabber.engine.Variant
 import androidx.compose.foundation.horizontalScroll
@@ -108,19 +109,19 @@ fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit) 
  * The text is already saved in the clipboard history when this shows.
  */
 @Composable
-fun CaptureSheet(text: String, onDismiss: () -> Unit) {
+fun CaptureSheet(text: String, title: String? = null, headers: Map<String, String> = emptyMap(), onDismiss: () -> Unit) {
     val context = LocalContext.current
     val found = remember(text) { LinkFinder.find(text) }
     val off = remember { mutableStateListOf<String>() }
     val web = found.map { it.text }.filter { it !in off }
     val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    val title = when {
+    val heading = when {
         found.isEmpty() -> "Saved to clipboard"
         found.size == 1 -> if (found[0] is Found.Magnet) "Torrent" else "Link caught"
         else -> "${found.size} links caught"
     }
     val single = found.size == 1
-    BottomSheet(if (single && found[0] is Found.Web) "Download file" else title, onDismiss) {
+    BottomSheet(if (single && found[0] is Found.Web) "Download file" else heading, onDismiss) {
         Column(Modifier.padding(horizontal = 16.dp)) {
             if (found.isEmpty()) {
                 Text(text, style = Type.body.copy(color = Ink.text), maxLines = 6, overflow = TextOverflow.Ellipsis)
@@ -129,7 +130,7 @@ fun CaptureSheet(text: String, onDismiss: () -> Unit) {
                     Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))
                     FolderRow()
                 }
-                if (found[0] is Found.Magnet) OneMagnet(found[0].text, onDismiss) else OneLink(found[0].text, onDismiss)
+                if (found[0] is Found.Magnet) OneMagnet(found[0].text, onDismiss) else OneLink(found[0].text, onDismiss, title, headers)
             } else {
                 if (Prefs.folder == null) {
                     Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))
@@ -169,14 +170,15 @@ fun CaptureSheet(text: String, onDismiss: () -> Unit) {
 
 /** One link, as 1DM shows it: checked with the server first, name editable, referer optional. */
 @Composable
-private fun OneLink(url: String, onDismiss: () -> Unit) {
+private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, given: Map<String, String> = emptyMap()) {
     val context = LocalContext.current
     val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     var info by remember { mutableStateOf<com.hwezah.grabber.engine.Info?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var checking by remember { mutableStateOf(true) }
     var name by remember { mutableStateOf("") }
-    var referer by remember { mutableStateOf("") }
+    var referer by remember { mutableStateOf(given["Referer"] ?: given["referer"] ?: "") }
+    fun headersNow() = given.filterKeys { !it.equals("Referer", true) } + (if (referer.isNotBlank()) mapOf("Referer" to referer.trim()) else emptyMap())
     var tries by remember { mutableStateOf(0) }
     /** An HLS stream: its qualities (empty when the link is already a single quality). */
     var stream by remember { mutableStateOf<List<Variant>?>(null) }
@@ -184,7 +186,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit) {
     LaunchedEffect(url, tries) {
         checking = true
         error = null
-        val headers = if (referer.isNotBlank()) mapOf("Referer" to referer.trim()) else emptyMap()
+        val headers = headersNow()
         runCatching {
             withContext(Dispatchers.IO) {
                 val i = Http.probe(url, headers)
@@ -196,7 +198,18 @@ private fun OneLink(url: String, onDismiss: () -> Unit) {
                 }
             }
         }
-            .onSuccess { info?.let { if (name.isEmpty()) name = if (stream != null) it.name.substringBeforeLast('.') else it.name } }
+            .onSuccess {
+                info?.let {
+                    if (name.isEmpty()) {
+                        val ext = it.name.substringAfterLast('.', "")
+                        name = when {
+                            stream != null -> title?.let { t -> Names.clean(t) } ?: it.name.substringBeforeLast('.')
+                            title != null -> Names.clean(title) + if (ext.isNotEmpty() && ext.length <= 5) ".$ext" else ""
+                            else -> it.name
+                        }
+                    }
+                }
+            }
             .onFailure { error = it.message ?: it.javaClass.simpleName }
         checking = false
     }
@@ -243,7 +256,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit) {
     Button(
         "Download", {
             if (Prefs.folder != null) {
-                val headers = if (referer.isNotBlank()) mapOf("Referer" to referer.trim()) else emptyMap()
+                val headers = headersNow()
                 if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                     notify.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }

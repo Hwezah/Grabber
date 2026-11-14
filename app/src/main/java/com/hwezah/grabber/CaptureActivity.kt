@@ -19,6 +19,9 @@ import com.hwezah.grabber.design.Ink
  */
 class CaptureActivity : ComponentActivity() {
     private var text by mutableStateOf<String?>(null)
+    /** What the sending app told us about the link: a title, and headers it needs (referer, cookies…). */
+    private var title by mutableStateOf<String?>(null)
+    private var headers by mutableStateOf<Map<String, String>>(emptyMap())
     private var looked = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,7 +33,7 @@ class CaptureActivity : ComponentActivity() {
         given(intent)?.let { show(it) }
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Ink.red)) {
-                text?.let { CaptureSheet(it) { finish() } }
+                text?.let { CaptureSheet(it, title = title, headers = headers) { finish() } }
             }
         }
     }
@@ -44,6 +47,7 @@ class CaptureActivity : ComponentActivity() {
 
     /** Text handed to us directly: shared, or selected with "Grabber" in the text menu. */
     private fun given(i: Intent): String? = when (i.action) {
+        Intent.ACTION_VIEW -> i.dataString?.also { extras(i) }
         Intent.ACTION_SEND -> i.getStringExtra(Intent.EXTRA_TEXT)
         Intent.ACTION_PROCESS_TEXT -> i.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
         else -> null
@@ -69,6 +73,16 @@ class CaptureActivity : ComponentActivity() {
             return
         }
         show(clip)
+    }
+
+    /** WatchHub, CloudStream and others send "title", "headers" (key, value, key, value…) and "referer". */
+    private fun extras(i: Intent) {
+        title = i.getStringExtra("title") ?: i.getStringExtra(Intent.EXTRA_TITLE)
+        val h = LinkedHashMap<String, String>()
+        i.getStringArrayExtra("headers")?.toList()?.chunked(2)?.forEach { if (it.size == 2) h[it[0]] = it[1] }
+        i.getBundleExtra("android.media.intent.extra.HTTP_HEADERS")?.let { b -> b.keySet().forEach { k -> b.getString(k)?.let { h[k] = it } } }
+        i.getStringExtra("referer")?.let { h["Referer"] = it }
+        headers = h
     }
 
     private fun show(t: String) {
