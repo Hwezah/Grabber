@@ -59,6 +59,9 @@ android {
         buildConfig = true
     }
 
+    // Native libraries compressed in the APK: smaller download.
+    packaging { jniLibs { useLegacyPackaging = true } }
+
     testOptions { unitTests.isReturnDefaultValues = true }
 }
 
@@ -66,6 +69,12 @@ dependencies {
     implementation(project(":core:design"))
     implementation(project(":engine:http"))
     implementation("androidx.documentfile:documentfile:1.1.0")
+    // Torrents: libtorrent (BSD) through libtorrent4j (MIT), the version WatchHub ships.
+    val lt = "2.1.0-38"
+    implementation("org.libtorrent4j:libtorrent4j:$lt")
+    implementation("org.libtorrent4j:libtorrent4j-android-arm:$lt")
+    implementation("org.libtorrent4j:libtorrent4j-android-arm64:$lt")
+    implementation("org.libtorrent4j:libtorrent4j-android-x86_64:$lt")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     testImplementation("junit:junit:4.13.2")
     // org.json is an Android stub on the JVM; the real one for unit tests.

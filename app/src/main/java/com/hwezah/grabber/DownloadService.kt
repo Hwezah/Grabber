@@ -14,7 +14,9 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
+import com.hwezah.grabber.engine.Category
 import com.hwezah.grabber.engine.ChannelSink
+import com.hwezah.grabber.engine.HlsDownload
 import com.hwezah.grabber.engine.Http
 import com.hwezah.grabber.engine.HttpDownload
 import com.hwezah.grabber.engine.Names
@@ -37,7 +39,8 @@ import java.io.FileOutputStream
  */
 class DownloadService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private class Running(val job: Job, var dl: HttpDownload? = null)
+    /** [bytes] reads how far it is; [rate] a speed the engine knows itself (torrents). */
+    private class Running(val job: Job, @Volatile var bytes: (() -> Long)? = null, @Volatile var rate: Long = -1)
     private val running = HashMap<Long, Running>()
     private val limiter = RateLimiter()
     private var wake: PowerManager.WakeLock? = null
@@ -101,6 +104,8 @@ class DownloadService : Service() {
     private suspend fun work(id: Long) {
         try {
             var item = Downloads.get(id) ?: return
+            if (item.kind == Kind.Torrent) return torrent(item)
+            if (item.kind == Kind.Hls) return hls(item)
             if (item.doc == null) {
                 val tree = Prefs.folder ?: throw IllegalStateException("Choose a download folder in Settings")
                 val probed = Http.probe(item.url, item.headers)
@@ -126,7 +131,7 @@ class DownloadService : Service() {
                             Downloads.edit(id) { d -> d.copy(segments = Segments.encode(segs), done = done) }
                         },
                     )
-                    synchronized(this) { running[id]?.dl = dl }
+                    synchronized(this) { running[id]?.bytes = dl::downloaded }
                     dl.run()
                     val total = dl.downloaded()
                     Downloads.edit(id) { d -> d.copy(state = State.Done, done = total, size = if (d.size > 0) d.size else total, segments = "", finished = System.currentTimeMillis()) }
@@ -143,11 +148,61 @@ class DownloadService : Service() {
         }
     }
 
+    private suspend fun torrent(item: Item) {
+        val id = item.id
+        val doc = Torrents.run(this, item) { p ->
+            synchronized(this) { running[id]?.let { it.bytes = { p.done }; it.rate = p.rate } }
+            Downloads.edit(id) { it.copy(done = p.done, size = p.total, error = if (p.peers == 0) "Looking for peers…" else null) }
+        }
+        Downloads.edit(id) { it.copy(state = State.Done, doc = doc, error = null, finished = System.currentTimeMillis(), done = it.size) }
+    }
+
+    /** An HLS stream: segments into the cache, then joined into one file in the Video folder. */
+    private suspend fun hls(item0: Item) {
+        var item = item0
+        val id = item.id
+        if (item.doc == null) {
+            val tree = Prefs.folder ?: throw IllegalStateException("Choose a download folder in Settings")
+            val base = (item.fixedName ?: item.name).substringBeforeLast('.').ifBlank { "video" }
+            val name = Names.clean(base) + ".ts"
+            val doc = Folders.create(this, tree, Category.Video, name) ?: throw IllegalStateException("Can't write to the download folder")
+            Downloads.edit(id) { it.copy(doc = doc.toString(), name = doc.lastPathSegment?.substringAfterLast('/') ?: name, category = Category.Video) }
+            item = Downloads.get(id) ?: return
+        }
+        val pfd = contentResolver.openFileDescriptor(Uri.parse(item.doc), "rw") ?: throw IllegalStateException("The file is gone")
+        pfd.use {
+            ChannelSink(FileOutputStream(it.fileDescriptor).channel).use { sink ->
+                limiter.bytesPerSecond = Prefs.speedLimit
+                val dl = HlsDownload(item.url, item.headers, sink, java.io.File(cacheDir, "hls/$id"), minOf(Prefs.connections, 16), limiter)
+                synchronized(this) { running[id]?.bytes = dl::downloaded }
+                val ticker = scope.launch {
+                    while (true) {
+                        delay(1000)
+                        val t = dl.total
+                        // Size isn't known until the end: estimate from the segments so far.
+                        if (t > 0 && dl.segmentsDone() > 0) {
+                            val est = dl.downloaded() * t / dl.segmentsDone()
+                            Downloads.edit(id) { d -> d.copy(done = dl.downloaded(), size = est) }
+                        }
+                    }
+                }
+                try {
+                    dl.run()
+                } finally {
+                    ticker.cancel()
+                }
+                val total = dl.downloaded()
+                Downloads.edit(id) { d -> d.copy(state = State.Done, done = total, size = total, finished = System.currentTimeMillis()) }
+            }
+        }
+    }
+
     /** Every second: speeds for the screen, and the notification. */
     private fun tick() {
         limiter.bytesPerSecond = Prefs.speedLimit
-        val snap = synchronized(this) { running.mapValues { it.value.dl?.downloaded() ?: 0L } }
-        val live = snap.mapValues { (id, bytes) -> Live(bytes, (bytes - (last[id] ?: bytes)).coerceAtLeast(0)) }
+        val rates = synchronized(this) { running.mapValues { it.value.rate } }
+        val snap = synchronized(this) { running.mapValues { it.value.bytes?.invoke() ?: 0L } }
+        val live = snap.mapValues { (id, bytes) -> Live(bytes, rates[id]?.takeIf { it >= 0 } ?: (bytes - (last[id] ?: bytes)).coerceAtLeast(0)) }
         last.clear(); last.putAll(snap)
         Downloads.live.value = live
         if (snap.isEmpty()) return

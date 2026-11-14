@@ -92,7 +92,7 @@ fun ClipboardPage() {
                                 }
                                 if (clip.pinned) Lc(L.drawable.lucide_ic_pin, Modifier.padding(start = 8.dp), tint = Ink.red, size = 16.dp)
                                 // A link in it: download straight from the row.
-                                if (LinkFinder.find(clip.text).any { it is Found.Web }) {
+                                if (LinkFinder.find(clip.text).isNotEmpty()) {
                                     Spacer(Modifier.width(8.dp))
                                     Button("", { Capture.pending = clip.text }, icon = L.drawable.lucide_ic_download, accent = Ink.green, compact = true)
                                 }
@@ -109,7 +109,7 @@ fun ClipboardPage() {
 @Composable
 private fun ClipSheet(clip: Clip, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val links = remember(clip) { LinkFinder.find(clip.text).any { it is Found.Web } }
+    val links = remember(clip) { LinkFinder.find(clip.text).isNotEmpty() }
     BottomSheet("Clip", onDismiss) {
         Column(Modifier.padding(horizontal = 16.dp)) {
             Text(clip.text, style = Type.body.copy(color = Ink.text), maxLines = 8, overflow = TextOverflow.Ellipsis)

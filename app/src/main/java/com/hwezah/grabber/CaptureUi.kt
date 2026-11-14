@@ -17,7 +17,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
+import com.hwezah.grabber.engine.Hls
 import com.hwezah.grabber.engine.Http
+import com.hwezah.grabber.engine.Variant
+import androidx.compose.foundation.horizontalScroll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.Box
@@ -65,33 +68,39 @@ fun LinkPicker(found: List<Found>, off: SnapshotStateList<String>) {
     Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
         found.forEach { f ->
             val magnet = f is Found.Magnet
-            val on = !magnet && f.text !in off
-            Tap({ if (!magnet) { if (on) off += f.text else off -= f.text } }, Modifier.fillMaxWidth(), RoundedCornerShape(8.dp)) {
+            val on = f.text !in off
+            Tap({ if (on) off += f.text else off -= f.text }, Modifier.fillMaxWidth(), RoundedCornerShape(8.dp)) {
                 Row(Modifier.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        Modifier.size(22.dp).clip(CircleShape).background(if (on) Ink.green else Color.Transparent),
+                        Modifier.size(22.dp).clip(CircleShape).background(if (on) (if (magnet) Ink.orange else Ink.green) else Ink.text.copy(alpha = 0.08f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         when {
-                            magnet -> Lc(L.drawable.lucide_ic_magnet, tint = Ink.orange, size = 16.dp)
                             on -> Lc(L.drawable.lucide_ic_check, tint = Color.White, size = 14.dp)
+                            magnet -> Lc(L.drawable.lucide_ic_magnet, tint = Ink.orange, size = 14.dp)
                             else -> Lc(L.drawable.lucide_ic_link, tint = Ink.faint, size = 14.dp)
                         }
                     }
                     Spacer(Modifier.width(10.dp))
-                    Text(f.text, Modifier.weight(1f), style = Type.meta.copy(color = if (on || magnet) Ink.text else Ink.faint), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(if (magnet) magnetName(f.text) else f.text, Modifier.weight(1f), style = Type.meta.copy(color = if (on) Ink.text else Ink.faint), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
-        if (found.any { it is Found.Magnet }) Note("Torrents and magnets arrive in a later build.", Modifier.padding(top = 6.dp))
     }
 }
 
-/** Queues [urls], asking for notification permission first time on Android 13+. */
+/** The torrent's name from a magnet's dn=, else its hash. */
+fun magnetName(magnet: String): String =
+    Regex("""[?&]dn=([^&]+)""").find(magnet)?.groupValues?.get(1)?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
+        ?: magnet.substringAfter("btih:").substringBefore('&').take(40)
+
+/** Queues [urls] (magnets as torrents), asking for notification permission first time on Android 13+. */
 fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit) {
     if (urls.isEmpty()) return
     if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) askNotify()
-    Downloads.add(urls)
+    val (mags, web) = urls.partition { it.startsWith("magnet:", true) }
+    if (web.isNotEmpty()) Downloads.add(web)
+    mags.forEach { Downloads.add(listOf(it), name = magnetName(it), kind = Kind.Torrent) }
 }
 
 /**
@@ -103,24 +112,24 @@ fun CaptureSheet(text: String, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val found = remember(text) { LinkFinder.find(text) }
     val off = remember { mutableStateListOf<String>() }
-    val web = found.filterIsInstance<Found.Web>().map { it.text }.filter { it !in off }
+    val web = found.map { it.text }.filter { it !in off }
     val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val title = when {
         found.isEmpty() -> "Saved to clipboard"
-        found.size == 1 -> if (found[0] is Found.Magnet) "Magnet link" else "Link caught"
+        found.size == 1 -> if (found[0] is Found.Magnet) "Torrent" else "Link caught"
         else -> "${found.size} links caught"
     }
-    val single = found.size == 1 && found[0] is Found.Web
-    BottomSheet(if (single) "Download file" else title, onDismiss) {
+    val single = found.size == 1
+    BottomSheet(if (single && found[0] is Found.Web) "Download file" else title, onDismiss) {
         Column(Modifier.padding(horizontal = 16.dp)) {
             if (found.isEmpty()) {
                 Text(text, style = Type.body.copy(color = Ink.text), maxLines = 6, overflow = TextOverflow.Ellipsis)
-            } else if (found.size == 1 && found[0] is Found.Web) {
+            } else if (single) {
                 if (Prefs.folder == null) {
                     Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))
                     FolderRow()
                 }
-                OneLink(found[0].text, onDismiss)
+                if (found[0] is Found.Magnet) OneMagnet(found[0].text, onDismiss) else OneLink(found[0].text, onDismiss)
             } else {
                 if (Prefs.folder == null) {
                     Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))
@@ -139,7 +148,7 @@ fun CaptureSheet(text: String, onDismiss: () -> Unit) {
                     }, icon = L.drawable.lucide_ic_copy, compact = true)
                     Button("Close", onDismiss, icon = L.drawable.lucide_ic_x, compact = true)
                 }
-                if (found.any { it is Found.Web }) {
+                if (found.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
                     Button(
                         if (web.size > 1) "Download ${web.size}" else "Download",
@@ -169,12 +178,25 @@ private fun OneLink(url: String, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     var referer by remember { mutableStateOf("") }
     var tries by remember { mutableStateOf(0) }
+    /** An HLS stream: its qualities (empty when the link is already a single quality). */
+    var stream by remember { mutableStateOf<List<Variant>?>(null) }
+    var variant by remember { mutableStateOf<Variant?>(null) }
     LaunchedEffect(url, tries) {
         checking = true
         error = null
         val headers = if (referer.isNotBlank()) mapOf("Referer" to referer.trim()) else emptyMap()
-        runCatching { withContext(Dispatchers.IO) { Http.probe(url, headers) } }
-            .onSuccess { info = it; if (name.isEmpty()) name = it.name }
+        runCatching {
+            withContext(Dispatchers.IO) {
+                val i = Http.probe(url, headers)
+                info = i
+                if (Hls.isPlaylist(i.finalUrl, i.mime)) {
+                    val v = Hls.variants(i.finalUrl, Hls.text(i.finalUrl, headers))
+                    stream = v
+                    variant = v.firstOrNull()
+                }
+            }
+        }
+            .onSuccess { info?.let { if (name.isEmpty()) name = if (stream != null) it.name.substringBeforeLast('.') else it.name } }
             .onFailure { error = it.message ?: it.javaClass.simpleName }
         checking = false
     }
@@ -193,6 +215,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit) {
     val status = when {
         checking -> "Checking with the server…"
         error != null -> "Error: $error"
+        stream != null -> "Video stream (HLS) · saved as .ts" + if (stream!!.isNotEmpty()) " · pick a quality" else ""
         else -> info!!.let { i ->
             listOfNotNull(
                 if (i.size > 0) Fmt.bytes(i.size) else "Size unknown",
@@ -202,6 +225,11 @@ private fun OneLink(url: String, onDismiss: () -> Unit) {
         }
     }
     Text(status, style = Type.meta.copy(color = if (error != null) Ink.orange else Ink.muted))
+    stream?.takeIf { it.isNotEmpty() }?.let { vs ->
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+            vs.forEach { v -> com.hwezah.grabber.design.Chip(v.label, v == variant, { variant = v }, accent = Ink.green) }
+        }
+    }
     Spacer(Modifier.height(10.dp))
     Field(name, { name = it }, "File name")
     Spacer(Modifier.height(8.dp))
@@ -219,7 +247,8 @@ private fun OneLink(url: String, onDismiss: () -> Unit) {
                 if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                     notify.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
-                Downloads.add(listOf(info?.finalUrl ?: url), headers, name.takeIf { it != info?.name })
+                if (stream != null) Downloads.add(listOf(variant?.url ?: info?.finalUrl ?: url), headers, name.ifBlank { "video" }, kind = Kind.Hls)
+                else Downloads.add(listOf(info?.finalUrl ?: url), headers, name.takeIf { it != info?.name })
                 onDismiss()
             }
         },
@@ -239,4 +268,82 @@ fun Field(value: String, onValue: (String) -> Unit, placeholder: String, modifie
             keyboardActions = KeyboardActions(onGo = { onGo?.invoke() }),
         )
     }
+}
+
+/** A magnet: asks peers for the file list, then lets you pick files and order. */
+@Composable
+private fun OneMagnet(magnet: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    var meta by remember { mutableStateOf<TorrentMeta?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var tries by remember { mutableStateOf(0) }
+    val off = remember { mutableStateListOf<Int>() }
+    var sequential by remember { mutableStateOf(false) }
+    LaunchedEffect(magnet, tries) {
+        error = null
+        runCatching { withContext(Dispatchers.IO) { Torrents.metadata(context, magnet) } }
+            .onSuccess { meta = it }
+            .onFailure { error = it.message ?: "Couldn't get the file list" }
+    }
+    Text(magnetName(magnet), style = Type.label.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), maxLines = 3, overflow = TextOverflow.Ellipsis)
+    Spacer(Modifier.height(8.dp))
+    val m = meta
+    when {
+        m == null && error == null -> Text("Asking peers for the file list…", style = Type.meta)
+        m == null -> {
+            Text(error!!, style = Type.meta.copy(color = Ink.orange))
+            Spacer(Modifier.height(8.dp))
+            Button("Try again", { tries++ }, icon = L.drawable.lucide_ic_rotate_cw, compact = true)
+        }
+        else -> {
+            val chosen = m.files.filter { it.index !in off }
+            Overline("${chosen.size} of ${m.files.size} files · ${Fmt.bytes(chosen.sumOf { it.size })}")
+            Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
+                m.files.forEach { f ->
+                    val on = f.index !in off
+                    Tap({ if (on) off += f.index else off -= f.index }, Modifier.fillMaxWidth(), RoundedCornerShape(8.dp)) {
+                        Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(22.dp).clip(CircleShape).background(if (on) Ink.orange else Ink.text.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
+                                if (on) Lc(L.drawable.lucide_ic_check, tint = Color.White, size = 14.dp)
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text(f.path.substringAfterLast('/'), Modifier.weight(1f), style = Type.meta.copy(color = if (on) Ink.text else Ink.faint), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(Fmt.bytes(f.size), Modifier.padding(start = 8.dp), style = Type.meta)
+                        }
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("In order", style = Type.label)
+                    Text("Downloads from the start, so a video can play early", style = Type.meta)
+                }
+                com.hwezah.grabber.design.Toggle(sequential, { sequential = it }, accent = Ink.orange)
+            }
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+        Button("Cancel", onDismiss, compact = true)
+        Button("Copy", {
+            context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("magnet", magnet))
+            Capture.seen(context, magnet)
+        }, icon = L.drawable.lucide_ic_copy, compact = true)
+    }
+    Spacer(Modifier.height(10.dp))
+    val ready = meta != null && Prefs.folder != null && meta!!.files.any { it.index !in off }
+    Button(
+        "Download torrent", {
+            val mm = meta ?: return@Button
+            if (Prefs.folder == null) return@Button
+            if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notify.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            val files = if (off.isEmpty()) "" else mm.files.filter { it.index !in off }.joinToString(",") { it.index.toString() }
+            Downloads.add(listOf(magnet), name = mm.name, kind = Kind.Torrent, files = files, sequential = sequential)
+            onDismiss()
+        },
+        Modifier.fillMaxWidth(), icon = L.drawable.lucide_ic_magnet, accent = if (ready) Ink.orange else null,
+    )
 }

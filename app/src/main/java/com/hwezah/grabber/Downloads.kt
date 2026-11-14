@@ -13,6 +13,8 @@ import java.io.File
 
 enum class State { Queued, Running, Paused, Done, Failed }
 
+enum class Kind { Http, Hls, Torrent }
+
 data class Item(
     val id: Long,
     val url: String,
@@ -32,6 +34,11 @@ data class Item(
     val finished: Long = 0,
     /** A name the user typed; otherwise the server's is used. */
     val fixedName: String? = null,
+    val kind: Kind = Kind.Http,
+    /** Torrent: the file indexes chosen, "1,4,5"; empty means all. */
+    val files: String = "",
+    /** Torrent: pieces in order (so a video can play while it downloads). */
+    val sequential: Boolean = false,
 ) {
     val progress get() = if (size > 0) (done.toFloat() / size).coerceIn(0f, 1f) else 0f
 }
@@ -56,11 +63,16 @@ object Downloads {
             .map { if (it.state == State.Running) it.copy(state = State.Queued) else it }
     }
 
-    fun add(urls: List<String>, headers: Map<String, String> = emptyMap(), name: String? = null) {
+    fun add(
+        urls: List<String>, headers: Map<String, String> = emptyMap(), name: String? = null,
+        kind: Kind = Kind.Http, files: String = "", sequential: Boolean = false,
+    ) {
         val base = System.currentTimeMillis()
         _items.update { list ->
             urls.mapIndexed { i, u ->
                 Item(id = base + i, url = u, headers = headers, fixedName = name?.takeIf { urls.size == 1 && it.isNotBlank() },
+                    kind = kind, files = files, sequential = sequential,
+                    category = if (kind == Kind.Torrent) Category.Torrents else if (kind == Kind.Hls) Category.Video else Category.Other,
                     name = name?.takeIf { it.isNotBlank() } ?: u.substringBefore('?').trimEnd('/').substringAfterLast('/').ifBlank { u })
             } + list
         }
@@ -99,6 +111,7 @@ object Downloads {
         _items.update { list -> list.filterNot { it.id == id } }
         save()
         if (withFile) item.doc?.let { Folders.delete(ctx, it) }
+        if (item.kind == Kind.Torrent) Torrents.forget(ctx, item)
     }
 
     fun clearFinished() {
@@ -131,6 +144,7 @@ object Downloads {
                 put("state", i.state.name); i.error?.let { put("error", it) }
                 put("segments", i.segments); put("done", i.done); put("created", i.created); put("finished", i.finished)
                 i.fixedName?.let { put("fixedName", it) }
+                put("kind", i.kind.name); put("files", i.files); put("sequential", i.sequential)
             })
         }
     }.toString()
@@ -152,6 +166,8 @@ object Downloads {
                 segments = o.optString("segments"), done = o.optLong("done"),
                 created = o.optLong("created"), finished = o.optLong("finished"),
                 fixedName = o.optString("fixedName").ifEmpty { null },
+                kind = runCatching { Kind.valueOf(o.optString("kind")) }.getOrDefault(Kind.Http),
+                files = o.optString("files"), sequential = o.optBoolean("sequential"),
             )
         }
     }
