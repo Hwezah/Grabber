@@ -62,7 +62,7 @@ object Clips {
 
     private fun save() = synchronized(this) {
         val a = JSONArray()
-        _items.value.take(1000).forEach { a.put(JSONObject().put("id", it.id).put("text", it.text).put("time", it.time).put("pinned", it.pinned)) }
+        (_items.value.filter { it.pinned } + _items.value.filterNot { it.pinned }.take(Prefs.historyLimit)).forEach { a.put(JSONObject().put("id", it.id).put("text", it.text).put("time", it.time).put("pinned", it.pinned)) }
         val tmp = File(file.parentFile, "clips.json.tmp")
         tmp.writeText(a.toString())
         tmp.renameTo(file)

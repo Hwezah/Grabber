@@ -218,11 +218,12 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                         ?.setPrimaryClip(android.content.ClipData.newPlainText("link", item.url))
                 }, icon = L.drawable.lucide_ic_copy, compact = true)
             }
+            if (item.state != State.Done && item.kind == Kind.Http) RefreshLink(item)
             if (item.state == State.Done && item.doc != null && item.category == Category.Video) {
                 Spacer(Modifier.height(10.dp))
                 Text("Convert to audio", style = Type.meta)
                 Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = SpreadOut) {
-                    listOf("mp3", "m4a", "opus").forEach { fmt ->
+                    listOf("mp3", "m4a", "opus").sortedByDescending { it == Prefs.audioFormat }.forEach { fmt ->
                         Button(fmt.uppercase(), {
                             val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
                             scope.launch {
@@ -347,5 +348,48 @@ private fun AddSheet(onDismiss: () -> Unit) {
                 Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = if (chosen.isNotEmpty() && Prefs.folder != null) Ink.green else null,
             )
         }
+    }
+}
+
+/** 1DM's "refresh link": a fresh link to the same file carries on from where the old one stopped. */
+@Composable
+private fun RefreshLink(item: Item) {
+    var open by remember { mutableStateOf(item.error?.startsWith("Link expired") == true) }
+    var link by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val context = LocalContext.current
+    Spacer(Modifier.height(10.dp))
+    if (!open) {
+        Button("Refresh link", { open = true }, Modifier.solo(), icon = L.drawable.lucide_ic_rotate_cw)
+        return
+    }
+    Text("Paste a new link to the same file (get it again from the site). Progress is kept.", style = Type.meta)
+    Spacer(Modifier.height(8.dp))
+    Field(link, { link = it }, "New link")
+    note?.let { Text(it, Modifier.padding(top = 6.dp), style = Type.meta.copy(color = Ink.orange)) }
+    Spacer(Modifier.height(8.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+        Button("Paste", { link = readClipboard(context).trim() }, icon = L.drawable.lucide_ic_clipboard_paste, compact = true)
+        Button(if (busy) "Checking…" else "Use it", {
+            val url = LinkFinder.find(link).firstOrNull { it is Found.Web }?.text
+            if (url == null) { note = "That isn't a link"; return@Button }
+            busy = true
+            scope.launch {
+                val r = runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.hwezah.grabber.engine.Http.probe(url, item.headers) } }
+                busy = false
+                r.onSuccess { info ->
+                    if (item.size > 0 && info.size > 0 && info.size != item.size) {
+                        note = "That file is ${Fmt.bytes(info.size)}, not ${Fmt.bytes(item.size)}: a different file"
+                    } else {
+                        Downloads.edit(item.id) { it.copy(url = info.finalUrl, resumable = info.resumable || it.resumable, state = State.Queued, error = null) }
+                        Downloads.kick()
+                        note = "Carrying on with the new link"
+                        open = false
+                    }
+                }.onFailure { note = "That link doesn't work either: ${it.message}" }
+            }
+        }, accent = Ink.green, compact = true)
     }
 }

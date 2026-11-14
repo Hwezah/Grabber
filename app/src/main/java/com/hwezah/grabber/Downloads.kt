@@ -88,8 +88,36 @@ object Downloads {
     }
 
     fun edit(id: Long, change: (Item) -> Item) {
-        _items.update { list -> list.map { if (it.id == id) change(it) else it } }
+        var finished: Item? = null
+        _items.update { list ->
+            list.map {
+                if (it.id != id) it else change(it).also { n -> if (n.state == State.Done && it.state != State.Done) finished = n }
+            }
+        }
         save()
+        finished?.let { notifyDone(it) }
+    }
+
+    /** "Download complete" with an Open button, if wanted in Settings. */
+    private fun notifyDone(item: Item) {
+        if (!Prefs.notifyDone) return
+        val open = item.doc?.let {
+            android.app.PendingIntent.getActivity(
+                ctx, item.id.toInt(),
+                android.content.Intent(android.content.Intent.ACTION_VIEW).setDataAndType(android.net.Uri.parse(it), item.mime ?: "*/*")
+                    .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+        val n = androidx.core.app.NotificationCompat.Builder(ctx, DownloadService.CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setContentTitle("Downloaded")
+            .setContentText(item.name)
+            .setAutoCancel(true)
+            .apply { open?.let { setContentIntent(it) } }
+            .build()
+        DownloadService.channel(ctx)
+        runCatching { androidx.core.app.NotificationManagerCompat.from(ctx).notify(1000 + (item.id % 100000).toInt(), n) }
     }
 
     fun get(id: Long) = _items.value.firstOrNull { it.id == id }
@@ -98,6 +126,13 @@ object Downloads {
 
     fun resume(id: Long) {
         edit(id) { if (it.state == State.Paused || it.state == State.Failed) it.copy(state = State.Queued, error = null) else it }
+        kick()
+    }
+
+    /** Network's back: failed-but-retrying downloads go again now. */
+    fun retryNow() {
+        _items.update { list -> list.map { if (it.state == State.Failed && it.error?.endsWith("retrying") == true) it.copy(state = State.Queued, error = null) else it } }
+        save()
         kick()
     }
 

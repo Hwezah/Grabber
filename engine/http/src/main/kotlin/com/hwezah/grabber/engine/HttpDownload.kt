@@ -46,8 +46,11 @@ object Http {
 
     const val UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36"
 
+    /** The user's own User-Agent, or blank for [UA]. */
+    @Volatile var userAgent: String = ""
+
     fun request(url: String, headers: Map<String, String>, range: String? = null): Request {
-        val b = Request.Builder().url(url).header("User-Agent", UA).header("Accept-Encoding", "identity")
+        val b = Request.Builder().url(url).header("User-Agent", userAgent.ifBlank { UA }).header("Accept-Encoding", "identity")
         headers.forEach { (k, v) -> b.header(k, v) }
         range?.let { b.header("Range", it) }
         return b.build()

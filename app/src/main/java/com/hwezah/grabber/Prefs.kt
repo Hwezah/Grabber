@@ -30,6 +30,29 @@ object Prefs {
     var folder by mutableStateOf<String?>(null)
         private set
 
+    var wifiOnly by mutableStateOf(false)
+        private set
+    var autoRetry by mutableStateOf(true)
+        private set
+    var notifyDone by mutableStateOf(true)
+        private set
+    var userAgent by mutableStateOf("")
+        private set
+    var savePlainText by mutableStateOf(true)
+        private set
+    var offerOnOpen by mutableStateOf(true)
+        private set
+    var historyLimit by mutableIntStateOf(500)
+        private set
+    var sequentialDefault by mutableStateOf(false)
+        private set
+    /** "v:best", "v:1080", "v:720", "v:480". */
+    var videoQuality by mutableStateOf("v:1080")
+        private set
+    /** "mp3", "m4a", "opus". */
+    var audioFormat by mutableStateOf("mp3")
+        private set
+
     fun init(context: Context) {
         if (::ctx.isInitialized) return
         ctx = context.applicationContext
@@ -39,7 +62,29 @@ object Prefs {
         parallel = sp.getInt("parallel", 3)
         speedLimit = sp.getLong("speedLimit", 0L)
         folder = sp.getString("folder", null)
+        wifiOnly = sp.getBoolean("wifiOnly", false)
+        autoRetry = sp.getBoolean("autoRetry", true)
+        notifyDone = sp.getBoolean("notifyDone", true)
+        userAgent = sp.getString("userAgent", "") ?: ""
+        savePlainText = sp.getBoolean("savePlainText", true)
+        offerOnOpen = sp.getBoolean("offerOnOpen", true)
+        historyLimit = sp.getInt("historyLimit", 500)
+        sequentialDefault = sp.getBoolean("sequentialDefault", false)
+        videoQuality = sp.getString("videoQuality", "v:1080") ?: "v:1080"
+        audioFormat = sp.getString("audioFormat", "mp3") ?: "mp3"
+        com.hwezah.grabber.engine.Http.userAgent = userAgent
     }
+
+    fun useWifiOnly(v: Boolean) { wifiOnly = v; sp.edit().putBoolean("wifiOnly", v).apply(); Downloads.kick() }
+    fun useAutoRetry(v: Boolean) { autoRetry = v; sp.edit().putBoolean("autoRetry", v).apply() }
+    fun useNotifyDone(v: Boolean) { notifyDone = v; sp.edit().putBoolean("notifyDone", v).apply() }
+    fun useUserAgent(v: String) { userAgent = v; sp.edit().putString("userAgent", v).apply(); com.hwezah.grabber.engine.Http.userAgent = v }
+    fun useSavePlainText(v: Boolean) { savePlainText = v; sp.edit().putBoolean("savePlainText", v).apply() }
+    fun useOfferOnOpen(v: Boolean) { offerOnOpen = v; sp.edit().putBoolean("offerOnOpen", v).apply() }
+    fun useHistoryLimit(v: Int) { historyLimit = v; sp.edit().putInt("historyLimit", v).apply() }
+    fun useSequentialDefault(v: Boolean) { sequentialDefault = v; sp.edit().putBoolean("sequentialDefault", v).apply() }
+    fun useVideoQuality(v: String) { videoQuality = v; sp.edit().putString("videoQuality", v).apply() }
+    fun useAudioFormat(v: String) { audioFormat = v; sp.edit().putString("audioFormat", v).apply() }
 
     fun useDark(v: Boolean) { dark = v; sp.edit().putBoolean("dark", v).apply() }
     fun usePillBar(v: Boolean) { pillBar = v; sp.edit().putBoolean("pillBar", v).apply() }

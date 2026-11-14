@@ -46,6 +46,7 @@ class DownloadService : Service() {
     private var wake: PowerManager.WakeLock? = null
     private val last = HashMap<Long, Long>()
     @Volatile private var updating = false
+    private val retries = java.util.concurrent.ConcurrentHashMap<Long, Int>()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -100,8 +101,13 @@ class DownloadService : Service() {
             val st = items.firstOrNull { it.id == id }?.state
             if (st != State.Running && st != State.Queued) running.remove(id)?.job?.cancel()
         }
+        val blockedByWifi = Prefs.wifiOnly && metered()
+        if (blockedByWifi) {
+            // Wi-Fi only and on mobile data: running ones pause back into the queue, nothing new starts.
+            running.keys.toList().forEach { id -> running.remove(id)?.job?.cancel(); Downloads.edit(id) { it.copy(state = State.Queued) } }
+        }
         items.asReversed().filter { it.state == State.Queued && it.id !in running }.forEach { item ->
-            if (running.size >= Prefs.parallel) return@forEach
+            if (running.size >= Prefs.parallel || blockedByWifi) return@forEach
             Downloads.edit(item.id) { it.copy(state = State.Running, error = null) }
             // Lazy, so it is in the map before it runs.
             val job = scope.launch(Dispatchers.IO, start = kotlinx.coroutines.CoroutineStart.LAZY) { work(item.id) }
@@ -109,7 +115,7 @@ class DownloadService : Service() {
             job.start()
         }
         val updateBusy = updating || Updater.status is Updater.Status.Downloading || Updater.status is Updater.Status.Installing
-        if (running.isEmpty() && items.none { it.state == State.Queued } && !updateBusy) finish()
+        if (running.isEmpty() && (items.none { it.state == State.Queued } || blockedByWifi) && !updateBusy) finish(waitingForWifi = blockedByWifi && items.any { it.state == State.Queued })
     }
 
     private suspend fun work(id: Long) {
@@ -146,13 +152,33 @@ class DownloadService : Service() {
                     synchronized(this) { running[id]?.bytes = dl::downloaded }
                     dl.run()
                     val total = dl.downloaded()
+                    retries.remove(id)
                     Downloads.edit(id) { d -> d.copy(state = State.Done, done = total, size = if (d.size > 0) d.size else total, segments = "", finished = System.currentTimeMillis()) }
                 }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            Downloads.edit(id) { it.copy(state = if (it.state == State.Running) State.Failed else it.state, error = e.message ?: e.javaClass.simpleName) }
+            val code = (e as? com.hwezah.grabber.engine.HttpException)?.code
+            // The link itself is gone or now points at something else: keep the progress, ask for a fresh link.
+            val linkDead = (code != null && code in setOf(401, 403, 404, 410, 412)) || e.message?.contains("stopped allowing parts") == true
+            val network = e is java.io.IOException && !linkDead && (code == null || code >= 500 || code == 408 || code == 429)
+            val tries = (retries[id] ?: 0) + 1
+            val again = Prefs.autoRetry && network
+            val msg = when {
+                linkDead -> "Link expired or changed. Tap it, then Refresh link"
+                else -> (e.message ?: e.javaClass.simpleName) + if (again) " · retrying" else ""
+            }
+            Downloads.edit(id) { it.copy(state = if (it.state == State.Running) State.Failed else it.state, error = msg) }
+            if (again) {
+                // However long it takes: waits grow to 5 minutes, and a returning network wakes it sooner.
+                retries[id] = tries
+                NetWait.arm(this)
+                scope.launch {
+                    delay(minOf(300_000L, 10_000L shl minOf(tries, 5)))
+                    Downloads.edit(id) { if (it.state == State.Failed) it.copy(state = State.Queued, error = null) else it }
+                }
+            }
         } finally {
             synchronized(this) { running.remove(id) }
             Downloads.live.value = Downloads.live.value - id
@@ -206,7 +232,7 @@ class DownloadService : Service() {
         pfd.use {
             ChannelSink(FileOutputStream(it.fileDescriptor).channel).use { sink ->
                 limiter.bytesPerSecond = Prefs.speedLimit
-                val dl = HlsDownload(item.url, item.headers, sink, java.io.File(cacheDir, "hls/$id"), minOf(Prefs.connections, 16), limiter)
+                val dl = HlsDownload(item.url, item.headers, sink, java.io.File(filesDir, "work/hls/$id"), minOf(Prefs.connections, 16), limiter)
                 synchronized(this) { running[id]?.bytes = dl::downloaded }
                 val ticker = scope.launch {
                     while (true) {
@@ -269,12 +295,28 @@ class DownloadService : Service() {
             .addAction(0, "Pause all", action(this, PAUSE_ALL))
             .build()
 
-    private fun finish() {
+    private fun metered(): Boolean {
+        val cm = getSystemService(android.net.ConnectivityManager::class.java) ?: return false
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return true
+        return !caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+    }
+
+    private fun finish(waitingForWifi: Boolean = false) {
+        if (waitingForWifi) WifiWait.arm(this)
         val items = Downloads.items.value
         val paused = items.count { it.state == State.Paused }
         val failed = items.count { it.state == State.Failed }
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        if (paused + failed > 0) {
+        if (waitingForWifi) {
+            val n = NotificationCompat.Builder(this, CHANNEL)
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setContentTitle("Waiting for Wi-Fi")
+                .setContentText("Downloads carry on when you're on Wi-Fi")
+                .setSilent(true)
+                .setContentIntent(openApp(this))
+                .build()
+            runCatching { NotificationManagerCompat.from(this).notify(DONE_NOTE, n) }
+        } else if (paused + failed > 0) {
             val n = NotificationCompat.Builder(this, CHANNEL)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
                 .setContentTitle(listOfNotNull(paused.takeIf { it > 0 }?.let { "$it paused" }, failed.takeIf { it > 0 }?.let { "$it failed" }).joinToString(" · "))

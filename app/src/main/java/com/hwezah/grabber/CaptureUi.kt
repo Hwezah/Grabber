@@ -201,7 +201,8 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
                 if (i == null || i.mime == "text/html") {
                     val m = Media.info(context, url)
                     media = m
-                    pick = m.heights.firstOrNull { it <= 1080 }?.let { "v:$it" } ?: "v:best"
+                    val cap = Prefs.videoQuality.removePrefix("v:").toIntOrNull() ?: Int.MAX_VALUE
+                    pick = m.heights.firstOrNull { it <= cap }?.let { "v:$it" } ?: "v:best"
                     if (name.isEmpty()) name = Names.clean(title ?: m.title)
                     return@withContext
                 }
@@ -264,7 +265,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
         }
         Text("Audio only", Modifier.padding(top = 10.dp), style = Type.meta)
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-            listOf("a:mp3", "a:m4a", "a:opus").forEach { a ->
+            listOf("a:mp3", "a:m4a", "a:opus").sortedByDescending { it == "a:" + Prefs.audioFormat }.forEach { a ->
                 com.hwezah.grabber.design.Chip(a.removePrefix("a:").uppercase(), pick == a, { pick = a }, accent = Ink.orange)
             }
         }
@@ -324,7 +325,7 @@ private fun OneMagnet(magnet: String, onDismiss: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var tries by remember { mutableStateOf(0) }
     val off = remember { mutableStateListOf<Int>() }
-    var sequential by remember { mutableStateOf(false) }
+    var sequential by remember { mutableStateOf(Prefs.sequentialDefault) }
     LaunchedEffect(magnet, tries) {
         error = null
         runCatching { withContext(Dispatchers.IO) { Torrents.metadata(context, magnet) } }

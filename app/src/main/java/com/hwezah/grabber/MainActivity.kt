@@ -39,7 +39,8 @@ class MainActivity : ComponentActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (!hasFocus) return
         val text = Capture.fresh(this) ?: return
-        Clips.add(text)
-        if (LinkFinder.find(text).isNotEmpty()) Capture.pending = text
+        val links = LinkFinder.find(text).isNotEmpty()
+        if (links || Prefs.savePlainText) Clips.add(text)
+        if (links && Prefs.offerOnOpen) Capture.pending = text
     }
 }

@@ -69,7 +69,7 @@ object Media {
      */
     suspend fun run(context: Context, item: Item, onProgress: (Progress) -> Unit): Triple<String, String, Long> {
         ensure(context)
-        val work = File(context.cacheDir, "media/${item.id}").apply { mkdirs() }
+        val work = File(context.filesDir, "work/media/${item.id}").apply { mkdirs() }
         val req = YoutubeDLRequest(item.url)
             .addOption("--no-playlist")
             .addOption("--no-mtime")
