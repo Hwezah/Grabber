@@ -91,6 +91,11 @@ fun ClipboardPage() {
                                     Text(DateUtils.getRelativeTimeSpanString(clip.time).toString(), Modifier.padding(top = 4.dp), style = Type.meta.copy(color = Ink.faint))
                                 }
                                 if (clip.pinned) Lc(L.drawable.lucide_ic_pin, Modifier.padding(start = 8.dp), tint = Ink.red, size = 16.dp)
+                                // A link in it: download straight from the row.
+                                if (LinkFinder.find(clip.text).any { it is Found.Web }) {
+                                    Spacer(Modifier.width(8.dp))
+                                    Button("", { Capture.pending = clip.text }, icon = L.drawable.lucide_ic_download, accent = Ink.green, compact = true)
+                                }
                             }
                         }
                     }
