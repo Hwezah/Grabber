@@ -29,7 +29,9 @@ object Names {
                 ?: Regex("""filename\s*=\s*"([^"]+)"""", RegexOption.IGNORE_CASE).find(d)?.groupValues?.get(1)
                 ?: Regex("""filename\s*=\s*([^;]+)""", RegexOption.IGNORE_CASE).find(d)?.groupValues?.get(1)?.trim()
         }
-        val fromUrl = url.substringBefore('#').substringBefore('?').trimEnd('/').substringAfterLast('/').let { decode(it) }
+        // The path only: a bare site link ("https://x.com/") has no file name, not "x.com".
+        val path = url.substringBefore('#').substringBefore('?').substringAfter("://").substringAfter('/', "")
+        val fromUrl = path.trimEnd('/').substringAfterLast('/').let { decode(it) }
         var name = clean(fromHeader ?: fromUrl).ifBlank { "download" }
         if (!name.contains('.')) extensionFor(mime)?.let { name = "$name.$it" }
         return name
