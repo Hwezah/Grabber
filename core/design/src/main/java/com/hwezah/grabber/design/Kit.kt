@@ -194,15 +194,24 @@ fun Overline(text: String, modifier: Modifier = Modifier) =
 
 /**
  * Rows of pills: three or more spread across the width, first and last at the ends;
- * one or two sit from the start, [min] apart.
+ * one or two centred with even space around them (never stuck to the left).
  */
 fun spreadOut(min: Dp = 8.dp): Arrangement.Horizontal = object : Arrangement.Horizontal {
     override val spacing = min
 
     override fun Density.arrange(totalSize: Int, sizes: IntArray, layoutDirection: LayoutDirection, outPositions: IntArray) {
         val floor = spacing.roundToPx()
-        val gap = if (sizes.size > 2) maxOf(floor, (totalSize - sizes.sum()) / (sizes.size - 1)) else floor
-        var x = 0
+        val free = totalSize - sizes.sum()
+        var x: Int
+        val gap: Int
+        if (sizes.size > 2) {
+            gap = maxOf(floor, free / (sizes.size - 1))
+            x = 0
+        } else {
+            // Space-around: half a gap at each end, a whole one between.
+            gap = maxOf(floor, free / sizes.size.coerceAtLeast(1))
+            x = maxOf(0, (totalSize - sizes.sum() - gap * (sizes.size - 1)) / 2)
+        }
         sizes.forEachIndexed { i, w ->
             outPositions[i] = x
             x += w + gap
