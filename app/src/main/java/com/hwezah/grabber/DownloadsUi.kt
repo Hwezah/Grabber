@@ -146,15 +146,16 @@ fun DownloadsPage() {
 private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
     val shape = RoundedCornerShape(18.dp)
     Tap(onClick, Modifier.fillMaxWidth(), shape) {
+        val done = live?.bytes ?: item.done
+        Column(Modifier.frost(shape).padding(top = 12.dp, bottom = 12.dp)) {
         // The play/pause target is 40dp around a 20dp icon: less padding on the right so the icon sits CARD from the edge.
-        Row(Modifier.frost(shape).padding(start = CARD, end = CARD - 10.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(start = CARD, end = CARD - 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clip(CircleShape).background(tintOf(item.category).copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
                 Lc(iconOf(item.category), tint = tintOf(item.category), size = 20.dp)
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(item.name, style = Type.label.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val done = live?.bytes ?: item.done
                 val pctOnly = item.kind == Kind.Media && item.state != State.Done
                 val line = when (item.state) {
                     State.Running -> live?.text ?: if (live == null) "Starting…" else listOf(
@@ -168,12 +169,6 @@ private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
                     State.Failed -> "Failed: " + (item.error ?: "unknown error")
                 }
                 Text(line, style = Type.meta.copy(color = if (item.state == State.Failed) Ink.danger else Ink.muted), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (item.state != State.Done) {
-                    val p = if (item.size > 0) (done.toFloat() / item.size).coerceIn(0f, 1f) else 0f
-                    Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(4.dp).clip(CircleShape).background(Ink.text.copy(alpha = 0.1f))) {
-                        Box(Modifier.fillMaxWidth(p).height(4.dp).clip(CircleShape).background(if (item.state == State.Running) Ink.green else Ink.faint))
-                    }
-                }
             }
             Spacer(Modifier.width(4.dp))
             when (item.state) {
@@ -185,6 +180,14 @@ private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
                 }
                 State.Done -> {}
             }
+        }
+        // The bar under everything, across the whole row's content, a thin 3dp.
+        if (item.state != State.Done) {
+            val p = if (item.size > 0) (done.toFloat() / item.size).coerceIn(0f, 1f) else 0f
+            Box(Modifier.padding(start = CARD, end = CARD, top = 10.dp).fillMaxWidth().height(3.dp).clip(CircleShape).background(Ink.text.copy(alpha = 0.1f))) {
+                Box(Modifier.fillMaxWidth(p).height(3.dp).clip(CircleShape).background(if (item.state == State.Running) Ink.green else Ink.faint))
+            }
+        }
         }
     }
 }
