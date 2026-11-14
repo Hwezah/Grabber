@@ -193,8 +193,9 @@ fun Heading(text: String, modifier: Modifier = Modifier, trailing: @Composable (
 
 /** A small caps label over a group of rows. */
 @Composable
-fun Overline(text: String, modifier: Modifier = Modifier) =
-    Text(text.uppercase(), modifier.padding(start = 4.dp, bottom = 8.dp), style = Type.overline)
+fun Overline(text: String, modifier: Modifier = Modifier, center: Boolean = false) =
+    if (center) Text(text.uppercase(), modifier.fillMaxWidth().padding(bottom = 8.dp), style = Type.overline.copy(textAlign = TextAlign.Center))
+    else Text(text.uppercase(), modifier.padding(start = 4.dp, bottom = 8.dp), style = Type.overline)
 
 /**
  * Rows of pills: three or more spread across the width, first and last at the ends;

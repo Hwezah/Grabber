@@ -324,7 +324,7 @@ private fun AddSheet(onDismiss: () -> Unit) {
                 Button("Clear", { text = "" }, icon = L.drawable.lucide_ic_x, compact = true)
             }
             Spacer(Modifier.height(12.dp))
-            Overline(if (found.isEmpty()) "No links found" else "${chosen.size} of ${found.size} selected")
+            Overline(if (found.isEmpty()) "No links found" else "${chosen.size} of ${found.size} selected", center = found.isEmpty())
             Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
                 found.forEach { f ->
                     val on = f.text !in off

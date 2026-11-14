@@ -141,7 +141,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
                     Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))
                     FolderRow()
                 }
-                Overline(if (web.isEmpty()) "Nothing to download yet" else "${web.size} to download")
+                Overline(if (web.isEmpty()) "Nothing selected" else "${web.size} to download", center = web.isEmpty())
                 LinkPicker(found, off)
             }
             if (!single) {
