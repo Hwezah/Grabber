@@ -146,8 +146,8 @@ fun SettingsPage() {
         Column(Modifier.padding(horizontal = EDGE)) {
             Overline("Look")
             Group {
-                SettingRow("Dark theme", "Near-black page; off for warm paper") { Toggle(Prefs.dark, Prefs::setDark) }
-                SettingRow("Floating tab bar", "Glass pill over the page; off for a bar along the bottom") { Toggle(Prefs.pillBar, Prefs::setPillBar) }
+                SettingRow("Dark theme", "Near-black page; off for warm paper") { Toggle(Prefs.dark, Prefs::useDark) }
+                SettingRow("Floating tab bar", "Glass pill over the page; off for a bar along the bottom") { Toggle(Prefs.pillBar, Prefs::usePillBar) }
             }
             Spacer(Modifier.height(20.dp))
             Overline("Accents")

@@ -22,12 +22,12 @@ object Prefs {
         pillBar = p.getBoolean("pillBar", true)
     }
 
-    fun setDark(v: Boolean) {
+    fun useDark(v: Boolean) {
         dark = v
         save("dark", v)
     }
 
-    fun setPillBar(v: Boolean) {
+    fun usePillBar(v: Boolean) {
         pillBar = v
         save("pillBar", v)
     }
