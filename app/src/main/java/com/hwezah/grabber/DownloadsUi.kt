@@ -158,7 +158,7 @@ fun DownloadsPage() {
                                     active -> Downloads.pause(item.id)
                                     item.state == State.Done -> item.doc?.let { doc ->
                                         runCatching {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(doc), item.mime ?: "*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                                            context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(doc), mimeOf(item)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
                                         }
                                     }
                                     else -> Downloads.resume(item.id)
@@ -256,11 +256,11 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                 if (item.state == State.Done && item.doc != null) {
                     Button("Open", {
                         runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(item.doc), item.mime ?: "*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                            context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(item.doc), mimeOf(item)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
                         }
                     }, icon = L.drawable.lucide_ic_play, accent = Ink.green, compact = true)
                     Button("Share", {
-                        val send = Intent(Intent.ACTION_SEND).setType(item.mime ?: "*/*").putExtra(Intent.EXTRA_STREAM, Uri.parse(item.doc)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        val send = Intent(Intent.ACTION_SEND).setType(mimeOf(item)).putExtra(Intent.EXTRA_STREAM, Uri.parse(item.doc)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         runCatching { context.startActivity(Intent.createChooser(send, item.name)) }
                     }, icon = L.drawable.lucide_ic_share_2, compact = true)
                 } else if (item.state == State.Running || item.state == State.Queued) {
@@ -268,7 +268,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                 } else {
                     Button("Resume", { Downloads.resume(item.id) }, icon = L.drawable.lucide_ic_play, accent = Ink.green, compact = true)
                 }
-                Button("Copy link", {
+                Button("Copy", {
                     context.getSystemService(android.content.ClipboardManager::class.java)
                         ?.setPrimaryClip(android.content.ClipData.newPlainText("link", item.url))
                 }, icon = L.drawable.lucide_ic_copy, compact = true)

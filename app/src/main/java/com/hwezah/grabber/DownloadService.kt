@@ -227,7 +227,7 @@ class DownloadService : Service() {
         }
         val src = item.url.takeIf { it.startsWith("file://") }?.let { java.io.File(Uri.parse(it).path ?: "") }
         src?.delete()
-        Downloads.edit(id) { it.copy(state = State.Done, doc = doc, name = name, size = size, done = size, finished = System.currentTimeMillis()) }
+        Downloads.edit(id) { it.copy(state = State.Done, doc = doc, name = name, mime = null, size = size, done = size, finished = System.currentTimeMillis()).let { d -> d.copy(mime = mimeOf(d)) } }
     }
 
     /** An HLS stream: segments into the cache, then joined into one file in the Video folder. */

@@ -115,7 +115,9 @@ object Media {
             else -> {
                 val h = f.removePrefix("v:").toIntOrNull()
                 val sel = if (h != null) "bv*[height<=$h]+ba/b[height<=$h]/bv*+ba/b" else "bv*+ba/b"
+                // At the chosen size, H.264 + AAC first: the codecs every phone plays (TikTok often sends HEVC).
                 req.addOption("-f", sel).addOption("--merge-output-format", "mp4")
+                    .addOption("-S", (if (h != null) "res:$h," else "") + "vcodec:h264,acodec:aac,ext:mp4:m4a")
             }
         }
         val pid = "grab-${item.id}"

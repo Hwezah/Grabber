@@ -15,6 +15,18 @@ enum class State { Queued, Running, Paused, Done, Failed }
 
 enum class Kind { Http, Hls, Torrent, Media }
 
+/** The file's type from its name when the server didn't say: video/mp4 for .mp4, and so on. */
+fun mimeOf(item: Item): String {
+    item.mime?.takeIf { it.contains('/') && it != "application/octet-stream" && it != "text/html" }?.let { return it }
+    val ext = item.name.substringAfterLast('.', "").lowercase()
+    return when (ext) {
+        "ts" -> "video/mp2t"
+        "mkv" -> "video/x-matroska"
+        "opus" -> "audio/ogg"
+        else -> android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+    }
+}
+
 data class Item(
     val id: Long,
     val url: String,
@@ -113,7 +125,7 @@ object Downloads {
         val open = item.doc?.let {
             android.app.PendingIntent.getActivity(
                 ctx, item.id.toInt(),
-                android.content.Intent(android.content.Intent.ACTION_VIEW).setDataAndType(android.net.Uri.parse(it), item.mime ?: "*/*")
+                android.content.Intent(android.content.Intent.ACTION_VIEW).setDataAndType(android.net.Uri.parse(it), mimeOf(item))
                     .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
                 android.app.PendingIntent.FLAG_IMMUTABLE,
             )
