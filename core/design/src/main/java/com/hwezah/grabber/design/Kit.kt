@@ -262,8 +262,27 @@ fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
     }
 }
 
-/** A button alone on its row: 80% of the width, centred. */
-fun Modifier.solo() = fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).fillMaxWidth(0.8f)
+/** A button alone on its row: as wide as everything else in the sheet. */
+fun Modifier.solo() = fillMaxWidth()
+
+/** A row of buttons stretched across the width, each the same size, 8dp apart. */
+@Composable
+fun StretchRow(modifier: Modifier = Modifier, gap: Dp = 8.dp, content: @Composable () -> Unit) {
+    androidx.compose.ui.layout.Layout(content, modifier.fillMaxWidth()) { measurables, constraints ->
+        val n = measurables.size.coerceAtLeast(1)
+        val g = gap.roundToPx()
+        val w = ((constraints.maxWidth - g * (n - 1)) / n).coerceAtLeast(0)
+        val placeables = measurables.map { it.measure(androidx.compose.ui.unit.Constraints.fixedWidth(w)) }
+        val h = placeables.maxOfOrNull { it.height } ?: 0
+        layout(constraints.maxWidth, h) {
+            var x = 0
+            placeables.forEach {
+                it.placeRelative(x, (h - it.height) / 2)
+                x += w + g
+            }
+        }
+    }
+}
 
 /**
  * A row you can swipe: left runs [onLeft] (e.g. delete), right runs [onRight] (e.g. pin). Behind the row,

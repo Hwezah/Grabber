@@ -56,6 +56,7 @@ import com.hwezah.grabber.design.BottomSheet
 import com.hwezah.grabber.design.Button
 import com.hwezah.grabber.design.CARD
 import com.hwezah.grabber.design.Ink
+import com.hwezah.grabber.design.StretchRow
 import com.hwezah.grabber.design.solo
 import com.hwezah.grabber.design.frost
 import com.hwezah.grabber.design.Lc
@@ -145,7 +146,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
             }
             if (!single) {
                 Spacer(Modifier.height(14.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+                StretchRow {
                     Button("Copy", {
                         context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("Grabber", text))
                         Capture.seen(context, text)
@@ -280,7 +281,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
     Spacer(Modifier.height(8.dp))
     Field(referer, { referer = it }, "Referer page (leave empty if not sure)")
     Spacer(Modifier.height(12.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+    StretchRow {
         Button("Cancel", onDismiss, compact = true)
         Button(if (checking) "Checking…" else "Check again", { tries++ }, icon = L.drawable.lucide_ic_rotate_cw, compact = true)
     }
@@ -370,7 +371,7 @@ private fun OneMagnet(magnet: String, onDismiss: () -> Unit) {
         }
     }
     Spacer(Modifier.height(12.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+    StretchRow {
         Button("Cancel", onDismiss, compact = true)
         Button("Copy", {
             context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("magnet", magnet))

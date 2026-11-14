@@ -57,6 +57,7 @@ import com.hwezah.grabber.design.EDGE
 import com.hwezah.grabber.design.Heading
 import com.hwezah.grabber.design.CARD
 import com.hwezah.grabber.design.Ink
+import com.hwezah.grabber.design.StretchRow
 import com.hwezah.grabber.design.solo
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Note
@@ -201,7 +202,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
         Column(Modifier.padding(horizontal = CARD)) {
             Text(item.url, style = Type.meta, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+            StretchRow {
                 if (item.state == State.Done && item.doc != null) {
                     Button("Open", {
                         runCatching {
@@ -226,7 +227,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
             if (item.state == State.Done && item.doc != null && item.category == Category.Video) {
                 Spacer(Modifier.height(10.dp))
                 Text("Convert to audio", style = Type.meta)
-                Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = SpreadOut) {
+                StretchRow(Modifier.padding(top = 6.dp)) {
                     listOf("mp3", "m4a", "opus").sortedByDescending { it == Prefs.audioFormat }.forEach { fmt ->
                         Button(fmt.uppercase(), {
                             val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
@@ -245,7 +246,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
             if (!confirm) {
                 Button("Delete…", { confirm = true }, Modifier.solo(), icon = L.drawable.lucide_ic_trash_2)
             } else {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+                StretchRow {
                     Button("Remove from list", { Downloads.delete(item.id, false); onDismiss() }, compact = true)
                     Button("Delete file too", { Downloads.delete(item.id, true); onDismiss() }, accent = Ink.red, compact = true)
                 }
@@ -258,7 +259,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
 @Composable
 private fun AllSheet(onDismiss: () -> Unit) {
     BottomSheet("All downloads", onDismiss) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = CARD), horizontalArrangement = SpreadOut) {
+        StretchRow(Modifier.padding(horizontal = CARD)) {
             Button("Pause all", { Downloads.pauseAll(); onDismiss() }, icon = L.drawable.lucide_ic_pause, compact = true)
             Button("Resume all", { Downloads.resumeAll(); onDismiss() }, icon = L.drawable.lucide_ic_play, accent = Ink.green, compact = true)
             Button("Clear", { Downloads.clearFinished(); onDismiss() }, icon = L.drawable.lucide_ic_check, compact = true)
@@ -318,7 +319,7 @@ private fun AddSheet(onDismiss: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+            StretchRow {
                 Button("Paste", { text = readClipboard(context) }, icon = L.drawable.lucide_ic_clipboard_paste, compact = true)
                 Button("Clear", { text = "" }, icon = L.drawable.lucide_ic_x, compact = true)
             }
@@ -374,7 +375,7 @@ private fun RefreshLink(item: Item) {
     Field(link, { link = it }, "New link")
     note?.let { Text(it, Modifier.padding(top = 6.dp), style = Type.meta.copy(color = Ink.orange)) }
     Spacer(Modifier.height(8.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+    StretchRow {
         Button("Paste", { link = readClipboard(context).trim() }, icon = L.drawable.lucide_ic_clipboard_paste, compact = true)
         Button(if (busy) "Checking…" else "Use it", {
             val url = LinkFinder.find(link).firstOrNull { it is Found.Web }?.text

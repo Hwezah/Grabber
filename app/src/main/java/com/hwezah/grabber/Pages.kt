@@ -45,6 +45,7 @@ import com.hwezah.grabber.design.Chip
 import com.hwezah.grabber.design.EDGE
 import com.hwezah.grabber.design.Heading
 import com.hwezah.grabber.design.Ink
+import com.hwezah.grabber.design.StretchRow
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Note
 import com.hwezah.grabber.design.Overline
@@ -125,7 +126,7 @@ fun SettingsPage() {
                     Spacer(Modifier.height(10.dp))
                     Field(ua, { ua = it }, "Mozilla/5.0 …")
                     Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+                    StretchRow {
                         Button("Reset", { Prefs.useUserAgent(""); sheet = null }, compact = true)
                         Button("Save", { Prefs.useUserAgent(ua.trim()); sheet = null }, accent = Ink.green, compact = true)
                     }
@@ -136,7 +137,7 @@ fun SettingsPage() {
             Column(Modifier.padding(horizontal = CARD)) {
                 Text("Every clip goes except pinned ones. This can't be undone.", style = Type.body)
                 Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+                StretchRow {
                     Button("Cancel", { sheet = null }, compact = true)
                     Button("Clear", { Clips.clearUnpinned(); sheet = null }, accent = Ink.red, compact = true)
                 }

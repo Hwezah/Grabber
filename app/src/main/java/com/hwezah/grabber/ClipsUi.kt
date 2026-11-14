@@ -44,6 +44,7 @@ import com.hwezah.grabber.design.EDGE
 import com.hwezah.grabber.design.Heading
 import com.hwezah.grabber.design.CARD
 import com.hwezah.grabber.design.Ink
+import com.hwezah.grabber.design.StretchRow
 import com.hwezah.grabber.design.solo
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Note
@@ -149,7 +150,7 @@ private fun ClipSheet(clip: Clip, onDismiss: () -> Unit) {
         Column(Modifier.padding(horizontal = CARD)) {
             Text(clip.text, style = Type.body.copy(color = Ink.text), maxLines = 8, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+            StretchRow {
                 Button("Copy", {
                     context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("Grabber", clip.text))
                     Capture.seen(context, clip.text)
@@ -200,7 +201,7 @@ fun CatchRows() {
             Text("1. Tap Open settings, find Grabber (under Installed apps / Downloaded apps), switch it on.", style = Type.body.copy(color = Ink.text))
             Text("2. If it's greyed out (\"Restricted setting\"): tap App info below, then ⋮ (top right) → Allow restricted settings, and try again.", Modifier.padding(top = 6.dp), style = Type.body.copy(color = Ink.text))
             Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
+            StretchRow {
                 Button("App info", {
                     runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))) }
                 }, compact = true)
