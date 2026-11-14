@@ -50,7 +50,7 @@ import com.hwezah.grabber.design.Overline
 import com.hwezah.grabber.design.SpreadOut
 import com.hwezah.grabber.design.Toggle
 import com.hwezah.grabber.design.Type
-import com.hwezah.grabber.design.outlined
+import com.hwezah.grabber.design.frost
 
 @Composable
 fun SettingsPage() {
@@ -107,7 +107,7 @@ fun SettingsPage() {
 
 @Composable
 fun Group(content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().outlined(RoundedCornerShape(18.dp)).padding(horizontal = CARD, vertical = 6.dp)) { content() }
+    Column(Modifier.fillMaxWidth().frost(RoundedCornerShape(18.dp)).padding(horizontal = CARD, vertical = 6.dp)) { content() }
 }
 
 @Composable

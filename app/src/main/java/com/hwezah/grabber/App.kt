@@ -39,7 +39,7 @@ import com.hwezah.grabber.design.Ink
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Tap
 import com.hwezah.grabber.design.Type
-import com.hwezah.grabber.design.outlined
+import com.hwezah.grabber.design.frost
 import com.hwezah.grabber.design.grain
 
 enum class Tab(val label: String, @DrawableRes val icon: Int) {
@@ -103,7 +103,7 @@ private fun TabBar(tab: Tab, onTab: (Tab) -> Unit) {
 @Composable
 private fun PillBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.navigationBarsPadding().padding(bottom = 12.dp).outlined(RoundedCornerShape(50), Ink.bg).padding(6.dp),
+        modifier.navigationBarsPadding().padding(bottom = 12.dp).frost(RoundedCornerShape(50), Ink.bg).padding(6.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

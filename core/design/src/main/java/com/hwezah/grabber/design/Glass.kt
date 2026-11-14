@@ -43,8 +43,12 @@ fun Modifier.glow(colors: List<Color>, cx: Float = 0.85f, cy: Float = 1.1f) = dr
 fun Modifier.rim(shape: Shape, width: Dp = 1.dp) =
     border(width, Brush.verticalGradient(listOf(Ink.text.copy(alpha = 0.16f), Ink.text.copy(alpha = 0.04f))), shape)
 
-/** Flat: a subtle 1dp border, no fill unless [fill] is given. */
-fun Modifier.outlined(shape: Shape, fill: Color = Color.Transparent) = this
+/**
+ * Frosted glass, no border: a slightly lighter translucent shade of the page with fine grain in it.
+ * [fill] goes underneath first, for surfaces that float over content (the tab bar).
+ */
+fun Modifier.frost(shape: Shape, fill: Color = Color.Transparent, alpha: Float = 0.07f) = this
     .clip(shape)
     .background(fill)
-    .border(1.dp, Ink.stroke, shape)
+    .background(Ink.text.copy(alpha = alpha))
+    .grain()

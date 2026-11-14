@@ -21,7 +21,7 @@ import com.hwezah.grabber.design.EDGE
 import com.hwezah.grabber.design.Ink
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Type
-import com.hwezah.grabber.design.outlined
+import com.hwezah.grabber.design.frost
 
 /** A bar across the top when a newer build is on GitHub. */
 @Composable
@@ -39,7 +39,7 @@ fun UpdateBar(modifier: Modifier = Modifier) {
     }
     Row(
         modifier.statusBarsPadding().padding(horizontal = EDGE, vertical = 6.dp).fillMaxWidth()
-            .outlined(RoundedCornerShape(14.dp), Ink.surface).padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            .frost(RoundedCornerShape(14.dp), Ink.surface).padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Lc(L.drawable.lucide_ic_download, tint = if (s is Updater.Status.Failed) Ink.orange else Ink.green, size = 18.dp)

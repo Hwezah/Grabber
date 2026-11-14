@@ -48,7 +48,7 @@ import com.hwezah.grabber.design.Note
 import com.hwezah.grabber.design.SpreadOut
 import com.hwezah.grabber.design.Tap
 import com.hwezah.grabber.design.Type
-import com.hwezah.grabber.design.outlined
+import com.hwezah.grabber.design.frost
 
 @Composable
 fun ClipboardPage() {
@@ -85,7 +85,7 @@ fun ClipboardPage() {
                     items(shown, key = { it.id }) { clip ->
                         val shape = RoundedCornerShape(16.dp)
                         Tap({ picked = clip }, Modifier.fillMaxWidth(), shape) {
-                            Row(Modifier.outlined(shape).padding(12.dp), verticalAlignment = Alignment.Top) {
+                            Row(Modifier.frost(shape).padding(12.dp), verticalAlignment = Alignment.Top) {
                                 Column(Modifier.weight(1f)) {
                                     Text(clip.text, style = Type.label, maxLines = 3, overflow = TextOverflow.Ellipsis)
                                     Text(DateUtils.getRelativeTimeSpanString(clip.time).toString(), Modifier.padding(top = 4.dp), style = Type.meta.copy(color = Ink.faint))

@@ -50,6 +50,8 @@ object Ink {
     val muted get() = p.muted
     val faint get() = p.faint
     val danger get() = p.danger
+    /** Sheets and popups: a plain grey. */
+    val sheet get() = if (isDark) Color(0xFF1F1F1F) else Color(0xFFFFFFFF)
 
     /** Primary: deep red, glowing towards [ember]. */
     val red = Color(0xFFB81D24)

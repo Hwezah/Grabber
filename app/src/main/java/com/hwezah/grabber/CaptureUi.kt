@@ -51,6 +51,7 @@ import com.composables.icons.lucide.R as L
 import com.hwezah.grabber.design.BottomSheet
 import com.hwezah.grabber.design.Button
 import com.hwezah.grabber.design.Ink
+import com.hwezah.grabber.design.frost
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Note
 import com.hwezah.grabber.design.Overline
@@ -226,11 +227,11 @@ private fun OneLink(url: String, onDismiss: () -> Unit) {
     )
 }
 
-/** A flat text box with a thin border. */
+/** A text box on frosted glass. */
 @Composable
 fun Field(value: String, onValue: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, onGo: (() -> Unit)? = null) {
     val shape = RoundedCornerShape(12.dp)
-    Box(modifier.fillMaxWidth().border(1.dp, Ink.stroke, shape).padding(horizontal = 12.dp, vertical = 12.dp)) {
+    Box(modifier.fillMaxWidth().frost(shape).padding(horizontal = 12.dp, vertical = 12.dp)) {
         if (value.isEmpty()) Text(placeholder, style = Type.label.copy(color = Ink.faint), maxLines = 1)
         BasicTextField(
             value, onValue, Modifier.fillMaxWidth(), singleLine = true, textStyle = Type.label, cursorBrush = SolidColor(Ink.red),

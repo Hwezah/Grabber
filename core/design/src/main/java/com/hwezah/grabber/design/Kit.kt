@@ -115,9 +115,9 @@ fun Button(
 ) {
     Tap(onClick, modifier, RoundedCornerShape(50)) { pressed ->
         val fg = if (accent != null) Color.White else Ink.text
-        // Flat: a solid accent, or just a thin border.
+        // A solid accent, or a lighter shade of frosted glass.
         val base = if (accent != null) Modifier.background(if (pressed) accent.copy(alpha = 0.8f) else accent)
-        else Modifier.background(if (pressed) Ink.text.copy(alpha = 0.08f) else Color.Transparent).border(1.dp, Ink.stroke, RoundedCornerShape(50))
+        else Modifier.frost(RoundedCornerShape(50), alpha = if (pressed) 0.14f else 0.08f)
         Row(
             base.height(if (compact) 36.dp else 46.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -138,12 +138,12 @@ fun Chip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = M
     Tap(onClick, modifier, CircleShape) { pressed ->
         val bg = when {
             on -> accent
-            pressed -> Ink.text.copy(alpha = 0.08f)
-            else -> Color.Transparent
+            pressed -> Ink.text.copy(alpha = 0.14f)
+            else -> Ink.text.copy(alpha = 0.07f)
         }
         val fg = if (on) Color.White else Ink.muted
         Row(
-            Modifier.background(bg).then(if (on) Modifier else Modifier.border(1.dp, Ink.stroke, CircleShape)).height(34.dp).padding(horizontal = 14.dp),
+            Modifier.background(bg).then(if (on) Modifier else Modifier.grain()).height(34.dp).padding(horizontal = 14.dp),
             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
         ) {
             if (icon != null) {
@@ -212,7 +212,7 @@ fun spreadOut(min: Dp = 8.dp): Arrangement.Horizontal = object : Arrangement.Hor
 
 val SpreadOut: Arrangement.Horizontal = spreadOut()
 
-/** The frame every sheet shares: a dimmed page, a solid dark sheet with a grab handle and a heading. */
+/** The frame every sheet shares: a dimmed page, a plain grey sheet with a grab handle and a heading. */
 @Composable
 fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
     BackHandler(onBack = onDismiss)
@@ -228,7 +228,7 @@ fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
         AnimatedVisibility(shown, enter = slideInVertically(Motion.spatial()) { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
             Column(
                 Modifier.widthIn(max = 600.dp).fillMaxWidth().heightIn(max = maxHeight)
-                    .background(Ink.surface).border(1.dp, Ink.stroke, shape)
+                    .clip(shape).background(Ink.sheet)
                     .clickable(remember { MutableInteractionSource() }, indication = null) {}
                     .navigationBarsPadding().padding(bottom = 10.dp),
             ) {
