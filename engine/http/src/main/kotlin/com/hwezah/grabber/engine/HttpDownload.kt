@@ -144,6 +144,8 @@ class HttpDownload(
     }
     private val conns = java.util.concurrent.ConcurrentHashMap.newKeySet<Conn>()
     private val alive = java.util.concurrent.atomic.AtomicInteger()
+    /** A connection was refused: no more ramping up for this download. */
+    @Volatile private var refused = false
 
     /** Bytes written so far (batched bytes count once written). */
     fun downloaded(): Long = synchronized(lock) {
@@ -200,6 +202,7 @@ class HttpDownload(
         var flat = 0
         while (running < connections) {
             delay(2500)
+            if (refused) return
             val nothingToSplit = synchronized(lock) { segments.all { it.done || it.remaining < minSplit * 2 && it.busy } }
             if (alive.get() == 0 || nothingToSplit) return
             val now = conns.sumOf { it.speed }
@@ -269,10 +272,16 @@ class HttpDownload(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: HttpException) {
-                    // Too many connections for this server: give the part back, this connection stops.
-                    if (e.code == 429 || e.code == 503) {
-                        synchronized(lock) { seg.busy = false }
-                        if (segments.count { it.busy } > 0) return
+                    // The server refused this connection (too many, a picky CDN node, a rate limit): give the part
+                    // back and close this connection while others still work; they pick the part up.
+                    if (e.code == 429 || e.code == 503 || e.code in 400..499) {
+                        refused = true
+                        val othersWorking = synchronized(lock) {
+                            seg.busy = false
+                            segments.any { it.busy }
+                        }
+                        if (othersWorking) return
+                        synchronized(lock) { seg.busy = true }
                     }
                     if (++failures > maxRetries || e.code in 400..499 && e.code != 408 && e.code != 429) throw e
                     delay(backoff(failures))

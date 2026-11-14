@@ -47,6 +47,8 @@ class DownloadService : Service() {
     private val last = HashMap<Long, Long>()
     @Volatile private var updating = false
     private val retries = java.util.concurrent.ConcurrentHashMap<Long, Int>()
+    private val deadTries = java.util.concurrent.ConcurrentHashMap<Long, Int>()
+    private val lastDone = java.util.concurrent.ConcurrentHashMap<Long, Long>()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -164,8 +166,16 @@ class DownloadService : Service() {
             val linkDead = (code != null && code in setOf(401, 403, 404, 410, 412)) || e.message?.contains("stopped allowing parts") == true
             val network = e is java.io.IOException && !linkDead && (code == null || code >= 500 || code == 408 || code == 429)
             val tries = (retries[id] ?: 0) + 1
-            val again = Prefs.autoRetry && network
+            // "Dead" links often come back (a refusing server, a CDN hiccup): retry those a few times too,
+            // and as long as each try gets further, keep going.
+            val doneNow = Downloads.get(id)?.done ?: 0
+            if (doneNow > (lastDone[id] ?: -1)) deadTries[id] = 0
+            lastDone[id] = doneNow
+            val deadAgain = linkDead && Prefs.autoRetry && (deadTries[id] ?: 0) < 3
+            if (deadAgain) deadTries[id] = (deadTries[id] ?: 0) + 1
+            val again = Prefs.autoRetry && (network || deadAgain)
             val msg = when {
+                deadAgain -> "Server refused (${code ?: "?"}) · retrying"
                 linkDead -> "Link expired or changed. Tap it, then Refresh link"
                 else -> (e.message ?: e.javaClass.simpleName) + if (again) " · retrying" else ""
             }
