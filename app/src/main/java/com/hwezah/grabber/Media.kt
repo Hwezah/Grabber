@@ -65,6 +65,7 @@ object Media {
     fun info(context: Context, url: String): MediaInfo {
         ensure(context)
         val req = YoutubeDLRequest(url).addOption("--no-playlist").addOption("--no-update")
+        SignIns.cookiesFile(context)?.let { req.addOption("--cookies", it.absolutePath) }
         val v: VideoInfo = try {
             YoutubeDL.getInstance().getInfo(req)
         } catch (e: Exception) {
@@ -100,6 +101,7 @@ object Media {
             .addOption("-N", 8)
             .addOption("-o", File(work, "%(title).120B.%(ext)s").absolutePath)
         item.headers.forEach { (k, v) -> req.addOption("--add-header", "$k:$v") }
+        SignIns.cookiesFile(context)?.let { req.addOption("--cookies", it.absolutePath) }
         // Many connections per file through aria2c, sized like Grabber's own downloads.
         if (aria2c && !item.url.startsWith("file://")) {
             val n = Prefs.connections.coerceIn(4, 16)
@@ -156,6 +158,12 @@ object Media {
         f.parentFile?.mkdirs()
         context.contentResolver.openInputStream(Uri.parse(doc))?.use { i -> f.outputStream().use { i.copyTo(it, 256 * 1024) } } ?: error("Can't read the file")
         return f
+    }
+
+    /** Errors that mean "sign in and it will work". */
+    fun needsSignIn(message: String?): Boolean {
+        val m = message.orEmpty().lowercase()
+        return listOf("login", "log in", "sign in", "signed in", "available to everyone", "certain audiences", "private", "age", "cookies", "rate-limit", "inappropriate").any { it in m }
     }
 
     /** yt-dlp's last ERROR line, without warnings, its [extractor] tag or the Python cause. */

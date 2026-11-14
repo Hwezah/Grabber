@@ -84,6 +84,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".SignInActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Grabber" />
+
         <service
             android:name=".CopyWatcher"
             android:exported="false"

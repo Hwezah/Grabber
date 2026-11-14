@@ -263,6 +263,15 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
         }
     }
     Text(status, style = Type.meta.copy(color = if (error != null) Ink.orange else Ink.muted))
+    // Content only signed-in accounts see: offer the sign-in right here.
+    val site = SignIns.siteFor(url)
+    if (error != null && site != null && Media.needsSignIn(error)) {
+        Spacer(Modifier.height(8.dp))
+        Button(
+            if (SignIns.signedIn(context, site)) "Sign in to ${site.label} again" else "Sign in to ${site.label}, then Check again",
+            { SignIns.open(context, site) }, Modifier.solo(), accent = Ink.red,
+        )
+    }
     media?.let { m ->
         val video = m.heights.filter { it in setOf(2160, 1440, 1080, 720, 480, 360, 240) }.ifEmpty { m.heights.take(4) }
         Text("Video", Modifier.padding(top = 10.dp), style = Type.meta)
