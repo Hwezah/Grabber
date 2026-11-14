@@ -256,7 +256,7 @@ private fun AllSheet(onDismiss: () -> Unit) {
         Row(Modifier.fillMaxWidth().padding(horizontal = CARD), horizontalArrangement = SpreadOut) {
             Button("Pause all", { Downloads.pauseAll(); onDismiss() }, icon = L.drawable.lucide_ic_pause, compact = true)
             Button("Resume all", { Downloads.resumeAll(); onDismiss() }, icon = L.drawable.lucide_ic_play, accent = Ink.green, compact = true)
-            Button("Clear done", { Downloads.clearFinished(); onDismiss() }, icon = L.drawable.lucide_ic_check, compact = true)
+            Button("Clear", { Downloads.clearFinished(); onDismiss() }, icon = L.drawable.lucide_ic_check, compact = true)
         }
     }
 }
