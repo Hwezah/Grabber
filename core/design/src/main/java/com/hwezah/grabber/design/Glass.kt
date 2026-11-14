@@ -43,12 +43,8 @@ fun Modifier.glow(colors: List<Color>, cx: Float = 0.85f, cy: Float = 1.1f) = dr
 fun Modifier.rim(shape: Shape, width: Dp = 1.dp) =
     border(width, Brush.verticalGradient(listOf(Ink.text.copy(alpha = 0.16f), Ink.text.copy(alpha = 0.04f))), shape)
 
-/**
- * Retro frosted glass: a faint lift at the top fading to the page, grain over it, and the rim.
- * [lift] is how far towards the surface colour the top goes; [alpha] how much of the page shows through.
- */
-fun Modifier.glass(shape: Shape, lift: Float = 0.55f, alpha: Float = 0.92f) = this
+/** Flat: a subtle 1dp border, no fill unless [fill] is given. */
+fun Modifier.outlined(shape: Shape, fill: Color = Color.Transparent) = this
     .clip(shape)
-    .background(Brush.verticalGradient(listOf(lerp(Ink.bg, Ink.surface2, lift).copy(alpha = alpha), Ink.bg.copy(alpha = alpha))))
-    .grain()
-    .rim(shape)
+    .background(fill)
+    .border(1.dp, Ink.stroke, shape)

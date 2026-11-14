@@ -13,6 +13,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -114,8 +115,9 @@ fun Button(
 ) {
     Tap(onClick, modifier, RoundedCornerShape(50)) { pressed ->
         val fg = if (accent != null) Color.White else Ink.text
-        val base = if (accent != null) Modifier.glow(glowOf(accent)).background(Color.Black.copy(alpha = if (pressed) 0.18f else 0f)).rim(RoundedCornerShape(50))
-        else Modifier.background(Ink.text.copy(alpha = if (pressed) 0.2f else 0.1f)).rim(RoundedCornerShape(50))
+        // Flat: a solid accent, or just a thin border.
+        val base = if (accent != null) Modifier.background(if (pressed) accent.copy(alpha = 0.8f) else accent)
+        else Modifier.background(if (pressed) Ink.text.copy(alpha = 0.08f) else Color.Transparent).border(1.dp, Ink.stroke, RoundedCornerShape(50))
         Row(
             base.height(if (compact) 36.dp else 46.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -123,9 +125,9 @@ fun Button(
         ) {
             if (icon != null) {
                 Lc(icon, tint = fg, size = 18.dp)
-                Spacer(Modifier.width(8.dp))
+                if (label.isNotEmpty()) Spacer(Modifier.width(8.dp))
             }
-            Text(label, style = Type.label.copy(fontWeight = FontWeight.SemiBold, color = fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (label.isNotEmpty()) Text(label, style = Type.label.copy(fontWeight = FontWeight.SemiBold, color = fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -136,12 +138,12 @@ fun Chip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = M
     Tap(onClick, modifier, CircleShape) { pressed ->
         val bg = when {
             on -> accent
-            pressed -> Ink.text.copy(alpha = 0.18f)
-            else -> Ink.text.copy(alpha = 0.08f)
+            pressed -> Ink.text.copy(alpha = 0.08f)
+            else -> Color.Transparent
         }
         val fg = if (on) Color.White else Ink.muted
         Row(
-            Modifier.background(bg).height(34.dp).padding(horizontal = 14.dp),
+            Modifier.background(bg).then(if (on) Modifier else Modifier.border(1.dp, Ink.stroke, CircleShape)).height(34.dp).padding(horizontal = 14.dp),
             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
         ) {
             if (icon != null) {
@@ -210,7 +212,7 @@ fun spreadOut(min: Dp = 8.dp): Arrangement.Horizontal = object : Arrangement.Hor
 
 val SpreadOut: Arrangement.Horizontal = spreadOut()
 
-/** The frame every sheet shares: a dimmed page, a glass sheet with a grab handle and a heading. */
+/** The frame every sheet shares: a dimmed page, a solid dark sheet with a grab handle and a heading. */
 @Composable
 fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
     BackHandler(onBack = onDismiss)
@@ -226,7 +228,7 @@ fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
         AnimatedVisibility(shown, enter = slideInVertically(Motion.spatial()) { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
             Column(
                 Modifier.widthIn(max = 600.dp).fillMaxWidth().heightIn(max = maxHeight)
-                    .glass(shape, lift = 0.9f, alpha = 0.98f)
+                    .background(Ink.surface).border(1.dp, Ink.stroke, shape)
                     .clickable(remember { MutableInteractionSource() }, indication = null) {}
                     .navigationBarsPadding().padding(bottom = 10.dp),
             ) {

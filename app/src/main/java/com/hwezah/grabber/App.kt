@@ -39,7 +39,7 @@ import com.hwezah.grabber.design.Ink
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Tap
 import com.hwezah.grabber.design.Type
-import com.hwezah.grabber.design.glass
+import com.hwezah.grabber.design.outlined
 import com.hwezah.grabber.design.grain
 
 enum class Tab(val label: String, @DrawableRes val icon: Int) {
@@ -54,7 +54,7 @@ fun App() {
     else lightColorScheme(primary = Ink.red, background = Ink.bg, surface = Ink.surface)
     MaterialTheme(colorScheme = scheme) {
         var tab by rememberSaveable { mutableStateOf(Tab.Downloads) }
-        Box(Modifier.fillMaxSize().background(Ink.bg).grain()) {
+        Box(Modifier.fillMaxSize().background(Ink.bg)) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
@@ -68,6 +68,7 @@ fun App() {
                 if (!Prefs.pillBar) TabBar(tab) { tab = it }
             }
             if (Prefs.pillBar) PillBar(tab, { tab = it }, Modifier.align(Alignment.BottomCenter))
+            Capture.pending?.let { CaptureSheet(it) { Capture.pending = null } }
         }
     }
 }
@@ -75,7 +76,7 @@ fun App() {
 /** The tabs along the bottom: the one you are on white with a red tick. */
 @Composable
 private fun TabBar(tab: Tab, onTab: (Tab) -> Unit) {
-    Row(Modifier.fillMaxWidth().background(Ink.bg).grain().navigationBarsPadding().height(58.dp)) {
+    Row(Modifier.fillMaxWidth().background(Ink.bg).navigationBarsPadding().height(58.dp)) {
         Tab.entries.forEach { t ->
             val on = t == tab
             Tap({ onTab(t) }, Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(0.dp)) {
@@ -97,11 +98,11 @@ private fun TabBar(tab: Tab, onTab: (Tab) -> Unit) {
     }
 }
 
-/** The tabs as a floating glass pill: icons only, the chosen one in a lighter capsule. */
+/** The tabs as a floating pill: icons only, the chosen one in a lighter capsule. */
 @Composable
 private fun PillBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.navigationBarsPadding().padding(bottom = 12.dp).glass(RoundedCornerShape(50)).padding(6.dp),
+        modifier.navigationBarsPadding().padding(bottom = 12.dp).outlined(RoundedCornerShape(50), Ink.bg).padding(6.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -62,7 +62,7 @@ import com.hwezah.grabber.design.Overline
 import com.hwezah.grabber.design.SpreadOut
 import com.hwezah.grabber.design.Tap
 import com.hwezah.grabber.design.Type
-import com.hwezah.grabber.design.glass
+import com.hwezah.grabber.design.outlined
 import com.hwezah.grabber.engine.Category
 
 private val FILTERS = listOf("All", "Active", "Done") + Category.entries.map { it.folder }
@@ -113,7 +113,7 @@ fun DownloadsPage() {
             if (shown.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = EDGE * 3), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(72.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(72.dp).outlined(CircleShape), contentAlignment = Alignment.Center) {
                             Lc(L.drawable.lucide_ic_download, tint = Ink.green, size = 30.dp)
                         }
                         Spacer(Modifier.height(16.dp))
@@ -142,7 +142,7 @@ fun DownloadsPage() {
 private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
     val shape = RoundedCornerShape(18.dp)
     Tap(onClick, Modifier.fillMaxWidth(), shape) {
-        Row(Modifier.glass(shape, lift = 0.35f).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.outlined(shape).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clip(CircleShape).background(tintOf(item.category).copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
                 Lc(iconOf(item.category), tint = tintOf(item.category), size = 20.dp)
             }
@@ -276,9 +276,18 @@ private fun AddSheet(onDismiss: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
             }
             val shape = RoundedCornerShape(14.dp)
-            Box(Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 160.dp).clip(shape).background(Ink.text.copy(alpha = 0.07f)).border(1.dp, Ink.stroke, shape).padding(12.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 160.dp).clip(shape).border(1.dp, Ink.stroke, shape).padding(12.dp)) {
                 if (text.isEmpty()) Text("Paste links, or any text with links in it", style = Type.label.copy(color = Ink.faint))
-                BasicTextField(text, { text = it }, Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), textStyle = Type.label, cursorBrush = SolidColor(Ink.red))
+                BasicTextField(
+                    text, { text = it }, Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), textStyle = Type.label, cursorBrush = SolidColor(Ink.red),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Go),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onGo = {
+                        if (chosen.isNotEmpty() && Prefs.folder != null) {
+                            startDownloads(context, chosen) { notify.launch(Manifest.permission.POST_NOTIFICATIONS) }
+                            onDismiss()
+                        }
+                    }),
+                )
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {

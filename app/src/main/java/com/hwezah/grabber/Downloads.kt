@@ -30,6 +30,8 @@ data class Item(
     val done: Long = 0,
     val created: Long = System.currentTimeMillis(),
     val finished: Long = 0,
+    /** A name the user typed; otherwise the server's is used. */
+    val fixedName: String? = null,
 ) {
     val progress get() = if (size > 0) (done.toFloat() / size).coerceIn(0f, 1f) else 0f
 }
@@ -54,10 +56,13 @@ object Downloads {
             .map { if (it.state == State.Running) it.copy(state = State.Queued) else it }
     }
 
-    fun add(urls: List<String>, headers: Map<String, String> = emptyMap()) {
+    fun add(urls: List<String>, headers: Map<String, String> = emptyMap(), name: String? = null) {
         val base = System.currentTimeMillis()
         _items.update { list ->
-            urls.mapIndexed { i, u -> Item(id = base + i, url = u, headers = headers, name = u.substringBefore('?').trimEnd('/').substringAfterLast('/').ifBlank { u }) } + list
+            urls.mapIndexed { i, u ->
+                Item(id = base + i, url = u, headers = headers, fixedName = name?.takeIf { urls.size == 1 && it.isNotBlank() },
+                    name = name?.takeIf { it.isNotBlank() } ?: u.substringBefore('?').trimEnd('/').substringAfterLast('/').ifBlank { u })
+            } + list
         }
         save()
         kick()
@@ -125,6 +130,7 @@ object Downloads {
                 i.doc?.let { put("doc", it) }
                 put("state", i.state.name); i.error?.let { put("error", it) }
                 put("segments", i.segments); put("done", i.done); put("created", i.created); put("finished", i.finished)
+                i.fixedName?.let { put("fixedName", it) }
             })
         }
     }.toString()
@@ -145,6 +151,7 @@ object Downloads {
                 error = o.optString("error").ifEmpty { null },
                 segments = o.optString("segments"), done = o.optLong("done"),
                 created = o.optLong("created"), finished = o.optLong("finished"),
+                fixedName = o.optString("fixedName").ifEmpty { null },
             )
         }
     }

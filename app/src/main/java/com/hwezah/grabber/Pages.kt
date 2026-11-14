@@ -50,31 +50,7 @@ import com.hwezah.grabber.design.Overline
 import com.hwezah.grabber.design.SpreadOut
 import com.hwezah.grabber.design.Toggle
 import com.hwezah.grabber.design.Type
-import com.hwezah.grabber.design.glass
-
-@Composable
-fun ClipboardPage() {
-    var query by rememberSaveable { mutableStateOf("") }
-    Column(Modifier.fillMaxSize()) {
-        Heading("Clipboard")
-        val shape = RoundedCornerShape(50)
-        Row(
-            Modifier.padding(horizontal = EDGE).fillMaxWidth().height(46.dp).glass(shape).padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Lc(L.drawable.lucide_ic_search, tint = Ink.faint, size = 18.dp)
-            Spacer(Modifier.width(10.dp))
-            Box(Modifier.weight(1f)) {
-                if (query.isEmpty()) Text("Search what you copied", style = Type.label.copy(color = Ink.faint))
-                BasicTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true, textStyle = Type.label, cursorBrush = SolidColor(Ink.red))
-            }
-        }
-        Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = EDGE * 3), contentAlignment = Alignment.Center) {
-            Note("Everything Grabber catches from your clipboard will be kept here: pin, copy again, share or delete.")
-        }
-        Spacer(Modifier.height(BottomRoom))
-    }
-}
+import com.hwezah.grabber.design.outlined
 
 @Composable
 fun SettingsPage() {
@@ -99,6 +75,9 @@ fun SettingsPage() {
                     }
                 }
             }
+            Spacer(Modifier.height(20.dp))
+            Overline("Catching links")
+            Group { CatchRows() }
             Spacer(Modifier.height(20.dp))
             Overline("Look")
             Group {
@@ -125,12 +104,12 @@ fun SettingsPage() {
 }
 
 @Composable
-private fun Group(content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().glass(RoundedCornerShape(18.dp)).padding(horizontal = CARD, vertical = 6.dp)) { content() }
+fun Group(content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth().outlined(RoundedCornerShape(18.dp)).padding(horizontal = CARD, vertical = 6.dp)) { content() }
 }
 
 @Composable
-private fun SettingRow(title: String, hint: String, trailing: @Composable () -> Unit) {
+fun SettingRow(title: String, hint: String, trailing: @Composable () -> Unit = {}) {
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text(title, style = Type.label.copy(fontWeight = FontWeight.SemiBold))

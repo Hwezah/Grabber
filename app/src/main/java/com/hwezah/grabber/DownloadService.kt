@@ -103,7 +103,8 @@ class DownloadService : Service() {
             var item = Downloads.get(id) ?: return
             if (item.doc == null) {
                 val tree = Prefs.folder ?: throw IllegalStateException("Choose a download folder in Settings")
-                val info = Http.probe(item.url, item.headers)
+                val probed = Http.probe(item.url, item.headers)
+                val info = item.fixedName?.let { probed.copy(name = Names.clean(it)) } ?: probed
                 val category = Names.category(info.name, info.mime)
                 val doc = Folders.create(this, tree, category, info.name) ?: throw IllegalStateException("Can't write to the download folder; choose it again in Settings")
                 Downloads.edit(id) {

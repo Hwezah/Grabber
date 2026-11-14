@@ -13,6 +13,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Prefs.init(this)
         Downloads.init(this)
+        Clips.init(this)
         Ink.use(Prefs.dark)
         // Downloads left waiting when the app was closed carry on.
         Downloads.kick()
@@ -26,5 +27,14 @@ class MainActivity : ComponentActivity() {
             }
             App()
         }
+    }
+
+    // Opening Grabber with a new link on the clipboard offers it, as 1DM does.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus) return
+        val text = Capture.fresh(this) ?: return
+        Clips.add(text)
+        if (LinkFinder.find(text).isNotEmpty()) Capture.pending = text
     }
 }

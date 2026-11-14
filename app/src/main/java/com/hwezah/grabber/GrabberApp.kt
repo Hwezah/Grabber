@@ -7,5 +7,6 @@ class GrabberApp : Application() {
         super.onCreate()
         Prefs.init(this)
         Downloads.init(this)
+        Clips.init(this)
     }
 }
