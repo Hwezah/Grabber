@@ -34,7 +34,8 @@ object Media {
 
     private val SITES = listOf(
         "youtube.com", "youtu.be", "tiktok.com", "instagram.com", "facebook.com", "fb.watch", "x.com", "twitter.com",
-        "vimeo.com", "dailymotion.com", "reddit.com", "soundcloud.com", "twitch.tv", "bilibili.com", "pinterest.",
+        "vimeo.com", "dailymotion.com", "reddit.com", "redd.it", "soundcloud.com", "twitch.tv", "bilibili.com", "pinterest.", "pin.it",
+        "threads.net", "snapchat.com", "linkedin.com", "tumblr.com", "vk.com", "likee.video", "kwai.com", "bsky.app", "rumble.com", "streamable.com",
     )
 
     /** Links to pages yt-dlp knows, worth asking before trying a plain download. */

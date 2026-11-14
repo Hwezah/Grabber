@@ -73,6 +73,7 @@ private val FILTERS = listOf("All", "Active", "Done") + Category.entries.map { i
 private fun iconOf(c: Category) = when (c) {
     Category.Video -> L.drawable.lucide_ic_film
     Category.Audio -> L.drawable.lucide_ic_music
+    Category.Images -> L.drawable.lucide_ic_file_image
     Category.Documents -> L.drawable.lucide_ic_file_text
     Category.Archives -> L.drawable.lucide_ic_file_archive
     Category.Torrents -> L.drawable.lucide_ic_magnet

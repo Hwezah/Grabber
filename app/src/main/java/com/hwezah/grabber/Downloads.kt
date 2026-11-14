@@ -87,6 +87,15 @@ object Downloads {
         kick()
     }
 
+    /** A file saved straight away (shared to Grabber): listed as done. */
+    fun addFinished(url: String, name: String, mime: String?, category: Category, doc: String, size: Long) {
+        val now = System.currentTimeMillis()
+        _items.update { list ->
+            listOf(Item(id = now + list.size, url = url, name = name, mime = mime, category = category, size = size, done = size, doc = doc, state = State.Done, finished = now)) + list
+        }
+        save()
+    }
+
     fun edit(id: Long, change: (Item) -> Item) {
         var finished: Item? = null
         _items.update { list ->

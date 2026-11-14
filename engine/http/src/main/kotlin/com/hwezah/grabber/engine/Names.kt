@@ -2,12 +2,13 @@ package com.hwezah.grabber.engine
 
 import java.net.URLDecoder
 
-enum class Category(val folder: String) { Video("Video"), Audio("Audio"), Documents("Documents"), Archives("Archives"), Torrents("Torrents"), Other("Other") }
+enum class Category(val folder: String) { Video("Video"), Audio("Audio"), Images("Images"), Documents("Documents"), Archives("Archives"), Torrents("Torrents"), Other("Other") }
 
 object Names {
     private val VIDEO = setOf("mp4", "mkv", "webm", "avi", "mov", "m4v", "ts", "flv", "wmv", "3gp", "mpg", "mpeg")
     private val AUDIO = setOf("mp3", "m4a", "aac", "flac", "wav", "ogg", "opus", "wma", "amr")
     private val DOCS = setOf("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "epub", "csv", "odt", "rtf", "md")
+    private val IMAGES = setOf("jpg", "jpeg", "png", "webp", "gif", "heic", "heif", "bmp", "avif")
     private val ARCHIVES = setOf("zip", "rar", "7z", "tar", "gz", "bz2", "xz", "apk", "iso", "zst")
 
     fun category(name: String, mime: String?): Category {
@@ -16,6 +17,7 @@ object Names {
             ext == "torrent" || mime == "application/x-bittorrent" -> Category.Torrents
             ext in VIDEO || mime?.startsWith("video/") == true -> Category.Video
             ext in AUDIO || mime?.startsWith("audio/") == true -> Category.Audio
+            ext in IMAGES || mime?.startsWith("image/") == true -> Category.Images
             ext in DOCS || mime?.startsWith("text/") == true || mime == "application/pdf" -> Category.Documents
             ext in ARCHIVES -> Category.Archives
             else -> Category.Other

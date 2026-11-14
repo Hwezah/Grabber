@@ -19,6 +19,8 @@ import com.hwezah.grabber.design.Ink
  */
 class CaptureActivity : ComponentActivity() {
     private var text by mutableStateOf<String?>(null)
+    /** Files shared to us (a WhatsApp status, photos, videos). */
+    private var files by mutableStateOf<List<android.net.Uri>>(emptyList())
     /** What the sending app told us about the link: a title, and headers it needs (referer, cookies…). */
     private var title by mutableStateOf<String?>(null)
     private var headers by mutableStateOf<Map<String, String>>(emptyMap())
@@ -30,10 +32,11 @@ class CaptureActivity : ComponentActivity() {
         Downloads.init(this)
         Clips.init(this)
         Ink.use(Prefs.dark)
-        given(intent)?.let { show(it) }
+        streams(intent).takeIf { it.isNotEmpty() }?.let { files = it } ?: given(intent)?.let { show(it) }
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Ink.red)) {
-                text?.let { CaptureSheet(it, title = title, headers = headers) { finish() } }
+                if (files.isNotEmpty()) SaveFilesSheet(files) { finish() }
+                else text?.let { CaptureSheet(it, title = title, headers = headers) { finish() } }
             }
         }
     }
@@ -42,7 +45,7 @@ class CaptureActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         looked = false
-        given(intent)?.let { show(it) }
+        streams(intent).takeIf { it.isNotEmpty() }?.let { files = it } ?: given(intent)?.let { show(it) }
     }
 
     /** Text handed to us directly: shared, or selected with "Grabber" in the text menu. */
@@ -53,9 +56,16 @@ class CaptureActivity : ComponentActivity() {
         else -> null
     }
 
+    @Suppress("DEPRECATION")
+    private fun streams(i: Intent): List<android.net.Uri> = when (i.action) {
+        Intent.ACTION_SEND -> listOfNotNull(i.getParcelableExtra(Intent.EXTRA_STREAM) as? android.net.Uri)
+        Intent.ACTION_SEND_MULTIPLE -> i.getParcelableArrayListExtra<android.net.Uri>(Intent.EXTRA_STREAM).orEmpty()
+        else -> emptyList()
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (!hasFocus || looked || text != null) return
+        if (!hasFocus || looked || text != null || files.isNotEmpty()) return
         looked = true
         val fromTile = intent.getBooleanExtra(FROM_TILE, false)
         // The tile always shows what's there; the watcher only what's new.

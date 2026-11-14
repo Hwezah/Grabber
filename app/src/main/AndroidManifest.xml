@@ -43,6 +43,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <!-- Files shared to Grabber (WhatsApp statuses, photos, videos): saved into the download folder. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="audio/*" />
+                <data android:mimeType="application/*" />
+            </intent-filter>
             <!-- "Download with" / "Open with" from other apps: magnets, and links that say they're media or files. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
