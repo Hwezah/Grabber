@@ -162,7 +162,16 @@ object Downloads {
         _items.update { list -> list.filterNot { it.id == id } }
         save()
         if (withFile) item.doc?.let { Folders.delete(ctx, it) }
-        if (item.kind == Kind.Torrent) Torrents.forget(ctx, item)
+        // Only a real delete drops a torrent's partial pieces; removing from the list keeps them for Undo.
+        if (withFile && item.kind == Kind.Torrent) Torrents.forget(ctx, item)
+    }
+
+    /** Undo a removal from the list. */
+    fun restore(item: Item) {
+        val back = if (item.state == State.Running) item.copy(state = State.Queued) else item
+        _items.update { list -> if (list.any { it.id == back.id }) list else (list + back).sortedByDescending { it.created } }
+        save()
+        kick()
     }
 
     fun clearFinished() {

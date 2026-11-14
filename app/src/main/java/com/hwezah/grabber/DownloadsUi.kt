@@ -57,6 +57,8 @@ import com.hwezah.grabber.design.EDGE
 import com.hwezah.grabber.design.Heading
 import com.hwezah.grabber.design.CARD
 import com.hwezah.grabber.design.Ink
+import com.hwezah.grabber.design.SwipeRow
+import com.hwezah.grabber.design.CARD
 import com.hwezah.grabber.design.StretchRow
 import com.hwezah.grabber.design.solo
 import com.hwezah.grabber.design.Lc
@@ -96,6 +98,15 @@ fun DownloadsPage() {
     var adding by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var picked by remember { mutableStateOf<Long?>(null) }
+    val context = LocalContext.current
+    /** The download just swiped off the list, offered back for a few seconds. */
+    var removed by remember { mutableStateOf<Item?>(null) }
+    androidx.compose.runtime.LaunchedEffect(removed) {
+        if (removed != null) {
+            kotlinx.coroutines.delay(4000)
+            removed = null
+        }
+    }
     val shown = items.filter { i ->
         when (filter) {
             "All" -> true
@@ -115,6 +126,11 @@ fun DownloadsPage() {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = EDGE), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FILTERS.forEach { c -> Chip(c, c == filter, { filter = c }) }
             }
+            if (items.isNotEmpty()) Text(
+                "Swipe left to remove · swipe right to pause, resume or open",
+                Modifier.fillMaxWidth().padding(top = 8.dp),
+                style = Type.meta.copy(color = Ink.faint, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+            )
             if (shown.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = EDGE * 3), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -133,8 +149,42 @@ fun DownloadsPage() {
                     contentPadding = PaddingValues(start = EDGE, end = EDGE, top = 12.dp, bottom = BottomRoom),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(shown, key = { it.id }) { item -> DownloadRow(item, live[item.id]) { picked = item.id } }
+                    items(shown, key = { it.id }) { item ->
+                        val active = item.state == State.Running || item.state == State.Queued
+                        SwipeRow(
+                            onLeft = { Downloads.delete(item.id, false); removed = item },
+                            onRight = {
+                                when {
+                                    active -> Downloads.pause(item.id)
+                                    item.state == State.Done -> item.doc?.let { doc ->
+                                        runCatching {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(doc), item.mime ?: "*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                                        }
+                                    }
+                                    else -> Downloads.resume(item.id)
+                                }
+                            },
+                            leftIcon = L.drawable.lucide_ic_trash_2,
+                            rightIcon = when {
+                                active -> L.drawable.lucide_ic_pause
+                                item.state == State.Done -> L.drawable.lucide_ic_play
+                                else -> L.drawable.lucide_ic_play
+                            },
+                            leftColor = Ink.red, rightColor = if (active) Ink.orange else Ink.green,
+                            shape = RoundedCornerShape(18.dp), modifier = Modifier.animateItem(),
+                        ) { DownloadRow(item, live[item.id]) { picked = item.id } }
+                    }
                 }
+            }
+        }
+        removed?.let { r ->
+            Row(
+                Modifier.align(Alignment.BottomCenter).padding(start = EDGE, end = EDGE, bottom = BottomRoom).fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp)).background(Ink.sheet).padding(start = CARD, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Removed from the list (file kept)", Modifier.weight(1f), style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Button("Undo", { Downloads.restore(r); removed = null }, accent = Ink.green, compact = true)
             }
         }
         if (adding) AddSheet { adding = false }
