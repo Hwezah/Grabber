@@ -42,6 +42,7 @@ import com.hwezah.grabber.design.BottomSheet
 import com.hwezah.grabber.design.Button
 import com.hwezah.grabber.design.EDGE
 import com.hwezah.grabber.design.Heading
+import com.hwezah.grabber.design.CARD
 import com.hwezah.grabber.design.Ink
 import com.hwezah.grabber.design.solo
 import com.hwezah.grabber.design.Lc
@@ -86,7 +87,7 @@ fun ClipboardPage() {
                     items(shown, key = { it.id }) { clip ->
                         val shape = RoundedCornerShape(16.dp)
                         Tap({ picked = clip }, Modifier.fillMaxWidth(), shape) {
-                            Row(Modifier.frost(shape).padding(12.dp), verticalAlignment = Alignment.Top) {
+                            Row(Modifier.frost(shape).padding(horizontal = CARD, vertical = 12.dp), verticalAlignment = Alignment.Top) {
                                 Column(Modifier.weight(1f)) {
                                     Text(clip.text, style = Type.label, maxLines = 3, overflow = TextOverflow.Ellipsis)
                                     Text(DateUtils.getRelativeTimeSpanString(clip.time).toString(), Modifier.padding(top = 4.dp), style = Type.meta.copy(color = Ink.faint))
@@ -112,7 +113,7 @@ private fun ClipSheet(clip: Clip, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val links = remember(clip) { LinkFinder.find(clip.text).isNotEmpty() }
     BottomSheet("Clip", onDismiss) {
-        Column(Modifier.padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(horizontal = CARD)) {
             Text(clip.text, style = Type.body.copy(color = Ink.text), maxLines = 8, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
@@ -156,7 +157,7 @@ fun CatchRows() {
     SettingRow("Quick Settings tile", "Swipe down, edit tiles, add \"Grab clipboard\" for one-tap catching") {}
     SettingRow("Share → Grabber", "Share a link from any app to Grabber, or select text and pick Grabber") {}
     if (help) BottomSheet("Turn on auto-catch", { help = false }) {
-        Column(Modifier.padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(horizontal = CARD)) {
             Text(
                 "Android lets an app read the clipboard only while it's on screen. Grabber's accessibility service watches for you tapping Copy " +
                     "(only the button's words, never the screen), then briefly opens its popup to read the clipboard.",

@@ -47,7 +47,7 @@ fun Modifier.rim(shape: Shape, width: Dp = 1.dp) =
  * Frosted glass, no border: a slightly lighter translucent shade of the page with fine grain in it.
  * [fill] goes underneath first, for surfaces that float over content (the tab bar).
  */
-fun Modifier.frost(shape: Shape, fill: Color = Color.Transparent, alpha: Float = 0.07f) = this
+fun Modifier.frost(shape: Shape, fill: Color = Color.Transparent, alpha: Float = 0.05f) = this
     .clip(shape)
     .background(fill)
     .background(Ink.text.copy(alpha = alpha))

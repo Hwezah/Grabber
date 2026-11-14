@@ -252,7 +252,7 @@ fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
                     .navigationBarsPadding().padding(bottom = 10.dp),
             ) {
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(36.dp, 4.dp).clip(CircleShape).background(Ink.stroke))
-                Text(title, Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 8.dp), style = Type.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(title, Modifier.padding(start = CARD, end = CARD, top = 14.dp, bottom = 8.dp), style = Type.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 content()
             }
         }

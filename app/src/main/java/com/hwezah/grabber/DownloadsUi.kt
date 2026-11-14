@@ -55,6 +55,7 @@ import com.hwezah.grabber.design.Button
 import com.hwezah.grabber.design.Chip
 import com.hwezah.grabber.design.EDGE
 import com.hwezah.grabber.design.Heading
+import com.hwezah.grabber.design.CARD
 import com.hwezah.grabber.design.Ink
 import com.hwezah.grabber.design.solo
 import com.hwezah.grabber.design.Lc
@@ -144,7 +145,8 @@ fun DownloadsPage() {
 private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
     val shape = RoundedCornerShape(18.dp)
     Tap(onClick, Modifier.fillMaxWidth(), shape) {
-        Row(Modifier.frost(shape).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        // The play/pause target is 40dp around a 20dp icon: less padding on the right so the icon sits CARD from the edge.
+        Row(Modifier.frost(shape).padding(start = CARD, end = CARD - 10.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clip(CircleShape).background(tintOf(item.category).copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
                 Lc(iconOf(item.category), tint = tintOf(item.category), size = 20.dp)
             }
@@ -172,7 +174,7 @@ private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
                     }
                 }
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(4.dp))
             when (item.state) {
                 State.Running, State.Queued -> Tap({ Downloads.pause(item.id) }, Modifier.size(40.dp), CircleShape) {
                     Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_pause, tint = Ink.text) }
@@ -192,7 +194,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var confirm by remember { mutableStateOf(false) }
     BottomSheet(item.name, onDismiss) {
-        Column(Modifier.padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(horizontal = CARD)) {
             Text(item.url, style = Type.meta, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = SpreadOut) {
@@ -251,7 +253,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
 @Composable
 private fun AllSheet(onDismiss: () -> Unit) {
     BottomSheet("All downloads", onDismiss) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = SpreadOut) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = CARD), horizontalArrangement = SpreadOut) {
             Button("Pause all", { Downloads.pauseAll(); onDismiss() }, icon = L.drawable.lucide_ic_pause, compact = true)
             Button("Resume all", { Downloads.resumeAll(); onDismiss() }, icon = L.drawable.lucide_ic_play, accent = Ink.green, compact = true)
             Button("Clear done", { Downloads.clearFinished(); onDismiss() }, icon = L.drawable.lucide_ic_check, compact = true)
@@ -290,14 +292,14 @@ private fun AddSheet(onDismiss: () -> Unit) {
     val chosen = found.map { it.text }.filter { it !in off }
     val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     BottomSheet("Add downloads", onDismiss) {
-        Column(Modifier.padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(horizontal = CARD)) {
             if (Prefs.folder == null) {
                 Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))
                 FolderRow()
                 Spacer(Modifier.height(8.dp))
             }
             val shape = RoundedCornerShape(14.dp)
-            Box(Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 160.dp).frost(shape).padding(12.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 160.dp).frost(shape).padding(horizontal = CARD, vertical = 12.dp)) {
                 if (text.isEmpty()) Text("Paste links, or any text with links in it", style = Type.label.copy(color = Ink.faint))
                 BasicTextField(
                     text, { text = it }, Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), textStyle = Type.label, cursorBrush = SolidColor(Ink.red),

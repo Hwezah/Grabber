@@ -54,6 +54,7 @@ import androidx.core.content.ContextCompat
 import com.composables.icons.lucide.R as L
 import com.hwezah.grabber.design.BottomSheet
 import com.hwezah.grabber.design.Button
+import com.hwezah.grabber.design.CARD
 import com.hwezah.grabber.design.Ink
 import com.hwezah.grabber.design.solo
 import com.hwezah.grabber.design.frost
@@ -123,7 +124,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
     }
     val single = found.size == 1
     BottomSheet(if (single && found[0] is Found.Web) "Download file" else heading, onDismiss) {
-        Column(Modifier.padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(horizontal = CARD)) {
             if (found.isEmpty()) {
                 Text(text, style = Type.body.copy(color = Ink.text), maxLines = 6, overflow = TextOverflow.Ellipsis)
             } else if (single) {
@@ -302,7 +303,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
 @Composable
 fun Field(value: String, onValue: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, onGo: (() -> Unit)? = null) {
     val shape = RoundedCornerShape(12.dp)
-    Box(modifier.fillMaxWidth().frost(shape).padding(horizontal = 12.dp, vertical = 12.dp)) {
+    Box(modifier.fillMaxWidth().frost(shape).padding(horizontal = CARD, vertical = 12.dp)) {
         if (value.isEmpty()) Text(placeholder, style = Type.label.copy(color = Ink.faint), maxLines = 1)
         BasicTextField(
             value, onValue, Modifier.fillMaxWidth(), singleLine = true, textStyle = Type.label, cursorBrush = SolidColor(Ink.red),
