@@ -49,6 +49,12 @@ object Clips {
         save()
     }
 
+    /** Undo a delete: puts [clip] back as it was. */
+    fun restore(clip: Clip) {
+        _items.update { list -> if (list.any { it.id == clip.id }) list else (list + clip).sortedByDescending { it.time } }
+        save()
+    }
+
     fun clearUnpinned() {
         _items.update { list -> list.filter { it.pinned } }
         save()

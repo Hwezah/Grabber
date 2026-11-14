@@ -49,6 +49,9 @@ import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Note
 import com.hwezah.grabber.design.SpreadOut
 import com.hwezah.grabber.design.Tap
+import com.hwezah.grabber.design.SwipeRow
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import com.hwezah.grabber.design.Type
 import com.hwezah.grabber.design.frost
 
@@ -58,6 +61,14 @@ fun ClipboardPage() {
     val clips by Clips.items.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
     var picked by remember { mutableStateOf<Clip?>(null) }
+    /** The clip just swiped away, offered back for a few seconds. */
+    var deleted by remember { mutableStateOf<Clip?>(null) }
+    LaunchedEffect(deleted) {
+        if (deleted != null) {
+            kotlinx.coroutines.delay(4000)
+            deleted = null
+        }
+    }
     /** Typed or pasted text: kept, and its links offered. */
     fun take(text: String) {
         if (text.isBlank()) return
@@ -74,6 +85,11 @@ fun ClipboardPage() {
                 Button("Paste", { take(readClipboard(context)) }, icon = L.drawable.lucide_ic_clipboard_paste, accent = Ink.red, compact = true)
             }
             Field(query, { query = it }, "Search, or paste a link and press Go", Modifier.padding(horizontal = EDGE), onGo = { take(query) })
+            if (clips.isNotEmpty()) Text(
+                "Swipe left to delete · swipe right to pin",
+                Modifier.fillMaxWidth().padding(top = 8.dp),
+                style = Type.meta.copy(color = Ink.faint, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+            )
             if (shown.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = EDGE * 3), contentAlignment = Alignment.Center) {
                     Note(if (clips.isEmpty()) "What you copy shows up here once auto-catch is on (Settings), or when you open Grabber or tap Paste." else "Nothing matches.")
@@ -86,6 +102,12 @@ fun ClipboardPage() {
                 ) {
                     items(shown, key = { it.id }) { clip ->
                         val shape = RoundedCornerShape(16.dp)
+                        SwipeRow(
+                            onLeft = { Clips.delete(clip.id); deleted = clip },
+                            onRight = { Clips.pin(clip.id) },
+                            leftIcon = L.drawable.lucide_ic_trash_2, rightIcon = if (clip.pinned) L.drawable.lucide_ic_pin_off else L.drawable.lucide_ic_pin,
+                            leftColor = Ink.red, rightColor = Ink.orange, shape = shape, modifier = Modifier.animateItem(),
+                        ) {
                         Tap({ picked = clip }, Modifier.fillMaxWidth(), shape) {
                             Row(Modifier.frost(shape).padding(horizontal = CARD, vertical = 12.dp), verticalAlignment = Alignment.Top) {
                                 Column(Modifier.weight(1f)) {
@@ -100,11 +122,22 @@ fun ClipboardPage() {
                                 }
                             }
                         }
+                        }
                     }
                 }
             }
         }
         picked?.let { ClipSheet(it) { picked = null } }
+        deleted?.let { d ->
+            Row(
+                Modifier.align(Alignment.BottomCenter).padding(start = EDGE, end = EDGE, bottom = BottomRoom).fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp)).background(Ink.sheet).padding(start = CARD, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Clip deleted", Modifier.weight(1f), style = Type.label)
+                Button("Undo", { Clips.restore(d); deleted = null }, accent = Ink.green, compact = true)
+            }
+        }
     }
 }
 

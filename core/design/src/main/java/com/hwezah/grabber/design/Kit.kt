@@ -13,6 +13,9 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -261,3 +264,55 @@ fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
 
 /** A button alone on its row: 80% of the width, centred. */
 fun Modifier.solo() = fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).fillMaxWidth(0.8f)
+
+/**
+ * A row you can swipe: left runs [onLeft] (e.g. delete), right runs [onRight] (e.g. pin). Behind the row,
+ * the side being revealed shows its colour and icon. Past a third of the width it goes; short of that it springs back.
+ */
+@Composable
+fun SwipeRow(
+    onLeft: () -> Unit,
+    onRight: () -> Unit,
+    @DrawableRes leftIcon: Int,
+    @DrawableRes rightIcon: Int,
+    leftColor: Color,
+    rightColor: Color,
+    shape: Shape,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val offset = remember { androidx.compose.animation.core.Animatable(0f) }
+    var width by remember { mutableStateOf(1f) }
+    Box(modifier.onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }) {
+        val x = offset.value
+        if (x != 0f) {
+            val right = x > 0
+            Box(
+                Modifier.matchParentSize().clip(shape).background((if (right) rightColor else leftColor).copy(alpha = (kotlin.math.abs(x) / (width / 3)).coerceIn(0.25f, 1f))),
+                contentAlignment = if (right) Alignment.CenterStart else Alignment.CenterEnd,
+            ) {
+                Lc(if (right) rightIcon else leftIcon, Modifier.padding(horizontal = 24.dp), tint = Color.White, size = 22.dp)
+            }
+        }
+        Box(
+            Modifier.graphicsLayer { translationX = offset.value }
+                .draggable(
+                    androidx.compose.foundation.gestures.rememberDraggableState { d -> scope.launch { offset.snapTo(offset.value + d) } },
+                    androidx.compose.foundation.gestures.Orientation.Horizontal,
+                    onDragStopped = {
+                        val v = offset.value
+                        scope.launch {
+                            if (kotlin.math.abs(v) > width / 3) {
+                                offset.animateTo(if (v > 0) width else -width, tween(160))
+                                if (v > 0) onRight() else onLeft()
+                                offset.snapTo(0f)
+                            } else {
+                                offset.animateTo(0f, Motion.spatial())
+                            }
+                        }
+                    },
+                ),
+        ) { content() }
+    }
+}
