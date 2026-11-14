@@ -109,7 +109,7 @@ fun ClipboardPage() {
 @Composable
 private fun ClipSheet(clip: Clip, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val links = remember(clip) { LinkFinder.find(clip.text).isNotEmpty() }
+    val links = remember(clip) { LinkFinder.find(clip.text).any { it is Found.Web } }
     BottomSheet("Clip", onDismiss) {
         Column(Modifier.padding(horizontal = 16.dp)) {
             Text(clip.text, style = Type.body.copy(color = Ink.text), maxLines = 8, overflow = TextOverflow.Ellipsis)
