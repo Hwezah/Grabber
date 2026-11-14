@@ -212,10 +212,19 @@ fun spreadOut(min: Dp = 8.dp): Arrangement.Horizontal = object : Arrangement.Hor
 
 val SpreadOut: Arrangement.Horizontal = spreadOut()
 
+/** How many sheets are open: the floating tab bar hides while any is. */
+object Sheets {
+    var open by mutableStateOf(0)
+}
+
 /** The frame every sheet shares: a dimmed page, a plain grey sheet with a grab handle and a heading. */
 @Composable
 fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
     BackHandler(onBack = onDismiss)
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        Sheets.open++
+        onDispose { Sheets.open-- }
+    }
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp

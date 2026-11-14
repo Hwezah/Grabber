@@ -2,6 +2,15 @@ package com.hwezah.grabber
 
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import com.hwezah.grabber.design.Sheets
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -54,7 +63,17 @@ fun App() {
     else lightColorScheme(primary = Ink.red, background = Ink.bg, surface = Ink.surface)
     MaterialTheme(colorScheme = scheme) {
         var tab by rememberSaveable { mutableStateOf(Tab.Downloads) }
-        Box(Modifier.fillMaxSize().background(Ink.bg)) {
+        // The floating bar slips away while you scroll down and comes back when you scroll up.
+        var barShown by remember { mutableStateOf(true) }
+        val scrollWatch = remember {
+            object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                    if (available.y < -6f) barShown = false else if (available.y > 6f) barShown = true
+                    return Offset.Zero
+                }
+            }
+        }
+        Box(Modifier.fillMaxSize().background(Ink.bg).nestedScroll(scrollWatch)) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
@@ -67,7 +86,14 @@ fun App() {
                 }
                 if (!Prefs.pillBar) TabBar(tab) { tab = it }
             }
-            if (Prefs.pillBar) PillBar(tab, { tab = it }, Modifier.align(Alignment.BottomCenter))
+            if (Prefs.pillBar) {
+                AnimatedVisibility(
+                    barShown && Sheets.open == 0,
+                    Modifier.align(Alignment.BottomCenter),
+                    enter = slideInVertically { it * 2 } + fadeIn(),
+                    exit = slideOutVertically { it * 2 } + fadeOut(),
+                ) { PillBar(tab, { tab = it; barShown = true }) }
+            }
             UpdateBar(Modifier.align(Alignment.TopCenter))
             Capture.pending?.let { CaptureSheet(it) { Capture.pending = null } }
         }
