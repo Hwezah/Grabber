@@ -280,7 +280,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
             }
             if (item.state == State.Failed && item.error?.contains("Start over") == true) {
                 Spacer(Modifier.height(10.dp))
-                Button("Start over", { Downloads.startOver(item.id); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_rotate_cw, accent = Ink.orange)
+                Button("Start over", { Downloads.startOver(item.id); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_rotate_cw, accent = Ink.orange, pill = true)
             }
             if (item.state != State.Done && item.kind == Kind.Http) RefreshLink(item)
             if (item.state == State.Done && item.doc != null && item.category == Category.Video) {
@@ -297,7 +297,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                                 }
                             }
                             onDismiss()
-                        }, accent = Ink.orange, compact = true)
+                        }, accent = null, compact = true, pill = true)
                     }
                 }
             }
@@ -306,9 +306,10 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                 Button("Delete…", { confirm = true }, Modifier.solo(), icon = L.drawable.lucide_ic_trash_2)
             } else {
                 StretchRow {
-                    Button("Remove from list", { Downloads.delete(item.id, false); onDismiss() }, compact = true)
-                    Button("Delete file too", { Downloads.delete(item.id, true); onDismiss() }, accent = Ink.red, compact = true)
+                    Button("Remove from list", { Downloads.delete(item.id, false); onDismiss() }, icon = L.drawable.lucide_ic_x, compact = true)
                 }
+                Spacer(Modifier.height(8.dp))
+                Button("Delete file too", { Downloads.delete(item.id, true); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_trash_2, accent = Ink.red, pill = true)
             }
         }
     }
@@ -409,7 +410,7 @@ private fun AddSheet(onDismiss: () -> Unit) {
                     Downloads.add(chosen)
                     onDismiss()
                 },
-                Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = if (chosen.isNotEmpty() && Prefs.folder != null) Ink.green else null,
+                Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = if (chosen.isNotEmpty() && Prefs.folder != null) Ink.green else null, pill = true,
             )
         }
     }
@@ -436,7 +437,7 @@ private fun RefreshLink(item: Item) {
     Spacer(Modifier.height(8.dp))
     StretchRow {
         Button("Paste", { link = readClipboard(context).trim() }, icon = L.drawable.lucide_ic_clipboard_paste, compact = true)
-        Button(if (busy) "Checking…" else "Use it", {
+        Button(if (busy) "Checking…" else "Use it", pill = true, onClick = {
             val url = LinkFinder.find(link).firstOrNull { it is Found.Web }?.text
             if (url == null) { note = "That isn't a link"; return@Button }
             busy = true

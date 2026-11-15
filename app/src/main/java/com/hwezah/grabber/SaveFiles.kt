@@ -120,7 +120,7 @@ fun SaveFilesSheet(uris: List<Uri>, onDismiss: () -> Unit) {
                         } else note = failed.first()
                     }
                 },
-                Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = if (Prefs.folder != null) Ink.green else null,
+                Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = if (Prefs.folder != null) Ink.green else null, pill = true,
             )
         }
     }
