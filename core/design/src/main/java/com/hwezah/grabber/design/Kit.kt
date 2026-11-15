@@ -116,28 +116,7 @@ fun Button(
     @DrawableRes icon: Int? = null,
     accent: Color? = null,
     compact: Boolean = false,
-    /** In a sheet, keep a pill: frosted dark, or frosted [accent] for the main action. */
-    pill: Boolean = false,
 ) {
-    if (LocalInSheet.current && pill) {
-        val shape = RoundedCornerShape(50)
-        val fg = if (accent != null) Ink.on(accent) else Ink.text
-        Tap(onClick, modifier, shape) { pressed ->
-            Row(
-                (if (accent != null) Modifier.clip(shape).background(accent.copy(alpha = if (pressed) 0.75f else 0.9f)).grain()
-                else Modifier.frost(shape, alpha = if (pressed) 0.12f else 0.07f)).height(if (compact) 44.dp else 52.dp).padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                if (icon != null) {
-                    Lc(icon, tint = fg, size = 20.dp)
-                    if (label.isNotEmpty()) Spacer(Modifier.width(6.dp))
-                }
-                if (label.isNotEmpty()) Text(label, style = Type.label.copy(fontWeight = FontWeight.SemiBold, color = fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-        return
-    }
     if (LocalInSheet.current) {
         // In sheets: no pill, just the icon and words; an accent colours them.
         val fg = accent ?: Ink.text
@@ -315,11 +294,11 @@ fun Modifier.solo() = fillMaxWidth()
 /** A row of buttons stretched across the width, each the same size, 8dp apart. */
 @Composable
 fun StretchRow(modifier: Modifier = Modifier, gap: Dp = 8.dp, content: @Composable () -> Unit) {
-    // In a sheet: up to three on one row; four make a 2 × 2 grid, more go two per row. Elsewhere: one row.
-    val inSheet = LocalInSheet.current
+    // In a sheet: a grid, two per row. Elsewhere: one row.
+    val perRowMax = if (LocalInSheet.current) 2 else Int.MAX_VALUE
     androidx.compose.ui.layout.Layout(content, modifier.fillMaxWidth()) { measurables, constraints ->
         val n = measurables.size.coerceAtLeast(1)
-        val cols = if (!inSheet || n <= 3) n else 2
+        val cols = minOf(n, perRowMax)
         val g = gap.roundToPx()
         val w = ((constraints.maxWidth - g * (cols - 1)) / cols).coerceAtLeast(0)
         val placeables = measurables.map { it.measure(androidx.compose.ui.unit.Constraints.fixedWidth(w)) }

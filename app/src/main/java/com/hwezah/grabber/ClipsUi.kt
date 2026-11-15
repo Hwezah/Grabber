@@ -165,7 +165,7 @@ private fun ClipSheet(clip: Clip, onDismiss: () -> Unit) {
             }
             if (links) {
                 Spacer(Modifier.height(10.dp))
-                Button("Download links", { onDismiss(); Capture.offer(clip.text, clip.title) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green, pill = true)
+                Button("Download links", { onDismiss(); Capture.offer(clip.text, clip.title) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
             }
         }
     }
@@ -205,13 +205,12 @@ fun CatchRows() {
             StretchRow {
                 Button("App info", {
                     runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))) }
-                }, icon = L.drawable.lucide_ic_settings, compact = true)
+                }, compact = true)
+                Button("Open settings", {
+                    runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                    help = false
+                }, accent = Ink.red, compact = true)
             }
-            Spacer(Modifier.height(8.dp))
-            Button("Open settings", {
-                runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-                help = false
-            }, Modifier.fillMaxWidth(), icon = L.drawable.lucide_ic_accessibility, accent = Ink.red, pill = true)
         }
     }
 }

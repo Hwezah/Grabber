@@ -129,11 +129,9 @@ fun SettingsPage() {
                     Field(ua, { ua = it }, "Mozilla/5.0 …")
                     Spacer(Modifier.height(12.dp))
                     StretchRow {
-                        Button("Cancel", { sheet = null }, icon = com.composables.icons.lucide.R.drawable.lucide_ic_x, compact = true)
-                        Button("Reset", { Prefs.useUserAgent(""); sheet = null }, icon = com.composables.icons.lucide.R.drawable.lucide_ic_rotate_cw, compact = true)
+                        Button("Reset", { Prefs.useUserAgent(""); sheet = null }, compact = true)
+                        Button("Save", { Prefs.useUserAgent(ua.trim()); sheet = null }, accent = Ink.green, compact = true)
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Button("Save", { Prefs.useUserAgent(ua.trim()); sheet = null }, Modifier.fillMaxWidth(), icon = com.composables.icons.lucide.R.drawable.lucide_ic_check, accent = Ink.green, pill = true)
                 }
             }
         }
@@ -142,10 +140,9 @@ fun SettingsPage() {
                 Text("Every clip goes except pinned ones. This can't be undone.", style = Type.body)
                 Spacer(Modifier.height(12.dp))
                 StretchRow {
-                    Button("Cancel", { sheet = null }, icon = com.composables.icons.lucide.R.drawable.lucide_ic_x, compact = true)
+                    Button("Cancel", { sheet = null }, compact = true)
+                    Button("Clear", { Clips.clearUnpinned(); sheet = null }, accent = Ink.red, compact = true)
                 }
-                Spacer(Modifier.height(8.dp))
-                Button("Clear history", { Clips.clearUnpinned(); sheet = null }, Modifier.fillMaxWidth(), icon = com.composables.icons.lucide.R.drawable.lucide_ic_trash_2, accent = Ink.red, pill = true)
             }
         }
         "licences" -> com.hwezah.grabber.design.BottomSheet("Open-source licences", { sheet = null }) {

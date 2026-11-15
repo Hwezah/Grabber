@@ -165,7 +165,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
                             }
                         },
                         Modifier.solo(), icon = L.drawable.lucide_ic_download,
-                        accent = if (Prefs.folder != null && web.isNotEmpty()) Ink.green else null, pill = true,
+                        accent = if (Prefs.folder != null && web.isNotEmpty()) Ink.green else null,
                     )
                 }
             }
@@ -302,6 +302,10 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
     Spacer(Modifier.height(8.dp))
     Field(referer, { referer = it }, "Referer page (leave empty if not sure)")
     Spacer(Modifier.height(12.dp))
+    StretchRow {
+        Button("Cancel", onDismiss, compact = true)
+        Button(if (checking) "Checking…" else "Check again", { tries++ }, icon = L.drawable.lucide_ic_rotate_cw, compact = true)
+    }
     Spacer(Modifier.height(10.dp))
     /** [start]: download now; otherwise just put it on the list, paused, to start later. */
     fun queue(start: Boolean) {
@@ -317,17 +321,14 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
         onDismiss()
     }
     val ready = Prefs.folder != null && !checking
-    // Cancel, Check again and Add (to the list, not started) on one row; Download, the main action, below it.
+    // Add puts it on the list without starting; Download starts it now. Side by side, the same size.
     StretchRow {
-        Button("Cancel", onDismiss, icon = L.drawable.lucide_ic_x, compact = true)
-        Button(if (checking) "Checking…" else "Check again", { tries++ }, icon = L.drawable.lucide_ic_rotate_cw, compact = true)
-        Button("Add", { queue(false) }, icon = L.drawable.lucide_ic_plus, compact = true)
+        Button("Add", { queue(false) }, icon = L.drawable.lucide_ic_plus)
+        Button(
+            if (media != null && pick.startsWith("a:")) "Download ${pick.removePrefix("a:").uppercase()}" else "Download",
+            { queue(true) }, icon = L.drawable.lucide_ic_download, accent = if (ready) Ink.green else null,
+        )
     }
-    Spacer(Modifier.height(8.dp))
-    Button(
-        if (media != null && pick.startsWith("a:")) "Download ${pick.removePrefix("a:").uppercase()}" else "Download",
-        { queue(true) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = if (ready) Ink.green else null, pill = true,
-    )
 }
 
 /** A text box on frosted glass. */
@@ -418,6 +419,6 @@ private fun OneMagnet(magnet: String, onDismiss: () -> Unit) {
             Downloads.add(listOf(magnet), name = mm.name, kind = Kind.Torrent, files = files, sequential = sequential)
             onDismiss()
         },
-        Modifier.solo(), icon = L.drawable.lucide_ic_magnet, accent = if (ready) Ink.orange else null, pill = true,
+        Modifier.solo(), icon = L.drawable.lucide_ic_magnet, accent = if (ready) Ink.orange else null,
     )
 }
