@@ -105,6 +105,7 @@ fun SettingsPage() {
             Overline("Look")
             Group {
                 SettingRow("Dark theme", "Near-black page; off for warm paper") { Toggle(Prefs.dark, Prefs::useDark) }
+                AccentRow()
                 SettingRow("Floating tab bar", "A pill that hides as you scroll; off for a bar along the bottom") { Toggle(Prefs.pillBar, Prefs::usePillBar) }
             }
             Spacer(Modifier.height(20.dp))
@@ -276,6 +277,23 @@ fun SignInRows() {
         SettingRow(s.label, if (on) "Signed in" else "Not signed in") {
             if (on) Button("Sign out", { SignIns.signOut(context, s); tick++ }, compact = true)
             else Button("Sign in", { SignIns.open(context, s) }, compact = true)
+        }
+    }
+}
+
+/** The main colour (buttons, selected chips, toggles): a row of circles to pick from. */
+@Composable
+fun AccentRow() {
+    Text("Main colour", Modifier.padding(top = 10.dp), style = Type.label.copy(fontWeight = FontWeight.SemiBold))
+    Text(Prefs.accent, style = Type.meta)
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp), horizontalArrangement = SpreadOut) {
+        Ink.ACCENTS.forEach { (name, color) ->
+            val on = Prefs.accent == name
+            com.hwezah.grabber.design.Tap({ Prefs.useAccent(name) }, Modifier.size(36.dp), androidx.compose.foundation.shape.CircleShape) {
+                Box(Modifier.background(color), contentAlignment = Alignment.Center) {
+                    if (on) com.hwezah.grabber.design.Lc(com.composables.icons.lucide.R.drawable.lucide_ic_check, tint = androidx.compose.ui.graphics.Color.White, size = 18.dp)
+                }
+            }
         }
     }
 }

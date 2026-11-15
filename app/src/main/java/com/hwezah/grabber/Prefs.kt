@@ -53,6 +53,10 @@ object Prefs {
     var audioFormat by mutableStateOf("mp3")
         private set
 
+    /** The main accent's name, one of Ink.ACCENTS. */
+    var accent by mutableStateOf("Red")
+        private set
+
     fun init(context: Context) {
         if (::ctx.isInitialized) return
         ctx = context.applicationContext
@@ -73,6 +77,14 @@ object Prefs {
         videoQuality = sp.getString("videoQuality", "v:1080") ?: "v:1080"
         audioFormat = sp.getString("audioFormat", "mp3") ?: "mp3"
         com.hwezah.grabber.engine.Http.userAgent = userAgent
+        useAccent(sp.getString("accent", "Red") ?: "Red", save = false)
+    }
+
+    fun useAccent(name: String, save: Boolean = true) {
+        val c = com.hwezah.grabber.design.Ink.ACCENTS.firstOrNull { it.first == name } ?: com.hwezah.grabber.design.Ink.ACCENTS.first()
+        accent = c.first
+        com.hwezah.grabber.design.Ink.red = c.second
+        if (save) sp.edit().putString("accent", c.first).apply()
     }
 
     fun useWifiOnly(v: Boolean) { wifiOnly = v; sp.edit().putBoolean("wifiOnly", v).apply(); Downloads.kick() }

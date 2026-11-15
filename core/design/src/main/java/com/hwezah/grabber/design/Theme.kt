@@ -53,8 +53,19 @@ object Ink {
     /** Sheets and popups: a plain grey. */
     val sheet get() = if (isDark) Color(0xFF1F1F1F) else Color(0xFFFFFFFF)
 
-    /** Primary: deep red, glowing towards [ember]. */
-    val red = Color(0xFFB81D24)
+    /** Primary: deep red by default; the user can pick another in Settings ([ACCENTS]). */
+    var red by mutableStateOf(Color(0xFFB81D24))
+
+    /** The choices offered in Settings: name to colour. */
+    val ACCENTS = listOf(
+        "Red" to Color(0xFFB81D24),
+        "Deep orange" to Color(0xFFE8590C),
+        "Teal" to Color(0xFF0F8B8D),
+        "Blue" to Color(0xFF1E63D6),
+        "Purple" to Color(0xFF7B3FE4),
+        "Pink" to Color(0xFFD6336C),
+        "Graphite" to Color(0xFF5C5C5C),
+    )
     val ember = Color(0xFFFF8A4C)
     /** Downloads and success. A shade deeper on the light page so it still reads. */
     val green get() = if (isDark) Color(0xFF1E9E52) else Color(0xFF13703A)
