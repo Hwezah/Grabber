@@ -125,7 +125,7 @@ fun Button(
         val base = if (accent != null) Modifier.background(if (pressed) accent.copy(alpha = 0.8f) else accent)
         else Modifier.frost(RoundedCornerShape(50), alpha = if (pressed) 0.14f else 0.08f)
         Row(
-            base.height(if (compact) 42.dp else 50.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
+            base.height(if (LocalInSheet.current) (if (compact) 38.dp else 44.dp) else if (compact) 42.dp else 50.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
@@ -240,6 +240,9 @@ object Sheets {
     var open by mutableStateOf(0)
 }
 
+/** True inside a sheet: buttons there are a little smaller. */
+val LocalInSheet = androidx.compose.runtime.compositionLocalOf { false }
+
 /** The frame every sheet shares: a dimmed page, a plain grey sheet with a grab handle and a heading. */
 @Composable
 fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
@@ -266,7 +269,7 @@ fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
             ) {
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(36.dp, 4.dp).clip(CircleShape).background(Ink.stroke))
                 Text(title, Modifier.padding(start = CARD, end = CARD, top = 14.dp, bottom = 8.dp), style = Type.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                content()
+                androidx.compose.runtime.CompositionLocalProvider(LocalInSheet provides true) { content() }
             }
         }
     }
