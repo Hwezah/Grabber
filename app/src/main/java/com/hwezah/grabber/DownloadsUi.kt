@@ -129,7 +129,10 @@ fun DownloadsPage() {
                 }
             }
             Row(Modifier.padding(horizontal = EDGE).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                FILTERS.forEachIndexed { i, c -> if (i > 0) Pipe(com.hwezah.grabber.design.pipeColor(i - 1)); Chip(c, c == filter, { filter = c }) }
+                // Upright phone: Video and Audio dropped from the row, for room.
+                val portrait = androidx.compose.ui.platform.LocalConfiguration.current.let { it.screenHeightDp > it.screenWidthDp && it.screenWidthDp < 600 }
+                val filters = if (portrait) FILTERS - listOf("Video", "Audio") else FILTERS
+                filters.forEachIndexed { i, c -> if (i > 0) Pipe(com.hwezah.grabber.design.pipeColor(i - 1)); Chip(c, c == filter, { filter = c }) }
             }
             if (items.isNotEmpty()) Text(
                 "Swipe left to remove · swipe right to pause, resume or open",
