@@ -170,7 +170,7 @@ fun DownloadsPage() {
                             },
                             leftIcon = L.drawable.lucide_ic_trash_2,
                             rightIcon = when {
-                                active -> L.drawable.lucide_ic_pause
+                                active -> com.hwezah.grabber.design.R.drawable.pause_bars
                                 item.state == State.Done -> L.drawable.lucide_ic_play
                                 else -> L.drawable.lucide_ic_play
                             },
@@ -268,7 +268,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                         runCatching { context.startActivity(Intent.createChooser(send, item.name)) }
                     }, icon = L.drawable.lucide_ic_share_2, compact = true)
                 } else if (item.state == State.Running || item.state == State.Queued) {
-                    Button("Pause", { Downloads.pause(item.id) }, icon = L.drawable.lucide_ic_pause, compact = true)
+                    Button("Pause", { Downloads.pause(item.id) }, icon = com.hwezah.grabber.design.R.drawable.pause_bars, compact = true)
                 } else {
                     Button("Resume", { Downloads.resume(item.id) }, icon = L.drawable.lucide_ic_play, accent = Ink.green, compact = true)
                 }
@@ -318,7 +318,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
 private fun AllSheet(onDismiss: () -> Unit) {
     BottomSheet("All downloads", onDismiss) {
         StretchRow(Modifier.padding(horizontal = CARD)) {
-            Button("Pause all", { Downloads.pauseAll(); onDismiss() }, icon = L.drawable.lucide_ic_pause, compact = true)
+            Button("Pause all", { Downloads.pauseAll(); onDismiss() }, icon = com.hwezah.grabber.design.R.drawable.pause_bars, compact = true)
             Button("Resume all", { Downloads.resumeAll(); onDismiss() }, icon = L.drawable.lucide_ic_play, accent = Ink.green, compact = true)
             Button("Clear", { Downloads.clearFinished(); onDismiss() }, icon = L.drawable.lucide_ic_check, compact = true)
         }
