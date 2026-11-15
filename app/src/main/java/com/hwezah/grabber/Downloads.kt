@@ -80,12 +80,15 @@ object Downloads {
     fun add(
         urls: List<String>, headers: Map<String, String> = emptyMap(), name: String? = null,
         kind: Kind = Kind.Http, files: String = "", sequential: Boolean = false, format: String = "",
+        /** False: only put it on the list (paused), to start later. */
+        start: Boolean = true,
     ) {
         val base = System.currentTimeMillis()
         _items.update { list ->
             urls.mapIndexed { i, u ->
                 Item(id = base + i, url = u, headers = headers, fixedName = name?.takeIf { urls.size == 1 && it.isNotBlank() },
                     kind = kind, files = files, sequential = sequential, format = format,
+                    state = if (start) State.Queued else State.Paused,
                     category = when {
                         kind == Kind.Torrent -> Category.Torrents
                         kind == Kind.Hls -> Category.Video

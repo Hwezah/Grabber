@@ -302,21 +302,28 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
         Button(if (checking) "Checking…" else "Check again", { tries++ }, icon = L.drawable.lucide_ic_rotate_cw, compact = true)
     }
     Spacer(Modifier.height(10.dp))
-    Button(
-        if (media != null && pick.startsWith("a:")) "Download ${pick.removePrefix("a:").uppercase()}" else "Download", {
-            if (Prefs.folder != null && !checking) {
-                val headers = headersNow()
-                if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                    notify.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-                if (media != null) Downloads.add(listOf(url), headers, name.ifBlank { media!!.title }, kind = Kind.Media, format = pick)
-                else if (stream != null) Downloads.add(listOf(variant?.url ?: info?.finalUrl ?: url), headers, name.ifBlank { "video" }, kind = Kind.Hls)
-                else Downloads.add(listOf(info?.finalUrl ?: url), headers, name.takeIf { it != info?.name })
-                onDismiss()
-            }
-        },
-        Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = if (Prefs.folder != null) Ink.green else null,
-    )
+    /** [start]: download now; otherwise just put it on the list, paused, to start later. */
+    fun queue(start: Boolean) {
+        if (Prefs.folder == null || checking) return
+        val headers = headersNow()
+        if (start && android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            notify.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (media != null) Downloads.add(listOf(url), headers, name.ifBlank { media!!.title }, kind = Kind.Media, format = pick, start = start)
+        else if (stream != null) Downloads.add(listOf(variant?.url ?: info?.finalUrl ?: url), headers, name.ifBlank { "video" }, kind = Kind.Hls, start = start)
+        else Downloads.add(listOf(info?.finalUrl ?: url), headers, name.takeIf { it != info?.name }, start = start)
+        if (!start) android.widget.Toast.makeText(context, "Added to the list", android.widget.Toast.LENGTH_SHORT).show()
+        onDismiss()
+    }
+    val ready = Prefs.folder != null && !checking
+    // Add puts it on the list without starting; Download starts it now. Side by side, the same size.
+    StretchRow {
+        Button("Add", { queue(false) }, icon = L.drawable.lucide_ic_plus)
+        Button(
+            if (media != null && pick.startsWith("a:")) "Download ${pick.removePrefix("a:").uppercase()}" else "Download",
+            { queue(true) }, icon = L.drawable.lucide_ic_download, accent = if (ready) Ink.green else null,
+        )
+    }
 }
 
 /** A text box on frosted glass. */
