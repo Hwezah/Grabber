@@ -51,7 +51,8 @@ class CaptureActivity : ComponentActivity() {
     /** Text handed to us directly: shared, or selected with "Grabber" in the text menu. */
     private fun given(i: Intent): String? = when (i.action) {
         Intent.ACTION_VIEW -> i.dataString?.also { extras(i) }
-        Intent.ACTION_SEND -> i.getStringExtra(Intent.EXTRA_TEXT)
+        // The subject names what was shared: a page's title, or "The Penguin · season 1" for a batch of links.
+        Intent.ACTION_SEND -> i.getStringExtra(Intent.EXTRA_TEXT)?.also { title = i.getStringExtra(Intent.EXTRA_SUBJECT)?.takeIf { s -> s.isNotBlank() } }
         Intent.ACTION_PROCESS_TEXT -> i.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
         else -> null
     }

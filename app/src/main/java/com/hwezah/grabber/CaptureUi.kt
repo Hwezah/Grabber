@@ -99,11 +99,13 @@ fun magnetName(magnet: String): String =
         ?: magnet.substringAfter("btih:").substringBefore('&').take(40)
 
 /** Queues [urls] (magnets as torrents), asking for notification permission first time on Android 13+. */
-fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit) {
+fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit, subject: String? = null, order: List<String> = urls) {
     if (urls.isEmpty()) return
     if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) askNotify()
     val (mags, web) = urls.partition { it.startsWith("magnet:", true) }
-    if (web.isNotEmpty()) Downloads.add(web)
+    // Sent as a named batch: each link keeps the batch's name and its place in it, for links with no name of their own.
+    if (subject.isNullOrBlank()) { if (web.isNotEmpty()) Downloads.add(web) }
+    else web.forEach { u -> Downloads.add(listOf(u), hint = "$subject · ${order.indexOf(u) + 1}") }
     mags.forEach { Downloads.add(listOf(it), name = magnetName(it), kind = Kind.Torrent) }
 }
 
@@ -160,7 +162,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
                         if (web.size > 1) "Download ${web.size}" else "Download",
                         {
                             if (Prefs.folder != null && web.isNotEmpty()) {
-                                startDownloads(context, web) { notify.launch(Manifest.permission.POST_NOTIFICATIONS) }
+                                startDownloads(context, web, { notify.launch(Manifest.permission.POST_NOTIFICATIONS) }, subject = title, order = found.map { it.text })
                                 onDismiss()
                             }
                         },

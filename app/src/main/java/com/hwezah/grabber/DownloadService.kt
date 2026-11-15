@@ -134,14 +134,18 @@ class DownloadService : Service() {
                 val probed = Http.probe(item.url, item.headers)
                 // Not a file after all: a stream's playlist, or a web page with a video on it.
                 if (probed.playlist || com.hwezah.grabber.engine.Hls.isPlaylist(probed.finalUrl, probed.mime)) {
-                    Downloads.edit(id) { it.copy(kind = Kind.Hls, category = Category.Video, format = Prefs.videoQuality) }
+                    Downloads.edit(id) { it.copy(kind = Kind.Hls, category = Category.Video, format = Prefs.videoQuality, fixedName = it.fixedName ?: it.hint.ifBlank { null }) }
                     return stream(Downloads.get(id) ?: return)
                 }
                 if (probed.mime == "text/html") {
-                    Downloads.edit(id) { it.copy(kind = Kind.Media, category = Category.Video, format = Prefs.videoQuality) }
+                    Downloads.edit(id) { it.copy(kind = Kind.Media, category = Category.Video, format = Prefs.videoQuality, fixedName = it.fixedName ?: it.hint.ifBlank { null }) }
                     return media(Downloads.get(id) ?: return)
                 }
-                val info = item.fixedName?.let { probed.copy(name = Names.clean(it)) } ?: probed
+                // A link with no name of its own ("download", "index (2).mp4") takes the hint it was sent with.
+                val nameless = Regex("""^(download|index|master|playlist|video|file|stream)?[\d\s()_-]*(\.[a-z0-9]{1,5})?$""", RegexOption.IGNORE_CASE).matches(probed.name)
+                val ext = probed.name.substringAfterLast('.', "").let { if (it.isEmpty() || it.length > 5) "" else ".$it" }
+                val info = item.fixedName?.let { probed.copy(name = Names.clean(it)) }
+                    ?: if (nameless && item.hint.isNotBlank()) probed.copy(name = Names.clean(item.hint) + ext) else probed
                 val category = Names.category(info.name, info.mime)
                 val doc = Folders.create(this, tree, category, info.name, part = true) ?: throw IllegalStateException("Can't write to the download folder; choose it again in Settings")
                 Downloads.edit(id) {
