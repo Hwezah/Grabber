@@ -138,6 +138,15 @@ class DownloadService : Service() {
                 }
                 item = Downloads.get(id) ?: return
             }
+            // Marked "can't resume" before: ask the server again, it may well allow parts.
+            if (!item.resumable) {
+                runCatching { Http.probe(item.url, item.headers) }.getOrNull()?.takeIf { it.resumable && it.size > 0 }?.let { info ->
+                    val kept = Segments.decode(item.segments).firstOrNull()?.pos?.coerceIn(0, info.size) ?: 0L
+                    val segs = listOf(com.hwezah.grabber.engine.Segment(0, info.size - 1, kept))
+                    Downloads.edit(id) { it.copy(resumable = true, size = info.size, segments = Segments.encode(segs), done = kept) }
+                    item = Downloads.get(id) ?: return
+                }
+            }
             val pfd = contentResolver.openFileDescriptor(Uri.parse(item.doc), "rw") ?: throw IllegalStateException("The file is gone")
             pfd.use {
                 ChannelSink(FileOutputStream(it.fileDescriptor).channel).use { sink ->
