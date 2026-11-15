@@ -60,8 +60,7 @@ object Ink {
     /** The choices offered in Settings: name to colour. */
     val ACCENTS = listOf(
         "Red" to Color(0xFFB81D24),
-        "Deep orange" to Color(0xFFE8590C),
-        "Rust" to Color(0xFF9A4A2A),
+        "Plum" to Color(0xFF6E4A5E),
         "Sand" to Color(0xFFB8A07A),
         "Olive" to Color(0xFF6B7A3A),
         "Teal" to Color(0xFF0F8B8D),
@@ -73,13 +72,13 @@ object Ink {
 
     /** Text and icons on [c]: dark on light shades (white, sand), white otherwise. */
     fun on(c: Color): Color = if (c.luminance() > 0.45f) Color(0xFF141414) else Color.White
-    val ember = Color(0xFFFF8A4C)
+    val ember = Color(0xFFD9C2C2)
     /** Downloads and success. A shade deeper on the light page so it still reads. */
     val green get() = if (isDark) Color(0xFF1E9E52) else Color(0xFF13703A)
     /** Green buttons: a darker green than the icons and bars. */
     val greenButton get() = if (isDark) Color(0xFF15703A) else Color(0xFF0F5C2E)
-    /** Third accent: torrents, conversion, warnings. */
-    val orange = Color(0xFFE8590C)
+    /** Third accent (torrents, conversion, warnings): a subtle warm taupe. No orange anywhere. */
+    val orange = Color(0xFFA3927A)
 }
 
 @OptIn(ExperimentalTextApi::class)
