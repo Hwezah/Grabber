@@ -126,11 +126,21 @@ class DownloadService : Service() {
         try {
             var item = Downloads.get(id) ?: return
             if (item.kind == Kind.Torrent) return torrent(item)
-            if (item.kind == Kind.Hls) return hls(item)
+            // Streams go through yt-dlp + FFmpeg (separate audio, fMP4, .mp4 out); ones begun the old way finish that way.
+            if (item.kind == Kind.Hls) return if (item.doc != null || item.format == "native") hls(item) else stream(item)
             if (item.kind == Kind.Media) return media(item)
             if (item.doc == null) {
                 val tree = Prefs.folder ?: throw IllegalStateException("Choose a download folder in Settings")
                 val probed = Http.probe(item.url, item.headers)
+                // Not a file after all: a stream's playlist, or a web page with a video on it.
+                if (probed.playlist || com.hwezah.grabber.engine.Hls.isPlaylist(probed.finalUrl, probed.mime)) {
+                    Downloads.edit(id) { it.copy(kind = Kind.Hls, category = Category.Video, format = Prefs.videoQuality) }
+                    return stream(Downloads.get(id) ?: return)
+                }
+                if (probed.mime == "text/html") {
+                    Downloads.edit(id) { it.copy(kind = Kind.Media, category = Category.Video, format = Prefs.videoQuality) }
+                    return media(Downloads.get(id) ?: return)
+                }
                 val info = item.fixedName?.let { probed.copy(name = Names.clean(it)) } ?: probed
                 val category = Names.category(info.name, info.mime)
                 val doc = Folders.create(this, tree, category, info.name, part = true) ?: throw IllegalStateException("Can't write to the download folder; choose it again in Settings")
@@ -178,7 +188,8 @@ class DownloadService : Service() {
             // A resume failed: first go back to the original link for a fresh address (temporary links expire),
             // and carry on from where it stopped. Only once per stretch without progress.
             val failed = Downloads.get(id)
-            val noResume = e is com.hwezah.grabber.engine.NoResumeException
+            // 416: the server says the place we asked to continue from doesn't exist.
+            val noResume = e is com.hwezah.grabber.engine.NoResumeException || (e as? com.hwezah.grabber.engine.HttpException)?.code == 416
             val refetchable = failed != null && failed.kind == Kind.Http && failed.source.isNotBlank() &&
                 (noResume || e is com.hwezah.grabber.engine.HttpException || e.message?.contains("stopped allowing parts") == true)
             if (refetchable && refetched.add(id)) {
@@ -241,6 +252,18 @@ class DownloadService : Service() {
             Downloads.edit(id) { it.copy(done = p.done, size = p.total, error = if (p.peers == 0) "Looking for peers…" else null) }
         }
         Downloads.edit(id) { it.copy(state = State.Done, doc = doc, error = null, finished = System.currentTimeMillis(), done = it.size) }
+    }
+
+    /** An HLS stream through yt-dlp; if that can't do it, the built-in segment joiner. */
+    private suspend fun stream(item: Item) {
+        try {
+            media(item)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            Downloads.edit(item.id) { it.copy(format = "native", done = 0, size = -1) }
+            hls(Downloads.get(item.id) ?: return)
+        }
     }
 
     /** yt-dlp: progress comes as a percentage; it's shown as such. */

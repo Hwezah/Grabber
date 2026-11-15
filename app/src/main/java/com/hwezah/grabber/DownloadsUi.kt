@@ -215,7 +215,7 @@ private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(item.name, style = Type.label.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val pctOnly = item.kind == Kind.Media && item.state != State.Done
+                val pctOnly = (item.kind == Kind.Media || item.kind == Kind.Hls && item.doc == null && item.format != "native") && item.state != State.Done
                 val line = when (item.state) {
                     State.Running -> live?.text ?: if (live == null) "Starting…" else listOf(
                         Fmt.speed(live.speed),

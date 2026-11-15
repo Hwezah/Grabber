@@ -215,7 +215,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
                     return@withContext
                 }
                 info = i
-                if (Hls.isPlaylist(i.finalUrl, i.mime)) {
+                if (i.playlist || Hls.isPlaylist(i.finalUrl, i.mime)) {
                     val v = Hls.variants(i.finalUrl, Hls.text(i.finalUrl, headers))
                     stream = v
                     variant = v.firstOrNull()
@@ -253,7 +253,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
         checking -> "Checking the link…"
         media != null -> listOfNotNull(media!!.extractor, if (media!!.duration > 0) "${media!!.duration / 60}:${"%02d".format(media!!.duration % 60)}" else null).joinToString(" · ")
         error != null -> "Error: $error"
-        stream != null -> "Video stream (HLS) · saved as .ts" + if (stream!!.isNotEmpty()) " · pick a quality" else ""
+        stream != null -> "Video stream (HLS) · saved as .mp4" + if (stream!!.isNotEmpty()) " · pick a quality" else ""
         else -> info!!.let { i ->
             listOfNotNull(
                 if (i.size > 0) Fmt.bytes(i.size) else "Size unknown",
@@ -315,7 +315,11 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
             notify.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         if (media != null) Downloads.add(listOf(url), headers, name.ifBlank { media!!.title }, kind = Kind.Media, format = pick, start = start)
-        else if (stream != null) Downloads.add(listOf(variant?.url ?: info?.finalUrl ?: url), headers, name.ifBlank { "video" }, kind = Kind.Hls, start = start)
+        // The whole stream (so separate audio comes too), at the chosen height.
+        else if (stream != null) Downloads.add(
+            listOf(info?.finalUrl ?: url), headers, name.ifBlank { "video" }, kind = Kind.Hls, start = start,
+            format = variant?.resolution?.substringAfter('x')?.toIntOrNull()?.let { "v:$it" } ?: "v:best",
+        )
         else Downloads.add(listOf(info?.finalUrl ?: url), headers, name.takeIf { it != info?.name }, start = start)
         if (!start) android.widget.Toast.makeText(context, "Added to the list", android.widget.Toast.LENGTH_SHORT).show()
         onDismiss()

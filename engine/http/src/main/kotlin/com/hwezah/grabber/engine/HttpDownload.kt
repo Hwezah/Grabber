@@ -28,6 +28,8 @@ data class Info(
     val name: String,
     val mime: String?,
     val validator: String?,
+    /** The body starts like an HLS playlist, whatever the server calls it. */
+    val playlist: Boolean = false,
 )
 
 class HttpException(val code: Int, message: String) : IOException(message)
@@ -101,6 +103,7 @@ object Http {
                 name = Names.fileName(finalUrl, r.header("Content-Disposition"), mime),
                 mime = mime,
                 validator = validatorOf(r.headers),
+                playlist = runCatching { r.peekBody(16).string().trimStart().startsWith("#EXTM3U") }.getOrDefault(false),
             )
         }
 

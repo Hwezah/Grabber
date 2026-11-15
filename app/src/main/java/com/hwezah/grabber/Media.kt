@@ -94,16 +94,20 @@ object Media {
     suspend fun run(context: Context, item: Item, onProgress: (Progress) -> Unit): Triple<String, String, Long> {
         ensure(context)
         val work = File(context.filesDir, "work/media/${item.id}").apply { mkdirs() }
+        // The name the user gave (without a media extension), else the site's title.
+        val base = item.fixedName?.takeIf { it.isNotBlank() }?.let {
+            com.hwezah.grabber.engine.Names.clean(it).replace(Regex("""\.(mp4|mkv|ts|webm|mov|mp3|m4a|opus|m3u8)$""", RegexOption.IGNORE_CASE), "").replace("%", "%%")
+        }?.takeIf { it.isNotBlank() }
         val req = YoutubeDLRequest(item.url)
             .addOption("--no-playlist")
             .addOption("--no-mtime")
             .addOption("--no-update")
-            .addOption("-N", 8)
-            .addOption("-o", File(work, "%(title).120B.%(ext)s").absolutePath)
+            .addOption("-N", if (item.kind == Kind.Hls) Prefs.connections.coerceIn(4, 16) else 8)
+            .addOption("-o", File(work, (base ?: "%(title).120B") + ".%(ext)s").absolutePath)
         item.headers.forEach { (k, v) -> req.addOption("--add-header", "$k:$v") }
         SignIns.cookiesFile(context)?.let { req.addOption("--cookies", it.absolutePath) }
         // Many connections per file through aria2c, sized like Grabber's own downloads.
-        if (aria2c && !item.url.startsWith("file://")) {
+        if (aria2c && !item.url.startsWith("file://") && item.kind != Kind.Hls) {
             val n = Prefs.connections.coerceIn(4, 16)
             req.addOption("--downloader", "libaria2c.so")
             req.addOption("--downloader-args", "aria2c:-x $n -s $n -k 1M --summary-interval=1 --console-log-level=warn --file-allocation=none")
@@ -144,12 +148,13 @@ object Media {
             ?: error("yt-dlp finished but no file was made")
         val tree = Prefs.folder ?: error("Choose a download folder in Settings")
         val cat = if (f.startsWith("a:")) Category.Audio else Category.Video
-        val doc = Folders.create(context, tree, cat, out.name) ?: error("Can't write to the download folder")
-        context.contentResolver.openOutputStream(doc)?.use { o -> out.inputStream().use { it.copyTo(o, 256 * 1024) } }
+        // Copied in as a .part, named properly once it's all there.
+        val part = Folders.create(context, tree, cat, out.name, part = true) ?: error("Can't write to the download folder")
+        context.contentResolver.openOutputStream(part)?.use { o -> out.inputStream().use { it.copyTo(o, 256 * 1024) } }
         val size = out.length()
-        val name = doc.lastPathSegment?.substringAfterLast('/') ?: out.name
+        val (doc, name) = Folders.finish(context, part.toString(), out.name)
         work.deleteRecursively()
-        return Triple(doc.toString(), name, size)
+        return Triple(doc, name, size)
     }
 
     /** Copies a downloaded file into the cache so yt-dlp/FFmpeg can read it, for converting to audio. */

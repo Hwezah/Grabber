@@ -97,7 +97,8 @@ object Downloads {
                         kind == Kind.Media -> if (format.startsWith("a:")) Category.Audio else Category.Video
                         else -> Category.Other
                     },
-                    name = name?.takeIf { it.isNotBlank() } ?: u.substringBefore('?').trimEnd('/').substringAfterLast('/').ifBlank { u })
+                    name = name?.takeIf { it.isNotBlank() } ?: u.substringBefore('?').trimEnd('/').substringAfterLast('/').ifBlank { u }
+                        .let { n -> runCatching { java.net.URLDecoder.decode(n.replace("+", "%2B"), "UTF-8") }.getOrDefault(n) })
             } + list
         }
         save()
