@@ -112,7 +112,7 @@ object Http {
  * - ramp-up: starts with a few connections and adds more while total speed keeps rising, up to [connections];
  * - stall watch: a connection that sends nothing for [stallMs], or crawls far below the others, is dropped and
  *   its part handed on (it reconnects, often to a faster path);
- * - batched writes: each connection writes in 512 KB blocks, and the file's size is reserved up front.
+ * - batched writes: each connection writes in 512 KB blocks.
  * Progress lives in [segments], which the caller saves ([onCheckpoint]) and passes back to resume.
  */
 class HttpDownload(
@@ -163,8 +163,6 @@ class HttpDownload(
             if (fresh) segments += Segments.plan(size, minOf(connections, startWith), minSplit * 4)
             segments.forEach { it.busy = false; it.pending = 0 }
         }
-        // Reserve the whole size now: one byte at the end. Fewer, cheaper extensions of the file later.
-        if (fresh) runCatching { sink.write(size - 1, ByteBuffer.wrap(ByteArray(1))) }
         coroutineScope {
             val ticker = launch {
                 while (isActive) {

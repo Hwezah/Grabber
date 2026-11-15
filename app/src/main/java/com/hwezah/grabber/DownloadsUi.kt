@@ -102,10 +102,14 @@ fun DownloadsPage() {
     /** The download just swiped off the list, offered back for a few seconds. */
     var removed by remember { mutableStateOf<Item?>(null) }
     androidx.compose.runtime.LaunchedEffect(removed) {
-        if (removed != null) {
-            kotlinx.coroutines.delay(4000)
-            removed = null
+        val r = removed ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(4000)
+        // Not undone: an unfinished download's part-file goes too (a finished file always stays).
+        if (r.state != State.Done && Downloads.get(r.id) == null) {
+            r.doc?.let { doc -> kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Folders.delete(context, doc) } }
+            if (r.kind == Kind.Torrent) Torrents.forget(context, r)
         }
+        removed = null
     }
     val shown = items.filter { i ->
         when (filter) {
@@ -183,7 +187,7 @@ fun DownloadsPage() {
                     .clip(RoundedCornerShape(16.dp)).background(Ink.sheet).padding(start = CARD, end = 8.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Removed from the list (file kept)", Modifier.weight(1f), style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (r.state == State.Done) "Removed from the list (file kept)" else "Removed; its unfinished file goes too", Modifier.weight(1f), style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Button("Undo", { Downloads.restore(r); removed = null }, accent = Ink.green, compact = true)
             }
         }

@@ -131,9 +131,9 @@ class DownloadService : Service() {
                 val probed = Http.probe(item.url, item.headers)
                 val info = item.fixedName?.let { probed.copy(name = Names.clean(it)) } ?: probed
                 val category = Names.category(info.name, info.mime)
-                val doc = Folders.create(this, tree, category, info.name) ?: throw IllegalStateException("Can't write to the download folder; choose it again in Settings")
+                val doc = Folders.create(this, tree, category, info.name, part = true) ?: throw IllegalStateException("Can't write to the download folder; choose it again in Settings")
                 Downloads.edit(id) {
-                    it.copy(url = info.finalUrl, name = Uri.parse(doc.toString()).lastPathSegment?.substringAfterLast('/') ?: info.name,
+                    it.copy(url = info.finalUrl, name = (Uri.parse(doc.toString()).lastPathSegment?.substringAfterLast('/') ?: info.name).removeSuffix(".part"),
                         mime = info.mime, category = category, size = info.size, resumable = info.resumable, doc = doc.toString(), segments = "", done = 0)
                 }
                 item = Downloads.get(id) ?: return
@@ -155,7 +155,8 @@ class DownloadService : Service() {
                     dl.run()
                     val total = dl.downloaded()
                     retries.remove(id)
-                    Downloads.edit(id) { d -> d.copy(state = State.Done, done = total, size = if (d.size > 0) d.size else total, segments = "", finished = System.currentTimeMillis()) }
+                    val (doc, name) = Folders.finish(this, item.doc!!, item.name)
+                    Downloads.edit(id) { d -> d.copy(state = State.Done, doc = doc, name = name, done = total, size = if (d.size > 0) d.size else total, segments = "", finished = System.currentTimeMillis()) }
                 }
             }
         } catch (e: CancellationException) {
@@ -238,8 +239,8 @@ class DownloadService : Service() {
             val tree = Prefs.folder ?: throw IllegalStateException("Choose a download folder in Settings")
             val base = (item.fixedName ?: item.name).substringBeforeLast('.').ifBlank { "video" }
             val name = Names.clean(base) + ".ts"
-            val doc = Folders.create(this, tree, Category.Video, name) ?: throw IllegalStateException("Can't write to the download folder")
-            Downloads.edit(id) { it.copy(doc = doc.toString(), name = doc.lastPathSegment?.substringAfterLast('/') ?: name, category = Category.Video) }
+            val doc = Folders.create(this, tree, Category.Video, name, part = true) ?: throw IllegalStateException("Can't write to the download folder")
+            Downloads.edit(id) { it.copy(doc = doc.toString(), name = (doc.lastPathSegment?.substringAfterLast('/') ?: name).removeSuffix(".part"), category = Category.Video) }
             item = Downloads.get(id) ?: return
         }
         val pfd = contentResolver.openFileDescriptor(Uri.parse(item.doc), "rw") ?: throw IllegalStateException("The file is gone")
@@ -265,7 +266,8 @@ class DownloadService : Service() {
                     ticker.cancel()
                 }
                 val total = dl.downloaded()
-                Downloads.edit(id) { d -> d.copy(state = State.Done, done = total, size = total, finished = System.currentTimeMillis()) }
+                val (doc, name) = Folders.finish(this@DownloadService, item.doc!!, item.name)
+                Downloads.edit(id) { d -> d.copy(state = State.Done, doc = doc, name = name, done = total, size = total, finished = System.currentTimeMillis()) }
             }
         }
     }
