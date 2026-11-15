@@ -41,10 +41,10 @@ object Updater {
     private var lastCheck = 0L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    /** Asks GitHub, at most every 10 minutes unless [force]. */
+    /** Asks GitHub, at most once a minute unless [force]. */
     fun check(force: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (!force && now - lastCheck < 10 * 60_000) return
+        if (!force && now - lastCheck < 60_000) return
         if (status is Status.Downloading || status is Status.Installing) return
         lastCheck = now
         scope.launch {
