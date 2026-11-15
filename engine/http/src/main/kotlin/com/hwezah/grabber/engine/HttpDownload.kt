@@ -73,12 +73,17 @@ object Http {
     }
 
     /** One small ranged GET: size, whether ranges work, the name, the type. Servers that reject the range get a plain GET. */
-    suspend fun probe(url: String, headers: Map<String, String> = emptyMap(), client: OkHttpClient = this.client): Info =
-        try {
+    suspend fun probe(url: String, headers: Map<String, String> = emptyMap(), client: OkHttpClient = this.client): Info {
+        val first = try {
             probeWith(url, headers, client, "bytes=0-")
         } catch (e: HttpException) {
             if (e.code in setOf(400, 403, 405, 416, 501)) probeWith(url, headers, client, null) else throw e
         }
+        if (first.resumable) return first
+        // Some servers ignore an open "from 0" range but honour an exact one: ask for a single byte.
+        val exact = runCatching { probeWith(first.finalUrl, headers, client, "bytes=1-1") }.getOrNull()
+        return if (exact != null && exact.resumable) first.copy(resumable = true, size = if (first.size > 0) first.size else exact.size) else first
+    }
 
     private suspend fun probeWith(url: String, headers: Map<String, String>, client: OkHttpClient, range: String?): Info =
         execute(client.newCall(request(url, headers, range))) { r ->
@@ -89,7 +94,7 @@ object Http {
             Info(
                 finalUrl = finalUrl,
                 size = total,
-                resumable = r.code == 206 && total > 0 || r.header("Accept-Ranges")?.contains("bytes") == true && total > 0,
+                resumable = r.code == 206 && total > 0 && r.header("Content-Range") != null || r.header("Accept-Ranges")?.contains("bytes") == true && total > 0,
                 name = Names.fileName(finalUrl, r.header("Content-Disposition"), mime),
                 mime = mime,
                 validator = validatorOf(r.headers),
@@ -359,37 +364,61 @@ class HttpDownload(
         return conn.kicked
     }
 
-    /** No ranges (or no size): one connection from the start; a failure starts over. */
+    /**
+     * No confirmed ranges (or no size): one connection. Still, on a resume it asks to continue from where it
+     * stopped; only a server that sends the whole file again makes it start over.
+     */
     private suspend fun single() {
         var failures = 0
-        while (true) {
+        synchronized(lock) {
+            if (segments.size != 1 || segments[0].start != 0L) {
+                segments.clear()
+                segments += Segment(0, Long.MAX_VALUE - 1, 0)
+            } else segments[0].end = Long.MAX_VALUE - 1
+        }
+        coroutineScope {
+            val ticker = launch {
+                while (isActive) {
+                    delay(1000)
+                    checkpoint()
+                }
+            }
             try {
-                sink.truncate(0)
-                synchronized(lock) {
-                    segments.clear()
-                    segments += Segment(0, Long.MAX_VALUE - 1, 0)
-                }
-                Http.execute(client.newCall(Http.request(url, headers))) { r ->
-                    if (!r.isSuccessful) throw HttpException(r.code, "Server answered ${r.code}")
-                    val source = r.body!!.source()
-                    val buf = ByteArray(BLOCK)
-                    val seg = segments[0]
-                    while (true) {
-                        coroutineContext.ensureActive()
-                        val n = source.read(buf)
-                        if (n <= 0) break
-                        limiter.take(n)
-                        sink.write(seg.pos, ByteBuffer.wrap(buf, 0, n))
-                        synchronized(lock) { seg.pos += n }
+                while (true) {
+                    try {
+                        val seg = segments[0]
+                        val from = seg.pos
+                        Http.execute(client.newCall(Http.request(url, headers, if (from > 0) "bytes=$from-" else null))) { r ->
+                            if (!r.isSuccessful) throw HttpException(r.code, "Server answered ${r.code}")
+                            val continues = from > 0 && r.code == 206 && r.header("Content-Range")?.startsWith("bytes $from-") == true
+                            if (!continues) {
+                                // The whole file again: start over.
+                                sink.truncate(0)
+                                synchronized(lock) { seg.pos = 0 }
+                            }
+                            val source = r.body!!.source()
+                            val buf = ByteArray(BLOCK)
+                            while (true) {
+                                coroutineContext.ensureActive()
+                                val n = source.read(buf)
+                                if (n <= 0) break
+                                limiter.take(n)
+                                sink.write(seg.pos, ByteBuffer.wrap(buf, 0, n))
+                                synchronized(lock) { seg.pos += n }
+                            }
+                            synchronized(lock) { seg.end = seg.pos - 1 }
+                        }
+                        return@coroutineScope
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: IOException) {
+                        if (++failures > 3 || e is HttpException && e.code in 400..499) throw e
+                        delay(backoff(failures))
                     }
-                    synchronized(lock) { seg.end = seg.pos - 1 }
                 }
-                return
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: IOException) {
-                if (++failures > 3 || e is HttpException && e.code in 400..499) throw e
-                delay(backoff(failures))
+            } finally {
+                ticker.cancel()
+                checkpoint()
             }
         }
     }

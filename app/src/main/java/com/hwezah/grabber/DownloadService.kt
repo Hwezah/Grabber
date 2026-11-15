@@ -144,7 +144,8 @@ class DownloadService : Service() {
                     limiter.bytesPerSecond = Prefs.speedLimit
                     val dl = HttpDownload(
                         url = item.url, headers = item.headers, size = item.size, resumable = item.resumable, sink = sink,
-                        segments = if (item.resumable) Segments.decode(item.segments) else mutableListOf(),
+                        // Kept for single-connection downloads too: they try to continue where they stopped.
+                        segments = Segments.decode(item.segments),
                         connections = Prefs.connections.coerceIn(1, 64), limiter = limiter,
                         onCheckpoint = { segs ->
                             val done = segs.sumOf { s -> s.pos - s.start }
