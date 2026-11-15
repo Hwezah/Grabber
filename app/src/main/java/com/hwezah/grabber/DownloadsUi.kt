@@ -452,7 +452,8 @@ private fun RefreshLink(item: Item) {
 /** Pause as two solid bars (Lucide's is an outline). */
 @Composable
 fun PauseBars(color: Color = Ink.text) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        repeat(2) { Box(Modifier.size(width = 3.dp, height = 18.dp).clip(RoundedCornerShape(1.dp)).background(color)) }
+    // Matched to the play icon beside it: its line weight (about 2dp at this size), its height, a clear gap.
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        repeat(2) { Box(Modifier.size(width = 2.dp, height = 16.dp).clip(RoundedCornerShape(1.dp)).background(color)) }
     }
 }
