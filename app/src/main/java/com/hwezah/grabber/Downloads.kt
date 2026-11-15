@@ -100,6 +100,8 @@ object Downloads {
         _items.value = runCatching { parse(file.readText()) }.getOrDefault(emptyList())
             // Anything that was running when the app died goes back in the queue.
             .map { if (it.state == State.Running) it.copy(state = State.Queued) else it }
+            // Rows named after a playlist ("index_287.m3u8") from older builds get a real name.
+            .map { if (it.state != State.Done && STREAM_EXT.containsMatchIn(it.name)) it.copy(name = it.fixedName ?: nameFor(it.source.ifBlank { it.url }, null, it.hint)) else it }
     }
 
     fun add(
