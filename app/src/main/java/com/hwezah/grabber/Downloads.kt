@@ -62,7 +62,7 @@ data class Item(
 }
 
 /** Names that say nothing about what's in the file: playlists, "download", "index (2)". */
-private val GENERIC = Regex("""^(index|playlist|master|chunklist|manifest|media|prog_index|stream|video|file|download|init|mono)?[\w\s()-]{0,12}$""", RegexOption.IGNORE_CASE)
+private val GENERIC = Regex("""^((index|playlist|master|chunklist|manifest|media|prog_index|stream|video|file|download|init|mono)[\w\s()-]{0,16}|[\d\s()_-]*)$""", RegexOption.IGNORE_CASE)
 private val STREAM_EXT = Regex("""\.(m3u8|m3u|mpd|ts)$""", RegexOption.IGNORE_CASE)
 
 /**
