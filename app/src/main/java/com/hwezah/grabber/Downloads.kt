@@ -51,6 +51,8 @@ data class Item(
     val files: String = "",
     /** Torrent: pieces in order (so a video can play while it downloads). */
     val sequential: Boolean = false,
+    /** The link as it was added (before redirects): fetched again for a fresh address when a resume fails. */
+    val source: String = "",
     /** Media (yt-dlp): "v:1080" for video up to 1080p, "a:mp3" / "a:m4a" / "a:opus" for audio. */
     val format: String = "",
 ) {
@@ -86,7 +88,7 @@ object Downloads {
         val base = System.currentTimeMillis()
         _items.update { list ->
             urls.mapIndexed { i, u ->
-                Item(id = base + i, url = u, headers = headers, fixedName = name?.takeIf { urls.size == 1 && it.isNotBlank() },
+                Item(id = base + i, url = u, source = u, headers = headers, fixedName = name?.takeIf { urls.size == 1 && it.isNotBlank() },
                     kind = kind, files = files, sequential = sequential, format = format,
                     state = if (start) State.Queued else State.Paused,
                     category = when {
@@ -160,6 +162,12 @@ object Downloads {
         kick()
     }
 
+    /** The user chose to download from the beginning (the server can't continue it). */
+    fun startOver(id: Long) {
+        edit(id) { it.copy(segments = "", done = 0, state = State.Queued, error = null) }
+        kick()
+    }
+
     fun pauseAll() {
         _items.update { list -> list.map { if (it.state == State.Queued || it.state == State.Running) it.copy(state = State.Paused) else it } }
         save()
@@ -219,7 +227,7 @@ object Downloads {
                 put("state", i.state.name); i.error?.let { put("error", it) }
                 put("segments", i.segments); put("done", i.done); put("created", i.created); put("finished", i.finished)
                 i.fixedName?.let { put("fixedName", it) }
-                put("kind", i.kind.name); put("files", i.files); put("sequential", i.sequential); put("format", i.format)
+                put("source", i.source); put("kind", i.kind.name); put("files", i.files); put("sequential", i.sequential); put("format", i.format)
             })
         }
     }.toString()
@@ -242,6 +250,7 @@ object Downloads {
                 created = o.optLong("created"), finished = o.optLong("finished"),
                 fixedName = o.optString("fixedName").ifEmpty { null },
                 kind = runCatching { Kind.valueOf(o.optString("kind")) }.getOrDefault(Kind.Http),
+                source = o.optString("source"),
                 files = o.optString("files"), sequential = o.optBoolean("sequential"), format = o.optString("format"),
             )
         }

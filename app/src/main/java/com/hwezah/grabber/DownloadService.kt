@@ -48,6 +48,8 @@ class DownloadService : Service() {
     @Volatile private var updating = false
     private val retries = java.util.concurrent.ConcurrentHashMap<Long, Int>()
     private val deadTries = java.util.concurrent.ConcurrentHashMap<Long, Int>()
+    /** Downloads already sent back to their original link since their last progress. */
+    private val refetched = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
     private val lastDone = java.util.concurrent.ConcurrentHashMap<Long, Long>()
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -158,6 +160,7 @@ class DownloadService : Service() {
                         connections = Prefs.connections.coerceIn(1, 64), limiter = limiter,
                         onCheckpoint = { segs ->
                             val done = segs.sumOf { s -> s.pos - s.start }
+                            if (done > (Downloads.get(id)?.done ?: 0)) refetched.remove(id)
                             Downloads.edit(id) { d -> d.copy(segments = Segments.encode(segs), done = done) }
                         },
                     )
@@ -172,6 +175,30 @@ class DownloadService : Service() {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
+            // A resume failed: first go back to the original link for a fresh address (temporary links expire),
+            // and carry on from where it stopped. Only once per stretch without progress.
+            val failed = Downloads.get(id)
+            val noResume = e is com.hwezah.grabber.engine.NoResumeException
+            val refetchable = failed != null && failed.kind == Kind.Http && failed.source.isNotBlank() &&
+                (noResume || e is com.hwezah.grabber.engine.HttpException || e.message?.contains("stopped allowing parts") == true)
+            if (refetchable && refetched.add(id)) {
+                val fresh = runCatching { Http.probe(failed!!.source, failed.headers) }.getOrNull()
+                if (fresh != null) {
+                    Downloads.edit(id) {
+                        val segs = if (fresh.resumable && fresh.size > 0 && !it.resumable) {
+                            val kept = Segments.decode(it.segments).firstOrNull()?.pos?.coerceIn(0, fresh.size) ?: 0L
+                            Segments.encode(listOf(com.hwezah.grabber.engine.Segment(0, fresh.size - 1, kept)))
+                        } else it.segments
+                        it.copy(url = fresh.finalUrl, resumable = it.resumable || fresh.resumable && fresh.size > 0,
+                            size = if (fresh.size > 0) fresh.size else it.size, segments = segs, state = State.Queued, error = null)
+                    }
+                    return
+                }
+            }
+            if (noResume) {
+                Downloads.edit(id) { it.copy(state = State.Failed, error = "This server can't continue it from where it stopped. Tap it, then Start over") }
+                return
+            }
             val code = (e as? com.hwezah.grabber.engine.HttpException)?.code
             // The link itself is gone or now points at something else: keep the progress, ask for a fresh link.
             val linkDead = (code != null && code in setOf(401, 403, 404, 410, 412)) || e.message?.contains("stopped allowing parts") == true

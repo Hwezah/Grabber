@@ -277,6 +277,10 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                         ?.setPrimaryClip(android.content.ClipData.newPlainText("link", item.url))
                 }, icon = L.drawable.lucide_ic_copy, compact = true)
             }
+            if (item.state == State.Failed && item.error?.contains("Start over") == true) {
+                Spacer(Modifier.height(10.dp))
+                Button("Start over", { Downloads.startOver(item.id); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_rotate_cw, accent = Ink.orange)
+            }
             if (item.state != State.Done && item.kind == Kind.Http) RefreshLink(item)
             if (item.state == State.Done && item.doc != null && item.category == Category.Video) {
                 Spacer(Modifier.height(10.dp))

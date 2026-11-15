@@ -32,6 +32,9 @@ data class Info(
 
 class HttpException(val code: Int, message: String) : IOException(message)
 
+/** A paused download the server won't continue from where it stopped (it sent the whole file, or something else). */
+class NoResumeException : IOException("The server won't continue this download from where it stopped")
+
 object Http {
     /**
      * HTTP/1.1 only: on HTTP/2 OkHttp would carry every "connection" as a stream over one TCP socket,
@@ -391,11 +394,8 @@ class HttpDownload(
                         Http.execute(client.newCall(Http.request(url, headers, if (from > 0) "bytes=$from-" else null))) { r ->
                             if (!r.isSuccessful) throw HttpException(r.code, "Server answered ${r.code}")
                             val continues = from > 0 && r.code == 206 && r.header("Content-Range")?.startsWith("bytes $from-") == true
-                            if (!continues) {
-                                // The whole file again: start over.
-                                sink.truncate(0)
-                                synchronized(lock) { seg.pos = 0 }
-                            }
+                            // Never wipe progress on our own: the caller decides (fresh link, or the user's Start over).
+                            if (from > 0 && !continues) throw NoResumeException()
                             val source = r.body!!.source()
                             val buf = ByteArray(BLOCK)
                             while (true) {
