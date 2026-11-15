@@ -139,8 +139,10 @@ fun Button(
         return
     }
     if (LocalInSheet.current) {
-        // In sheets: no pill, just the icon and words; an accent colours them.
+        // In sheets: no pill, just the icon and words. The icon is always coloured (the action's own accent,
+        // else the main colour); the words are white unless the action has its own accent.
         val fg = accent ?: Ink.text
+        val iconTint = accent ?: Ink.red
         Tap(onClick, modifier, RoundedCornerShape(12.dp)) { pressed ->
             Row(
                 Modifier.background(if (pressed) Ink.text.copy(alpha = 0.07f) else Color.Transparent).height(48.dp).padding(horizontal = 8.dp),
@@ -148,7 +150,7 @@ fun Button(
                 horizontalArrangement = Arrangement.Center,
             ) {
                 if (icon != null) {
-                    Lc(icon, tint = fg, size = 20.dp)
+                    Lc(icon, tint = iconTint, size = 20.dp)
                     if (label.isNotEmpty()) Spacer(Modifier.width(6.dp))
                 }
                 if (label.isNotEmpty()) Text(label, style = Type.label.copy(fontWeight = FontWeight.SemiBold, color = fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
