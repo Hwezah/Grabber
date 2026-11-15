@@ -76,6 +76,8 @@ object Ink {
     val ember = Color(0xFFFF8A4C)
     /** Downloads and success. A shade deeper on the light page so it still reads. */
     val green get() = if (isDark) Color(0xFF1E9E52) else Color(0xFF13703A)
+    /** Green buttons: a darker green than the icons and bars. */
+    val greenButton get() = if (isDark) Color(0xFF15703A) else Color(0xFF0F5C2E)
     /** Third accent: torrents, conversion, warnings. */
     val orange = Color(0xFFE8590C)
 }

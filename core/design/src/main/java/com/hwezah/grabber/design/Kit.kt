@@ -117,6 +117,8 @@ fun Button(
     accent: Color? = null,
     compact: Boolean = false,
 ) {
+    // Green buttons are a deeper green than icons and progress bars.
+    val accent = if (accent == Ink.green) Ink.greenButton else accent
     Tap(onClick, modifier, RoundedCornerShape(50)) { pressed ->
         val fg = if (accent != null) Ink.on(accent) else Ink.text
         // A solid accent, or a lighter shade of frosted glass.

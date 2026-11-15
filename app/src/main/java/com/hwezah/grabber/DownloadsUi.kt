@@ -300,7 +300,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                                 }
                             }
                             onDismiss()
-                        }, accent = Ink.orange, compact = true)
+                        }, compact = true)
                     }
                 }
             }
