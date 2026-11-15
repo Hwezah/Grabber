@@ -453,6 +453,6 @@ private fun RefreshLink(item: Item) {
 @Composable
 fun PauseBars(color: Color = Ink.text) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        repeat(2) { Box(Modifier.size(width = 4.5.dp, height = 15.dp).clip(RoundedCornerShape(1.5.dp)).background(color)) }
+        repeat(2) { Box(Modifier.size(width = 3.dp, height = 18.dp).clip(RoundedCornerShape(1.dp)).background(color)) }
     }
 }
