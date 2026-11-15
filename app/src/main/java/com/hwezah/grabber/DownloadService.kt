@@ -142,7 +142,7 @@ class DownloadService : Service() {
                 val probed = Http.probe(item.url, item.headers)
                 // Not a file after all: a stream's playlist, or a web page with a video on it.
                 if (probed.playlist || com.hwezah.grabber.engine.Hls.isPlaylist(probed.finalUrl, probed.mime)) {
-                    Downloads.edit(id) { it.copy(kind = Kind.Hls, category = Category.Video, format = Prefs.videoQuality, fixedName = it.fixedName ?: it.hint.ifBlank { null }) }
+                    Downloads.edit(id) { it.copy(kind = Kind.Hls, category = Category.Video, format = Prefs.videoQuality, fixedName = it.fixedName ?: nameFor(it.url, null, it.hint), name = it.fixedName ?: nameFor(it.url, null, it.hint)) }
                     return stream(Downloads.get(id) ?: return)
                 }
                 if (probed.mime == "text/html") {
@@ -309,7 +309,7 @@ class DownloadService : Service() {
         val id = item.id
         if (item.doc == null) {
             val tree = Prefs.folder ?: throw IllegalStateException("Choose a download folder in Settings")
-            val base = (item.fixedName ?: item.name).substringBeforeLast('.').ifBlank { "video" }
+            val base = (item.fixedName ?: nameFor(item.url, null, item.hint)).replace(Regex("""\.(m3u8|m3u|ts|mp4)$""", RegexOption.IGNORE_CASE), "").ifBlank { "video" }
             val name = Names.clean(base) + ".ts"
             val doc = Folders.create(this, tree, Category.Video, name, part = true) ?: throw IllegalStateException("Can't write to the download folder")
             Downloads.edit(id) { it.copy(doc = doc.toString(), name = (doc.lastPathSegment?.substringAfterLast('/') ?: name).removeSuffix(".part"), category = Category.Video) }

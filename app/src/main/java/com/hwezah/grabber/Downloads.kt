@@ -61,6 +61,27 @@ data class Item(
     val progress get() = if (size > 0) (done.toFloat() / size).coerceIn(0f, 1f) else 0f
 }
 
+/** Names that say nothing about what's in the file: playlists, "download", "index (2)". */
+private val GENERIC = Regex("""^(index|playlist|master|chunklist|manifest|media|prog_index|stream|video|file|download|init|mono)?[\w\s()-]{0,12}$""", RegexOption.IGNORE_CASE)
+private val STREAM_EXT = Regex("""\.(m3u8|m3u|mpd|ts)$""", RegexOption.IGNORE_CASE)
+
+/**
+ * A download's name: the [title] it was sent with, else the link's own file name if that means something,
+ * else the [hint] (a batch name), else the site. Never a playlist name like "index_287.m3u8".
+ */
+fun nameFor(url: String, title: String?, hint: String = ""): String {
+    title?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+    val seg = url.substringBefore('#').substringBefore('?').substringAfter("://").substringAfter('/', "")
+        .trimEnd('/').substringAfterLast('/')
+        .let { runCatching { java.net.URLDecoder.decode(it.replace("+", "%2B"), "UTF-8") }.getOrDefault(it) }
+    val stem = seg.replace(STREAM_EXT, "").substringBeforeLast('.', seg.replace(STREAM_EXT, ""))
+    val streamLink = STREAM_EXT.containsMatchIn(seg)
+    val generic = stem.isBlank() || GENERIC.matches(stem) || stem.lowercase().startsWith("index") || stem.lowercase().startsWith("chunklist")
+    if (!generic) return if (streamLink) stem else seg
+    if (hint.isNotBlank()) return hint
+    return runCatching { android.net.Uri.parse(url).host?.removePrefix("www.") }.getOrNull()?.ifBlank { null } ?: "download"
+}
+
 /** Live numbers for running downloads, refreshed every second; not saved. */
 data class Live(val bytes: Long, val speed: Long, val text: String? = null)
 
@@ -87,12 +108,15 @@ object Downloads {
         /** False: only put it on the list (paused), to start later. */
         start: Boolean = true,
         hint: String = "",
+        /** Per-link titles, same order as [urls] (a season sent as a batch); a null keeps the usual name. */
+        titles: List<String?> = emptyList(),
     ) {
         // Ids never repeat, even for links added in the same millisecond.
         val base = synchronized(saveLock) { maxOf(System.currentTimeMillis(), lastId + 1).also { lastId = it + urls.size } }
         _items.update { list ->
             urls.mapIndexed { i, u ->
-                Item(id = base + i, url = u, source = u, hint = hint, headers = headers, fixedName = name?.takeIf { urls.size == 1 && it.isNotBlank() },
+                val title = titles.getOrNull(i)?.takeIf { it.isNotBlank() } ?: name?.takeIf { urls.size == 1 && it.isNotBlank() }
+                Item(id = base + i, url = u, source = u, hint = hint, headers = headers, fixedName = title,
                     kind = kind, files = files, sequential = sequential, format = format,
                     state = if (start) State.Queued else State.Paused,
                     category = when {
@@ -101,8 +125,7 @@ object Downloads {
                         kind == Kind.Media -> if (format.startsWith("a:")) Category.Audio else Category.Video
                         else -> Category.Other
                     },
-                    name = name?.takeIf { it.isNotBlank() } ?: u.substringBefore('?').trimEnd('/').substringAfterLast('/').ifBlank { u }
-                        .let { n -> runCatching { java.net.URLDecoder.decode(n.replace("+", "%2B"), "UTF-8") }.getOrDefault(n) })
+                    name = nameFor(u, title ?: name, hint))
             } + list
         }
         save()

@@ -99,14 +99,16 @@ fun magnetName(magnet: String): String =
         ?: magnet.substringAfter("btih:").substringBefore('&').take(40)
 
 /** Queues [urls] (magnets as torrents), asking for notification permission first time on Android 13+. */
-fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit, subject: String? = null, order: List<String> = urls) {
+fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit, subject: String? = null, order: List<String> = urls, names: Map<String, String> = emptyMap()) {
     if (urls.isEmpty()) return
     if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) askNotify()
     val (mags, web) = urls.partition { it.startsWith("magnet:", true) }
     // Sent as a named batch: each link keeps the batch's name and its place in it, for links with no name of their own.
-    if (subject.isNullOrBlank()) { if (web.isNotEmpty()) Downloads.add(web) }
-    else web.forEach { u -> Downloads.add(listOf(u), hint = "$subject · ${order.indexOf(u) + 1}") }
-    mags.forEach { Downloads.add(listOf(it), name = magnetName(it), kind = Kind.Torrent) }
+    // Each link takes its own name if the batch sent one, else the batch's name and its place in it.
+    web.forEach { u ->
+        Downloads.add(listOf(u), titles = listOf(names[u]), hint = if (subject.isNullOrBlank()) "" else "$subject · ${order.indexOf(u) + 1}")
+    }
+    mags.forEach { Downloads.add(listOf(it), name = names[it] ?: magnetName(it), kind = Kind.Torrent) }
 }
 
 /**
@@ -114,7 +116,7 @@ fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit, 
  * The text is already saved in the clipboard history when this shows.
  */
 @Composable
-fun CaptureSheet(text: String, title: String? = null, headers: Map<String, String> = emptyMap(), onDismiss: () -> Unit) {
+fun CaptureSheet(text: String, title: String? = null, headers: Map<String, String> = emptyMap(), titles: List<String> = emptyList(), onDismiss: () -> Unit) {
     val context = LocalContext.current
     val found = remember(text) { LinkFinder.find(text) }
     val off = remember { mutableStateListOf<String>() }
@@ -127,7 +129,14 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
     }
     val single = found.size == 1
     // A name for a lone link: what the sending app said, else words copied around it.
-    val nameHint = title ?: if (single) Capture.nameAround(text) else null
+    // A batch's own names: line i of the text has titles[i].
+    val linkTitles = remember(text, titles) {
+        if (titles.isEmpty()) emptyMap() else text.lines().filter { it.isNotBlank() }.mapIndexedNotNull { i, line ->
+            val t = titles.getOrNull(i)?.takeIf { it.isNotBlank() } ?: return@mapIndexedNotNull null
+            LinkFinder.find(line).firstOrNull()?.text?.let { it to t }
+        }.toMap()
+    }
+    val nameHint = (if (single) linkTitles[found[0].text] else null) ?: title ?: if (single) Capture.nameAround(text) else null
     BottomSheet(if (single && found[0] is Found.Web) "Download file" else heading, onDismiss) {
         Column(Modifier.padding(horizontal = CARD)) {
             if (found.isEmpty()) {
@@ -162,7 +171,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
                         if (web.size > 1) "Download ${web.size}" else "Download",
                         {
                             if (Prefs.folder != null && web.isNotEmpty()) {
-                                startDownloads(context, web, { notify.launch(Manifest.permission.POST_NOTIFICATIONS) }, subject = title, order = found.map { it.text })
+                                startDownloads(context, web, { notify.launch(Manifest.permission.POST_NOTIFICATIONS) }, subject = title, order = found.map { it.text }, names = linkTitles)
                                 onDismiss()
                             }
                         },
@@ -229,7 +238,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
                     if (name.isEmpty()) {
                         val ext = it.name.substringAfterLast('.', "")
                         name = when {
-                            stream != null -> title?.let { t -> Names.clean(t) } ?: it.name.substringBeforeLast('.')
+                            stream != null -> Names.clean(nameFor(it.finalUrl, title))
                             title != null -> Names.clean(title) + if (ext.isNotEmpty() && ext.length <= 5) ".$ext" else ""
                             else -> it.name
                         }

@@ -24,6 +24,8 @@ class CaptureActivity : ComponentActivity() {
     /** What the sending app told us about the link: a title, and headers it needs (referer, cookies…). */
     private var title by mutableStateOf<String?>(null)
     private var headers by mutableStateOf<Map<String, String>>(emptyMap())
+    /** A batch's per-link names ("titles", one per line of the shared text, same order). */
+    private var titles by mutableStateOf<List<String>>(emptyList())
     private var looked = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,7 +38,7 @@ class CaptureActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Ink.red)) {
                 if (files.isNotEmpty()) SaveFilesSheet(files) { finish() }
-                else text?.let { CaptureSheet(it, title = title, headers = headers) { finish() } }
+                else text?.let { CaptureSheet(it, title = title, headers = headers, titles = titles) { finish() } }
             }
         }
     }
@@ -52,7 +54,10 @@ class CaptureActivity : ComponentActivity() {
     private fun given(i: Intent): String? = when (i.action) {
         Intent.ACTION_VIEW -> i.dataString?.also { extras(i) }
         // The subject names what was shared: a page's title, or "The Penguin · season 1" for a batch of links.
-        Intent.ACTION_SEND -> i.getStringExtra(Intent.EXTRA_TEXT)?.also { title = i.getStringExtra(Intent.EXTRA_SUBJECT)?.takeIf { s -> s.isNotBlank() } }
+        Intent.ACTION_SEND -> i.getStringExtra(Intent.EXTRA_TEXT)?.also {
+            title = i.getStringExtra(Intent.EXTRA_SUBJECT)?.takeIf { s -> s.isNotBlank() }
+            titles = i.getStringArrayExtra("titles")?.toList().orEmpty()
+        }
         Intent.ACTION_PROCESS_TEXT -> i.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
         else -> null
     }
