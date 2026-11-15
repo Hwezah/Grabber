@@ -68,6 +68,7 @@ fun SettingsPage() {
                 ChipRow("Connections per file", listOf(8, 16, 32, 48, 64).map { it to "$it" }, Prefs.connections, Prefs::useConnections)
                 ChipRow("Downloads at the same time", (1..5).map { it to "$it" }, Prefs.parallel, Prefs::useParallel)
                 ChipRow("Speed limit", listOf(0L to "Off", 1L to "1 MB/s", 5L to "5 MB/s", 10L to "10 MB/s").map { (mb, l) -> mb * 1024 * 1024 to l }, Prefs.speedLimit, Prefs::useSpeedLimit)
+                BatteryRow()
                 SettingRow("Wi-Fi only", "On mobile data, downloads wait for Wi-Fi") { Toggle(Prefs.wifiOnly, Prefs::useWifiOnly) }
                 SettingRow("Retry failed downloads", "Keeps trying, even for days, when the connection drops; carries on when the network is back") { Toggle(Prefs.autoRetry, Prefs::useAutoRetry) }
                 SettingRow("Notify when done", "A notification for each finished download, tap to open") { Toggle(Prefs.notifyDone, Prefs::useNotifyDone) }
@@ -303,4 +304,32 @@ fun AccentRow() {
         }
     }
     Spacer(Modifier.height(12.dp))
+}
+
+/** Android pauses background apps' network to save battery; downloads need to be let off that. */
+@Composable
+fun BatteryRow() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val pm = remember { context.getSystemService(android.os.PowerManager::class.java) }
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    var tick by remember { mutableStateOf(0) }
+    androidx.compose.runtime.DisposableEffect(owner) {
+        val o = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) tick++ }
+        owner.lifecycle.addObserver(o)
+        onDispose { owner.lifecycle.removeObserver(o) }
+    }
+    val free = remember(tick) { pm?.isIgnoringBatteryOptimizations(context.packageName) == true }
+    SettingRow(
+        "Keep downloading in the background",
+        if (free) "On: Android won't pause Grabber's downloads to save battery" else "Off: Android may stall downloads when the screen is off. Turn on for long downloads.",
+    ) {
+        if (free) Button("On", {}, accent = Ink.green, compact = true)
+        else Button("Turn on", {
+            runCatching {
+                @android.annotation.SuppressLint("BatteryLife")
+                val i = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:" + context.packageName))
+                context.startActivity(i)
+            }.onFailure { runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } }
+        }, accent = Ink.red, compact = true)
+    }
 }

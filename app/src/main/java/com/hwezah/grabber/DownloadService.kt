@@ -44,6 +44,7 @@ class DownloadService : Service() {
     private val running = HashMap<Long, Running>()
     private val limiter = RateLimiter()
     private var wake: PowerManager.WakeLock? = null
+    private var wifi: android.net.wifi.WifiManager.WifiLock? = null
     private val last = HashMap<Long, Long>()
     @Volatile private var updating = false
     private val retries = java.util.concurrent.ConcurrentHashMap<Long, Int>()
@@ -64,7 +65,13 @@ class DownloadService : Service() {
             if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0,
         )
         wake = (getSystemService(Context.POWER_SERVICE) as PowerManager)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "grabber:downloads").apply { acquire(6 * 60 * 60 * 1000L) }
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "grabber:downloads").apply { setReferenceCounted(false); acquire() }
+        // Wi-Fi stays up with the screen off, for as long as the service runs.
+        @Suppress("DEPRECATION")
+        wifi = runCatching {
+            (applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager)
+                .createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "grabber:downloads").apply { setReferenceCounted(false); acquire() }
+        }.getOrNull()
         scope.launch { Downloads.items.collect { pump() } }
         scope.launch {
             while (isActive) {
@@ -94,6 +101,7 @@ class DownloadService : Service() {
     override fun onDestroy() {
         scope.cancel()
         wake?.takeIf { it.isHeld }?.release()
+        wifi?.takeIf { it.isHeld }?.release()
         super.onDestroy()
     }
 
