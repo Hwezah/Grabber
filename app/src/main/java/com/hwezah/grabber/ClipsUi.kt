@@ -87,8 +87,8 @@ fun ClipboardPage() {
             }
             Field(query, { query = it }, "Search, or paste a link and press Go", Modifier.padding(horizontal = EDGE), onGo = { take(query) })
             if (clips.isNotEmpty()) Text(
-                "Swipe left to delete · swipe right to pin",
-                Modifier.fillMaxWidth().padding(top = 8.dp),
+                "Swipe left to delete · right to pin",
+                Modifier.fillMaxWidth().padding(start = EDGE * 2, end = EDGE * 2, top = 8.dp),
                 style = Type.meta.copy(color = Ink.faint, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
             )
             if (shown.isEmpty()) {

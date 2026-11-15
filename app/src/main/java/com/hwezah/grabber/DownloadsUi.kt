@@ -135,8 +135,8 @@ fun DownloadsPage() {
                 filters.forEachIndexed { i, c -> if (i > 0) Pipe(com.hwezah.grabber.design.pipeColor(i - 1)); Chip(c, c == filter, { filter = c }) }
             }
             if (items.isNotEmpty()) Text(
-                "Swipe left to remove · swipe right to pause, resume or open",
-                Modifier.fillMaxWidth().padding(top = 8.dp),
+                "Swipe left to remove · right to pause or open",
+                Modifier.fillMaxWidth().padding(start = EDGE * 2, end = EDGE * 2, top = 8.dp),
                 style = Type.meta.copy(color = Ink.faint, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
             )
             if (shown.isEmpty()) {
