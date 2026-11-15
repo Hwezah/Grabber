@@ -374,7 +374,7 @@ private fun AddSheet(onDismiss: () -> Unit) {
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Go),
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(onGo = {
                         if (chosen.isNotEmpty() && Prefs.folder != null) {
-                            startDownloads(context, chosen) { notify.launch(Manifest.permission.POST_NOTIFICATIONS) }
+                            startDownloads(context, chosen, askNotify = { notify.launch(Manifest.permission.POST_NOTIFICATIONS) })
                             onDismiss()
                         }
                     }),
