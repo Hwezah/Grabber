@@ -154,18 +154,16 @@ fun Button(
     }
 }
 
-/** A filter pill: filled with [accent] when on. */
+/**
+ * A choice in a row: plain words, no pill. The one that's on is bold in [accent]; the rest are muted.
+ * Rows put a [Pipe] between choices.
+ */
 @Composable
 fun Chip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, @DrawableRes icon: Int? = null, accent: Color = Ink.red) {
-    Tap(onClick, modifier, CircleShape) { pressed ->
-        val bg = when {
-            on -> accent
-            pressed -> Ink.text.copy(alpha = 0.14f)
-            else -> Ink.text.copy(alpha = 0.07f)
-        }
-        val fg = if (on) Ink.on(accent) else Ink.muted
+    Tap(onClick, modifier, RoundedCornerShape(8.dp)) { pressed ->
+        val fg = if (on) accent else if (pressed) Ink.text else Ink.muted
         Row(
-            Modifier.background(bg).then(if (on) Modifier else Modifier.grain()).height(34.dp).padding(horizontal = 14.dp),
+            Modifier.height(36.dp).padding(horizontal = 6.dp),
             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
         ) {
             if (icon != null) {
@@ -173,11 +171,17 @@ fun Chip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = M
                 Spacer(Modifier.width(3.dp))
             }
             Text(
-                label, style = Type.label.copy(fontSize = 14.sp, color = fg, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium),
+                label, style = Type.label.copy(fontSize = 15.sp, color = fg, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium),
                 maxLines = 1, softWrap = false, textAlign = TextAlign.Center,
             )
         }
     }
+}
+
+/** The thin coloured line between choices in a row. */
+@Composable
+fun Pipe(color: Color = Ink.red) {
+    Box(Modifier.size(width = 1.5.dp, height = 16.dp).clip(RoundedCornerShape(1.dp)).background(color.copy(alpha = 0.7f)))
 }
 
 /** An on/off switch: a flat pill, red when on. */

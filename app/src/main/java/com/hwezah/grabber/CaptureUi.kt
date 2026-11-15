@@ -275,21 +275,26 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
     media?.let { m ->
         val video = m.heights.filter { it in setOf(2160, 1440, 1080, 720, 480, 360, 240) }.ifEmpty { m.heights.take(4) }
         Text("Video", Modifier.padding(top = 10.dp), style = Type.meta)
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-            (video.map { "v:$it" }.ifEmpty { listOf("v:best") }).forEach { v ->
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            (video.map { "v:$it" }.ifEmpty { listOf("v:best") }).forEachIndexed { i, v ->
+                if (i > 0) com.hwezah.grabber.design.Pipe(Ink.green)
                 com.hwezah.grabber.design.Chip(if (v == "v:best") "Best" else v.removePrefix("v:") + "p", pick == v, { pick = v }, accent = Ink.green)
             }
         }
         Text("Audio only", Modifier.padding(top = 10.dp), style = Type.meta)
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-            listOf("a:mp3", "a:m4a", "a:opus").sortedByDescending { it == "a:" + Prefs.audioFormat }.forEach { a ->
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            listOf("a:mp3", "a:m4a", "a:opus").sortedByDescending { it == "a:" + Prefs.audioFormat }.forEachIndexed { i, a ->
+                if (i > 0) com.hwezah.grabber.design.Pipe(Ink.orange)
                 com.hwezah.grabber.design.Chip(a.removePrefix("a:").uppercase(), pick == a, { pick = a }, accent = Ink.orange)
             }
         }
     }
     stream?.takeIf { it.isNotEmpty() }?.let { vs ->
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-            vs.forEach { v -> com.hwezah.grabber.design.Chip(v.label, v == variant, { variant = v }, accent = Ink.green) }
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            vs.forEachIndexed { i, v ->
+                if (i > 0) com.hwezah.grabber.design.Pipe(Ink.green)
+                com.hwezah.grabber.design.Chip(v.label, v == variant, { variant = v }, accent = Ink.green)
+            }
         }
     }
     Spacer(Modifier.height(10.dp))

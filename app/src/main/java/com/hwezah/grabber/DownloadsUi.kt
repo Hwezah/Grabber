@@ -57,6 +57,7 @@ import com.hwezah.grabber.design.EDGE
 import com.hwezah.grabber.design.Heading
 import com.hwezah.grabber.design.CARD
 import com.hwezah.grabber.design.Ink
+import com.hwezah.grabber.design.Pipe
 import com.hwezah.grabber.design.SwipeRow
 import com.hwezah.grabber.design.CARD
 import com.hwezah.grabber.design.StretchRow
@@ -127,8 +128,8 @@ fun DownloadsPage() {
                     Button("Add", { adding = true }, icon = L.drawable.lucide_ic_plus, accent = Ink.red, compact = true)
                 }
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = EDGE), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FILTERS.forEach { c -> Chip(c, c == filter, { filter = c }) }
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = EDGE), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                FILTERS.forEachIndexed { i, c -> if (i > 0) Pipe(); Chip(c, c == filter, { filter = c }) }
             }
             if (items.isNotEmpty()) Text(
                 "Swipe left to remove · swipe right to pause, resume or open",
