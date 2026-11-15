@@ -128,8 +128,8 @@ fun DownloadsPage() {
                     Button("Add", { adding = true }, icon = L.drawable.lucide_ic_plus, accent = Ink.red, compact = true)
                 }
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = EDGE), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                FILTERS.forEachIndexed { i, c -> if (i > 0) Pipe(); Chip(c, c == filter, { filter = c }) }
+            Row(Modifier.padding(horizontal = EDGE).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                FILTERS.forEachIndexed { i, c -> if (i > 0) Pipe(com.hwezah.grabber.design.pipeColor(i - 1)); Chip(c, c == filter, { filter = c }) }
             }
             if (items.isNotEmpty()) Text(
                 "Swipe left to remove · swipe right to pause, resume or open",

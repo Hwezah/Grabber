@@ -160,6 +160,9 @@ fun Chip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = M
     }
 }
 
+/** The pipes' colours, one after another: each bar between choices differs from its neighbours. */
+fun pipeColor(i: Int): Color = listOf(Ink.red, Ink.green, Ink.orange, Color(0xFF0F8B8D), Color(0xFFB8A07A), Color(0xFF6B8AA6))[i % 6]
+
 /** The thin coloured line between choices in a row. */
 @Composable
 fun Pipe(color: Color = Ink.red) {

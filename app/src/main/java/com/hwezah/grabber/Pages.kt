@@ -178,7 +178,7 @@ fun <T> ChipRow(title: String, options: List<Pair<T, String>>, value: T, onPick:
     Text(title, Modifier.padding(top = 10.dp), style = Type.label.copy(fontWeight = FontWeight.SemiBold))
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = SpreadOut, verticalAlignment = Alignment.CenterVertically) {
         options.forEachIndexed { i, (v, l) ->
-            if (i > 0) com.hwezah.grabber.design.Pipe(accent)
+            if (i > 0) com.hwezah.grabber.design.Pipe(com.hwezah.grabber.design.pipeColor(i - 1))
             Chip(l, value == v, { onPick(v) }, accent = accent)
         }
     }
