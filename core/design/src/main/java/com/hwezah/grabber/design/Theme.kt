@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -60,12 +61,18 @@ object Ink {
     val ACCENTS = listOf(
         "Red" to Color(0xFFB81D24),
         "Deep orange" to Color(0xFFE8590C),
+        "Rust" to Color(0xFF9A4A2A),
+        "Sand" to Color(0xFFB8A07A),
+        "Olive" to Color(0xFF6B7A3A),
         "Teal" to Color(0xFF0F8B8D),
-        "Blue" to Color(0xFF1E63D6),
-        "Purple" to Color(0xFF7B3FE4),
-        "Pink" to Color(0xFFD6336C),
-        "Graphite" to Color(0xFF5C5C5C),
+        "Slate" to Color(0xFF4A5A6A),
+        "Graphite" to Color(0xFF3A3A3A),
+        "Grey" to Color(0xFF8A8A8A),
+        "White" to Color(0xFFEDEDED),
     )
+
+    /** Text and icons on [c]: dark on light shades (white, sand), white otherwise. */
+    fun on(c: Color): Color = if (c.luminance() > 0.45f) Color(0xFF141414) else Color.White
     val ember = Color(0xFFFF8A4C)
     /** Downloads and success. A shade deeper on the light page so it still reads. */
     val green get() = if (isDark) Color(0xFF1E9E52) else Color(0xFF13703A)

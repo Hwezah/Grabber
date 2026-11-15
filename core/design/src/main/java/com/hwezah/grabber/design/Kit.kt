@@ -118,7 +118,7 @@ fun Button(
     compact: Boolean = false,
 ) {
     Tap(onClick, modifier, RoundedCornerShape(50)) { pressed ->
-        val fg = if (accent != null) Color.White else Ink.text
+        val fg = if (accent != null) Ink.on(accent) else Ink.text
         // A solid accent, or a lighter shade of frosted glass.
         val base = if (accent != null) Modifier.background(if (pressed) accent.copy(alpha = 0.8f) else accent)
         else Modifier.frost(RoundedCornerShape(50), alpha = if (pressed) 0.14f else 0.08f)
@@ -145,7 +145,7 @@ fun Chip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = M
             pressed -> Ink.text.copy(alpha = 0.14f)
             else -> Ink.text.copy(alpha = 0.07f)
         }
-        val fg = if (on) Color.White else Ink.muted
+        val fg = if (on) Ink.on(accent) else Ink.muted
         Row(
             Modifier.background(bg).then(if (on) Modifier else Modifier.grain()).height(34.dp).padding(horizontal = 14.dp),
             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
@@ -167,7 +167,7 @@ fun Chip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = M
 fun Toggle(checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, accent: Color = Ink.red) {
     val travel by animateDpAsState(if (checked) 18.dp else 0.dp, tween(160), label = "toggle")
     val track by animateColorAsState(if (checked) accent else Ink.text.copy(alpha = 0.16f), tween(160), label = "track")
-    val thumb by animateColorAsState(if (checked) Color.White else Ink.muted, tween(160), label = "thumb")
+    val thumb by animateColorAsState(if (checked) Ink.on(accent) else Ink.muted, tween(160), label = "thumb")
     Box(
         modifier.size(width = 44.dp, height = 26.dp).clip(RoundedCornerShape(50)).background(track)
             .toggleable(checked, remember { MutableInteractionSource() }, indication = null, role = Role.Switch, onValueChange = onChange)

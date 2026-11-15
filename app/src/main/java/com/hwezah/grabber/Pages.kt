@@ -286,14 +286,18 @@ fun SignInRows() {
 fun AccentRow() {
     Text("Main colour", Modifier.padding(top = 10.dp), style = Type.label.copy(fontWeight = FontWeight.SemiBold))
     Text(Prefs.accent, style = Type.meta)
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp), horizontalArrangement = SpreadOut) {
-        Ink.ACCENTS.forEach { (name, color) ->
-            val on = Prefs.accent == name
-            com.hwezah.grabber.design.Tap({ Prefs.useAccent(name) }, Modifier.size(36.dp), androidx.compose.foundation.shape.CircleShape) {
-                Box(Modifier.background(color), contentAlignment = Alignment.Center) {
-                    if (on) com.hwezah.grabber.design.Lc(com.composables.icons.lucide.R.drawable.lucide_ic_check, tint = androidx.compose.ui.graphics.Color.White, size = 18.dp)
+    // Two rows of five circles.
+    Ink.ACCENTS.chunked(5).forEach { row ->
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = SpreadOut) {
+            row.forEach { (name, color) ->
+                val on = Prefs.accent == name
+                com.hwezah.grabber.design.Tap({ Prefs.useAccent(name) }, Modifier.size(38.dp), androidx.compose.foundation.shape.CircleShape) {
+                    Box(Modifier.background(color), contentAlignment = Alignment.Center) {
+                        if (on) com.hwezah.grabber.design.Lc(com.composables.icons.lucide.R.drawable.lucide_ic_check, tint = Ink.on(color), size = 18.dp)
+                    }
                 }
             }
         }
     }
+    Spacer(Modifier.height(12.dp))
 }
