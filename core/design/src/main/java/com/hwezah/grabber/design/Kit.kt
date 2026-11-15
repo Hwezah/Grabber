@@ -117,6 +117,24 @@ fun Button(
     accent: Color? = null,
     compact: Boolean = false,
 ) {
+    if (LocalInSheet.current) {
+        // In sheets: no pill, just the icon and words; an accent colours them.
+        val fg = accent ?: Ink.text
+        Tap(onClick, modifier, RoundedCornerShape(12.dp)) { pressed ->
+            Row(
+                Modifier.background(if (pressed) Ink.text.copy(alpha = 0.07f) else Color.Transparent).height(48.dp).padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                if (icon != null) {
+                    Lc(icon, tint = fg, size = 20.dp)
+                    if (label.isNotEmpty()) Spacer(Modifier.width(6.dp))
+                }
+                if (label.isNotEmpty()) Text(label, style = Type.label.copy(fontWeight = FontWeight.SemiBold, color = fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        return
+    }
     Tap(onClick, modifier, RoundedCornerShape(50)) { pressed ->
         val fg = if (accent != null) Ink.on(accent) else Ink.text
         // A solid accent, or a lighter shade of frosted glass.
@@ -226,6 +244,9 @@ fun spreadOut(min: Dp = 8.dp): Arrangement.Horizontal = object : Arrangement.Hor
 
 val SpreadOut: Arrangement.Horizontal = spreadOut()
 
+/** True inside a sheet: buttons there are plain icon + text actions, in a two-column grid. */
+val LocalInSheet = androidx.compose.runtime.compositionLocalOf { false }
+
 /** How many sheets are open: the floating tab bar hides while any is. */
 object Sheets {
     var open by mutableStateOf(0)
@@ -257,7 +278,7 @@ fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
             ) {
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(36.dp, 4.dp).clip(CircleShape).background(Ink.stroke))
                 Text(title, Modifier.padding(start = CARD, end = CARD, top = 14.dp, bottom = 8.dp), style = Type.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                content()
+                androidx.compose.runtime.CompositionLocalProvider(LocalInSheet provides true) { content() }
             }
         }
     }
@@ -269,17 +290,26 @@ fun Modifier.solo() = fillMaxWidth()
 /** A row of buttons stretched across the width, each the same size, 8dp apart. */
 @Composable
 fun StretchRow(modifier: Modifier = Modifier, gap: Dp = 8.dp, content: @Composable () -> Unit) {
+    // In a sheet: a grid, two per row. Elsewhere: one row.
+    val perRowMax = if (LocalInSheet.current) 2 else Int.MAX_VALUE
     androidx.compose.ui.layout.Layout(content, modifier.fillMaxWidth()) { measurables, constraints ->
         val n = measurables.size.coerceAtLeast(1)
+        val cols = minOf(n, perRowMax)
         val g = gap.roundToPx()
-        val w = ((constraints.maxWidth - g * (n - 1)) / n).coerceAtLeast(0)
+        val w = ((constraints.maxWidth - g * (cols - 1)) / cols).coerceAtLeast(0)
         val placeables = measurables.map { it.measure(androidx.compose.ui.unit.Constraints.fixedWidth(w)) }
-        val h = placeables.maxOfOrNull { it.height } ?: 0
-        layout(constraints.maxWidth, h) {
-            var x = 0
-            placeables.forEach {
-                it.placeRelative(x, (h - it.height) / 2)
-                x += w + g
+        val rows = placeables.chunked(cols)
+        val heights = rows.map { r -> r.maxOfOrNull { it.height } ?: 0 }
+        layout(constraints.maxWidth, heights.sum() + (rows.size - 1).coerceAtLeast(0) * g / 2) {
+            var y = 0
+            rows.forEachIndexed { ri, r ->
+                // A lone last item is centred.
+                var x = if (r.size < cols) (constraints.maxWidth - w) / 2 else 0
+                r.forEach {
+                    it.placeRelative(x, y + (heights[ri] - it.height) / 2)
+                    x += w + g
+                }
+                y += heights[ri] + g / 2
             }
         }
     }
