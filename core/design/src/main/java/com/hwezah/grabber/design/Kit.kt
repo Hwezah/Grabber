@@ -129,7 +129,7 @@ fun Button(
         ) {
             if (icon != null) {
                 Lc(icon, tint = fg, size = 18.dp)
-                if (label.isNotEmpty()) Spacer(Modifier.width(5.dp))
+                if (label.isNotEmpty()) Spacer(Modifier.width(3.dp))
             }
             if (label.isNotEmpty()) Text(label, style = Type.label.copy(fontWeight = FontWeight.SemiBold, color = fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -152,7 +152,7 @@ fun Chip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = M
         ) {
             if (icon != null) {
                 Lc(icon, tint = fg, size = 15.dp)
-                Spacer(Modifier.width(5.dp))
+                Spacer(Modifier.width(3.dp))
             }
             Text(
                 label, style = Type.label.copy(fontSize = 14.sp, color = fg, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium),
