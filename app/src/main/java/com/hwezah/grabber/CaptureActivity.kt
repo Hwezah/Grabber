@@ -26,6 +26,8 @@ class CaptureActivity : ComponentActivity() {
     private var headers by mutableStateOf<Map<String, String>>(emptyMap())
     /** A batch's per-link names ("titles", one per line of the shared text, same order). */
     private var titles by mutableStateOf<List<String>>(emptyList())
+    /** A batch's per-link headers (Referer, User-Agent, cookies), same order as its lines. */
+    private var linkHeaders by mutableStateOf<List<Map<String, String>>>(emptyList())
     private var looked = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,7 +40,7 @@ class CaptureActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Ink.red)) {
                 if (files.isNotEmpty()) SaveFilesSheet(files) { finish() }
-                else text?.let { CaptureSheet(it, title = title, headers = headers, titles = titles) { finish() } }
+                else text?.let { CaptureSheet(it, title = title, headers = headers, titles = titles, linkHeaders = linkHeaders) { finish() } }
             }
         }
     }
@@ -57,6 +59,14 @@ class CaptureActivity : ComponentActivity() {
         Intent.ACTION_SEND -> i.getStringExtra(Intent.EXTRA_TEXT)?.also {
             title = i.getStringExtra(Intent.EXTRA_SUBJECT)?.takeIf { s -> s.isNotBlank() }
             titles = i.getStringArrayExtra("titles")?.toList().orEmpty()
+            // "headers_json" (an array of name → value objects) wins; else "referers" (one per link, "" for none).
+            linkHeaders = runCatching {
+                val a = org.json.JSONArray(i.getStringExtra("headers_json") ?: error("none"))
+                (0 until a.length()).map { n ->
+                    val o = a.optJSONObject(n) ?: org.json.JSONObject()
+                    o.keys().asSequence().associateWith { k -> o.optString(k) }.filterValues { v -> v.isNotBlank() }
+                }
+            }.getOrNull() ?: i.getStringArrayExtra("referers")?.map { r -> if (r.isNullOrBlank()) emptyMap() else mapOf("Referer" to r) }.orEmpty()
         }
         Intent.ACTION_PROCESS_TEXT -> i.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
         else -> null
