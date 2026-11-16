@@ -122,7 +122,8 @@ fun Button(
     Tap(onClick, modifier, RoundedCornerShape(50)) { pressed ->
         val fg = if (accent != null) Ink.on(accent) else Ink.text
         // A solid accent, or a lighter shade of frosted glass.
-        val base = if (accent != null) Modifier.background(if (pressed) accent.copy(alpha = 0.8f) else accent)
+        // Frosted everywhere: coloured ones are the colour, a touch see-through, with the grain over it.
+        val base = if (accent != null) Modifier.background(accent.copy(alpha = if (pressed) 0.7f else 0.86f)).grain()
         else Modifier.frost(RoundedCornerShape(50), alpha = if (pressed) 0.14f else 0.08f)
         Row(
             base.height(if (LocalInSheet.current) (if (compact) 38.dp else 44.dp) else if (compact) 42.dp else 50.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
