@@ -99,16 +99,16 @@ fun magnetName(magnet: String): String =
         ?: magnet.substringAfter("btih:").substringBefore('&').take(40)
 
 /** Queues [urls] (magnets as torrents), asking for notification permission first time on Android 13+. */
-fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit, subject: String? = null, order: List<String> = urls, names: Map<String, String> = emptyMap()) {
+fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit, subject: String? = null, order: List<String> = urls, names: Map<String, String> = emptyMap(), start: Boolean = true) {
     if (urls.isEmpty()) return
-    if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) askNotify()
+    if (start && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) askNotify()
     val (mags, web) = urls.partition { it.startsWith("magnet:", true) }
     // Sent as a named batch: each link keeps the batch's name and its place in it, for links with no name of their own.
     // Each link takes its own name if the batch sent one, else the batch's name and its place in it.
     web.forEach { u ->
-        Downloads.add(listOf(u), titles = listOf(names[u]), hint = if (subject.isNullOrBlank()) "" else "$subject · ${order.indexOf(u) + 1}")
+        Downloads.add(listOf(u), titles = listOf(names[u]), hint = if (subject.isNullOrBlank()) "" else "$subject · ${order.indexOf(u) + 1}", start = start)
     }
-    mags.forEach { Downloads.add(listOf(it), name = names[it] ?: magnetName(it), kind = Kind.Torrent) }
+    mags.forEach { Downloads.add(listOf(it), name = names[it] ?: magnetName(it), kind = Kind.Torrent, start = start) }
 }
 
 /**
@@ -167,17 +167,19 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
                 }
                 if (found.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
-                    Button(
-                        if (web.size > 1) "Download ${web.size}" else "Download",
-                        {
-                            if (Prefs.folder != null && web.isNotEmpty()) {
-                                startDownloads(context, web, { notify.launch(Manifest.permission.POST_NOTIFICATIONS) }, subject = title, order = found.map { it.text }, names = linkTitles)
-                                onDismiss()
-                            }
-                        },
-                        Modifier.solo(), icon = L.drawable.lucide_ic_download,
-                        accent = if (Prefs.folder != null && web.isNotEmpty()) Ink.green else null,
-                    )
+                    val ready = Prefs.folder != null && web.isNotEmpty()
+                    fun go(start: Boolean) {
+                        if (!ready) return
+                        startDownloads(context, web, { notify.launch(Manifest.permission.POST_NOTIFICATIONS) }, subject = title, order = found.map { it.text }, names = linkTitles, start = start)
+                        if (!start) android.widget.Toast.makeText(context, "Added ${web.size} to the list", android.widget.Toast.LENGTH_SHORT).show()
+                        onDismiss()
+                    }
+                    // Add puts them on the list without starting; Download starts them. Side by side, the same size.
+                    val n = if (web.size > 1) " ${web.size}" else ""
+                    StretchRow {
+                        Button("Add$n", { go(false) }, icon = L.drawable.lucide_ic_plus, accent = if (ready) Ink.red else null)
+                        Button("Download$n", { go(true) }, icon = L.drawable.lucide_ic_download, accent = if (ready) Ink.green else null)
+                    }
                 }
             }
         }

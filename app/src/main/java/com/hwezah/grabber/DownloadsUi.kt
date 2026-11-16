@@ -402,18 +402,24 @@ private fun AddSheet(onDismiss: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(12.dp))
-            Button(
-                if (chosen.size > 1) "Download ${chosen.size}" else "Download",
-                {
-                    if (chosen.isEmpty() || Prefs.folder == null) return@Button
+            val ready = chosen.isNotEmpty() && Prefs.folder != null
+            val n = if (chosen.size > 1) " ${chosen.size}" else ""
+            StretchRow {
+                Button("Add$n", {
+                    if (!ready) return@Button
+                    Downloads.add(chosen, start = false)
+                    android.widget.Toast.makeText(context, "Added to the list", android.widget.Toast.LENGTH_SHORT).show()
+                    onDismiss()
+                }, icon = L.drawable.lucide_ic_plus, accent = if (ready) Ink.red else null)
+                Button("Download$n", {
+                    if (!ready) return@Button
                     if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                         notify.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
                     Downloads.add(chosen)
                     onDismiss()
-                },
-                Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = if (chosen.isNotEmpty() && Prefs.folder != null) Ink.green else null,
-            )
+                }, icon = L.drawable.lucide_ic_download, accent = if (ready) Ink.green else null)
+            }
         }
     }
 }
