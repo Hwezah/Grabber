@@ -153,6 +153,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
             else -> L.drawable.lucide_ic_link
         },
         iconTint = if (found.isEmpty()) Ink.red else Ink.green,
+        actions = if (single) ({ LinkActions(found[0].text) }) else null,
     ) {
         Column(Modifier.padding(horizontal = CARD)) {
             if (found.isEmpty()) {
@@ -268,17 +269,8 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
             .onFailure { error = it.message ?: it.javaClass.simpleName }
         checking = false
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(url, Modifier.weight(1f), style = Type.meta.copy(color = Ink.text), maxLines = 3, overflow = TextOverflow.Ellipsis)
-        Button("", {
-            context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("link", url))
-            Capture.seen(context, url)
-        }, icon = L.drawable.lucide_ic_copy, compact = true)
-        Spacer(Modifier.width(6.dp))
-        Button("", {
-            runCatching { context.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, url), null)) }
-        }, icon = L.drawable.lucide_ic_share_2, compact = true)
-    }
+    // The link takes the full width; copy and share sit by the sheet's heading.
+    Text(url, Modifier.fillMaxWidth(), style = Type.meta.copy(color = Ink.text), maxLines = 3, overflow = TextOverflow.Ellipsis)
     Spacer(Modifier.height(10.dp))
     val status = when {
         checking -> "Checking the link…"
@@ -456,4 +448,18 @@ private fun OneMagnet(magnet: String, onDismiss: () -> Unit) {
         },
         Modifier.solo(), icon = L.drawable.lucide_ic_magnet, accent = if (ready) Ink.orange else null,
     )
+}
+
+/** Copy and share for a link, as small buttons beside a sheet's heading. */
+@Composable
+fun LinkActions(link: String) {
+    val context = LocalContext.current
+    Button("", {
+        context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("link", link))
+        Capture.seen(context, link)
+        android.widget.Toast.makeText(context, "Copied", android.widget.Toast.LENGTH_SHORT).show()
+    }, icon = L.drawable.lucide_ic_copy, compact = true)
+    Button("", {
+        runCatching { context.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, link), null)) }
+    }, icon = L.drawable.lucide_ic_share_2, compact = true)
 }

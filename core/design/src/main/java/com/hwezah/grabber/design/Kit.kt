@@ -246,7 +246,12 @@ val LocalInSheet = androidx.compose.runtime.compositionLocalOf { false }
 
 /** The frame every sheet shares: a dimmed page, a plain grey sheet with a grab handle and a heading. */
 @Composable
-fun BottomSheet(title: String, onDismiss: () -> Unit, @DrawableRes icon: Int? = null, iconTint: Color = Ink.red, content: @Composable () -> Unit) {
+fun BottomSheet(
+    title: String, onDismiss: () -> Unit, @DrawableRes icon: Int? = null, iconTint: Color = Ink.red,
+    /** Small buttons beside the heading (copy, share), out of the way of the text below. */
+    actions: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
     BackHandler(onBack = onDismiss)
     androidx.compose.runtime.DisposableEffect(Unit) {
         Sheets.open++
@@ -278,6 +283,7 @@ fun BottomSheet(title: String, onDismiss: () -> Unit, @DrawableRes icon: Int? = 
                         Spacer(Modifier.width(10.dp))
                     }
                     Text(title, Modifier.weight(1f), style = Type.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (actions != null) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { actions() }
                 }
                 androidx.compose.runtime.CompositionLocalProvider(LocalInSheet provides true) { content() }
             }
