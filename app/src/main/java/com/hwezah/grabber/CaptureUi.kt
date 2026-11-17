@@ -99,14 +99,14 @@ fun magnetName(magnet: String): String =
         ?: magnet.substringAfter("btih:").substringBefore('&').take(40)
 
 /** Queues [urls] (magnets as torrents), asking for notification permission first time on Android 13+. */
-fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit, subject: String? = null, order: List<String> = urls, names: Map<String, String> = emptyMap(), start: Boolean = true, headers: Map<String, Map<String, String>> = emptyMap(), posters: Map<String, String> = emptyMap()) {
+fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit, subject: String? = null, order: List<String> = urls, names: Map<String, String> = emptyMap(), start: Boolean = true, headers: Map<String, Map<String, String>> = emptyMap()) {
     if (urls.isEmpty()) return
     if (start && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) askNotify()
     val (mags, web) = urls.partition { it.startsWith("magnet:", true) }
     // Sent as a named batch: each link keeps the batch's name and its place in it, for links with no name of their own.
     // Each link takes its own name if the batch sent one, else the batch's name and its place in it.
     web.forEach { u ->
-        Downloads.add(listOf(u), headers = headers[u].orEmpty(), titles = listOf(names[u]), posters = listOf(posters[u]), hint = if (subject.isNullOrBlank()) "" else "$subject · ${order.indexOf(u) + 1}", start = start)
+        Downloads.add(listOf(u), headers = headers[u].orEmpty(), titles = listOf(names[u]), hint = if (subject.isNullOrBlank()) "" else "$subject · ${order.indexOf(u) + 1}", start = start)
     }
     mags.forEach { Downloads.add(listOf(it), name = names[it] ?: magnetName(it), kind = Kind.Torrent, start = start) }
 }
@@ -116,7 +116,7 @@ fun startDownloads(context: Context, urls: List<String>, askNotify: () -> Unit, 
  * The text is already saved in the clipboard history when this shows.
  */
 @Composable
-fun CaptureSheet(text: String, title: String? = null, headers: Map<String, String> = emptyMap(), titles: List<String> = emptyList(), linkHeaders: List<Map<String, String>> = emptyList(), posters: List<String> = emptyList(), onDismiss: () -> Unit) {
+fun CaptureSheet(text: String, title: String? = null, headers: Map<String, String> = emptyMap(), titles: List<String> = emptyList(), linkHeaders: List<Map<String, String>> = emptyList(), onDismiss: () -> Unit) {
     val context = LocalContext.current
     val found = remember(text) { LinkFinder.find(text) }
     val off = remember { mutableStateListOf<String>() }
@@ -143,14 +143,6 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
             LinkFinder.find(line).firstOrNull()?.text?.let { it to h }
         }.toMap()
     }
-    // Posters per link (a batch's, line by line), or the one poster for a single link.
-    val postersByLink = remember(text, posters) {
-        if (posters.isEmpty()) emptyMap() else if (found.size == 1) mapOf(found[0].text to posters[0]) else
-            text.lines().filter { it.isNotBlank() }.mapIndexedNotNull { i, line ->
-                val p = posters.getOrNull(i)?.takeIf { it.isNotBlank() } ?: return@mapIndexedNotNull null
-                LinkFinder.find(line).firstOrNull()?.text?.let { it to p }
-            }.toMap()
-    }
     val nameHint = (if (single) linkTitles[found[0].text] else null) ?: title ?: if (single) Capture.nameAround(text) else null
     BottomSheet(
         if (single && found[0] is Found.Web) "Download file" else heading, onDismiss,
@@ -170,7 +162,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
                     Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))
                     FolderRow()
                 }
-                if (found[0] is Found.Magnet) OneMagnet(found[0].text, onDismiss) else OneLink(found[0].text, onDismiss, nameHint, headersByLink[found[0].text] ?: headers, postersByLink[found[0].text].orEmpty())
+                if (found[0] is Found.Magnet) OneMagnet(found[0].text, onDismiss) else OneLink(found[0].text, onDismiss, nameHint, headersByLink[found[0].text] ?: headers)
             } else {
                 if (Prefs.folder == null) {
                     Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))
@@ -194,7 +186,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
                     val ready = Prefs.folder != null && web.isNotEmpty()
                     fun go(start: Boolean) {
                         if (!ready) return
-                        startDownloads(context, web, { notify.launch(Manifest.permission.POST_NOTIFICATIONS) }, subject = title, order = found.map { it.text }, names = linkTitles, start = start, headers = headersByLink, posters = postersByLink)
+                        startDownloads(context, web, { notify.launch(Manifest.permission.POST_NOTIFICATIONS) }, subject = title, order = found.map { it.text }, names = linkTitles, start = start, headers = headersByLink)
                         if (!start) android.widget.Toast.makeText(context, "Added ${web.size} to the list", android.widget.Toast.LENGTH_SHORT).show()
                         onDismiss()
                     }
@@ -212,7 +204,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
 
 /** One link, as 1DM shows it: checked with the server first, name editable, referer optional. */
 @Composable
-private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, given: Map<String, String> = emptyMap(), poster: String = "") {
+private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, given: Map<String, String> = emptyMap()) {
     val context = LocalContext.current
     val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     var info by remember { mutableStateOf<com.hwezah.grabber.engine.Info?>(null) }
@@ -351,14 +343,13 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
         if (start && android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             notify.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        val ps = listOf(poster.ifBlank { null })
-        if (media != null) Downloads.add(listOf(url), headers, name.ifBlank { media!!.title }, kind = Kind.Media, format = pick, start = start, posters = ps)
+        if (media != null) Downloads.add(listOf(url), headers, name.ifBlank { media!!.title }, kind = Kind.Media, format = pick, start = start)
         // The whole stream (so separate audio comes too), at the chosen height.
         else if (stream != null) Downloads.add(
-            listOf(info?.finalUrl ?: url), headers, name.ifBlank { "video" }, kind = Kind.Hls, start = start, posters = ps,
+            listOf(info?.finalUrl ?: url), headers, name.ifBlank { "video" }, kind = Kind.Hls, start = start,
             format = variant?.resolution?.substringAfter('x')?.toIntOrNull()?.let { "v:$it" } ?: "v:best",
         )
-        else Downloads.add(listOf(info?.finalUrl ?: url), headers, name.takeIf { it != info?.name }, start = start, posters = ps)
+        else Downloads.add(listOf(info?.finalUrl ?: url), headers, name.takeIf { it != info?.name }, start = start)
         if (!start) android.widget.Toast.makeText(context, "Added to the list", android.widget.Toast.LENGTH_SHORT).show()
         onDismiss()
     }

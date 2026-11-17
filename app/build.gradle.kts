@@ -69,9 +69,6 @@ dependencies {
     implementation(project(":core:design"))
     implementation(project(":engine:http"))
     implementation("androidx.documentfile:documentfile:1.1.0")
-    // Posters on download cards (the version WatchHub uses).
-    implementation("io.coil-kt.coil3:coil-compose:3.6.3")
-    implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.3")
     // Video from YouTube and ~1,800 sites (yt-dlp, Unlicense; wrapper GPL-3.0), and FFmpeg for audio conversion.
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
     implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")

@@ -43,7 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -180,7 +179,7 @@ fun DownloadsPage() {
                                 else -> L.drawable.lucide_ic_play
                             },
                             leftColor = Ink.red, rightColor = if (active) Ink.orange else Ink.green,
-                            shape = RoundedCornerShape(12.dp), modifier = Modifier.animateItem(),
+                            shape = RoundedCornerShape(18.dp), modifier = Modifier.animateItem(),
                         ) { DownloadRow(item, live[item.id]) { picked = item.id } }
                     }
                 }
@@ -202,51 +201,20 @@ fun DownloadsPage() {
     }
 }
 
-/** Pictures for cards: video/image frames from the file itself, kept while the app runs. */
-private object Thumbs {
-    private val cache = android.util.LruCache<String, androidx.compose.ui.graphics.ImageBitmap>(64)
-    fun get(context: android.content.Context, doc: String): androidx.compose.ui.graphics.ImageBitmap? {
-        cache.get(doc)?.let { return it }
-        val uri = Uri.parse(doc)
-        val bmp = runCatching { android.provider.DocumentsContract.getDocumentThumbnail(context.contentResolver, uri, android.graphics.Point(264, 288), null) }.getOrNull()
-            ?: if (Build.VERSION.SDK_INT >= 29) runCatching { context.contentResolver.loadThumbnail(uri, android.util.Size(264, 288), null) }.getOrNull() else null
-        return bmp?.asImageBitmap()?.also { cache.put(doc, it) }
-    }
-}
-
-/**
- * A download as WatchHub's Library shows a title: a dark card with the picture flush on the left (the poster the
- * sender gave, else a frame from the file, else the type's icon on a darker tile), the name on up to two lines,
- * a status line, a thin progress line, and bare play/pause and more buttons on the right.
- */
 @Composable
 private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
-    val context = LocalContext.current
-    val done = live?.bytes ?: item.done
+    val shape = RoundedCornerShape(18.dp)
     Tap(onClick, Modifier.fillMaxWidth(), shape) {
-        Row(Modifier.height(96.dp).clip(shape).background(Ink.surface).padding(end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            // The picture: flush with the card's top, bottom and left; the card's corners round it.
-            Box(Modifier.size(width = 88.dp, height = 96.dp).background(androidx.compose.ui.graphics.lerp(Ink.surface, Color.Black, 0.45f)), contentAlignment = Alignment.Center) {
-                val frame by androidx.compose.runtime.produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, item.doc, item.state) {
-                    value = if (item.poster.isBlank() && item.state == State.Done && item.doc != null &&
-                        (item.category == Category.Video || item.category == Category.Images)
-                    ) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Thumbs.get(context, item.doc) } else null
-                }
-                when {
-                    item.poster.isNotBlank() -> coil3.compose.AsyncImage(
-                        model = item.poster, contentDescription = item.name,
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxSize(),
-                    )
-                    frame != null -> androidx.compose.foundation.Image(
-                        frame!!, item.name, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                    )
-                    else -> Lc(iconOf(item.category), tint = tintOf(item.category), size = 28.dp)
-                }
+        val done = live?.bytes ?: item.done
+        Column(Modifier.frost(shape).padding(top = 12.dp, bottom = 12.dp)) {
+        // The play/pause target is 40dp around a 20dp icon: less padding on the right so the icon sits CARD from the edge.
+        Row(Modifier.padding(start = CARD, end = CARD - 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(tintOf(item.category).copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                Lc(iconOf(item.category), tint = tintOf(item.category), size = 20.dp)
             }
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                Text(item.name, style = Type.label.copy(fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Column(Modifier.weight(1f)) {
+                Text(item.name, style = Type.label.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val pctOnly = (item.kind == Kind.Media || item.kind == Kind.Hls && item.doc == null && item.format != "native") && item.state != State.Done
                 val line = when (item.state) {
                     State.Running -> live?.text ?: if (live == null) "Starting…" else listOf(
@@ -259,27 +227,26 @@ private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
                     State.Done -> Fmt.bytes(item.size.coerceAtLeast(item.done))
                     State.Failed -> "Failed: " + (item.error ?: "unknown error")
                 }
-                Text(line, Modifier.padding(top = 2.dp), style = Type.meta.copy(color = if (item.state == State.Failed) Ink.danger else Ink.muted), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (item.state != State.Done) {
-                    val p = if (item.size > 0) (done.toFloat() / item.size).coerceIn(0f, 1f) else 0f
-                    Box(Modifier.padding(top = 8.dp, end = 4.dp).fillMaxWidth().height(3.dp).clip(CircleShape).background(Ink.text.copy(alpha = 0.1f))) {
-                        Box(Modifier.fillMaxWidth(p).height(3.dp).clip(CircleShape).background(if (item.state == State.Running) Ink.green else Ink.faint))
-                    }
-                }
+                Text(line, style = Type.meta.copy(color = if (item.state == State.Failed) Ink.danger else Ink.muted), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            // Bare buttons: no disc behind them.
+            Spacer(Modifier.width(4.dp))
             when (item.state) {
                 State.Running, State.Queued -> Tap({ Downloads.pause(item.id) }, Modifier.size(40.dp), CircleShape) {
-                    Box(contentAlignment = Alignment.Center) { PauseBars(Color.White) }
+                    Box(contentAlignment = Alignment.Center) { PauseBars() }
                 }
                 State.Paused, State.Failed -> Tap({ Downloads.resume(item.id) }, Modifier.size(40.dp), CircleShape) {
-                    Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_play, tint = Color.White, size = 22.dp) }
+                    Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_play, tint = Ink.green) }
                 }
                 State.Done -> {}
             }
-            Tap(onClick, Modifier.size(36.dp), CircleShape) {
-                Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_ellipsis_vertical, tint = Ink.muted, size = 20.dp) }
+        }
+        // The bar under everything, across the whole row's content, a thin 3dp.
+        if (item.state != State.Done) {
+            val p = if (item.size > 0) (done.toFloat() / item.size).coerceIn(0f, 1f) else 0f
+            Box(Modifier.padding(start = CARD, end = CARD, top = 10.dp).fillMaxWidth().height(3.dp).clip(CircleShape).background(Ink.text.copy(alpha = 0.1f))) {
+                Box(Modifier.fillMaxWidth(p).height(3.dp).clip(CircleShape).background(if (item.state == State.Running) Ink.green else Ink.faint))
             }
+        }
         }
     }
 }

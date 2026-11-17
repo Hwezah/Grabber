@@ -51,8 +51,6 @@ data class Item(
     val files: String = "",
     /** Torrent: pieces in order (so a video can play while it downloads). */
     val sequential: Boolean = false,
-    /** The title's poster (a picture URL the sending app gave), shown on the card. */
-    val poster: String = "",
     /** A name to fall back on when the link itself has none worth keeping ("The Penguin · season 1 · 2"). */
     val hint: String = "",
     /** The link as it was added (before redirects): fetched again for a fresh address when a resume fails. */
@@ -114,14 +112,13 @@ object Downloads {
         hint: String = "",
         /** Per-link titles, same order as [urls] (a season sent as a batch); a null keeps the usual name. */
         titles: List<String?> = emptyList(),
-        posters: List<String?> = emptyList(),
     ) {
         // Ids never repeat, even for links added in the same millisecond.
         val base = synchronized(saveLock) { maxOf(System.currentTimeMillis(), lastId + 1).also { lastId = it + urls.size } }
         _items.update { list ->
             urls.mapIndexed { i, u ->
                 val title = titles.getOrNull(i)?.takeIf { it.isNotBlank() } ?: name?.takeIf { urls.size == 1 && it.isNotBlank() }
-                Item(id = base + i, url = u, source = u, hint = hint, poster = posters.getOrNull(i).orEmpty(), headers = headers, fixedName = title,
+                Item(id = base + i, url = u, source = u, hint = hint, headers = headers, fixedName = title,
                     kind = kind, files = files, sequential = sequential, format = format,
                     state = if (start) State.Queued else State.Paused,
                     category = when {
@@ -261,7 +258,7 @@ object Downloads {
                 put("state", i.state.name); i.error?.let { put("error", it) }
                 put("segments", i.segments); put("done", i.done); put("created", i.created); put("finished", i.finished)
                 i.fixedName?.let { put("fixedName", it) }
-                put("source", i.source); put("hint", i.hint); put("poster", i.poster); put("kind", i.kind.name); put("files", i.files); put("sequential", i.sequential); put("format", i.format)
+                put("source", i.source); put("hint", i.hint); put("kind", i.kind.name); put("files", i.files); put("sequential", i.sequential); put("format", i.format)
             })
         }
     }.toString()
@@ -284,7 +281,7 @@ object Downloads {
                 created = o.optLong("created"), finished = o.optLong("finished"),
                 fixedName = o.optString("fixedName").ifEmpty { null },
                 kind = runCatching { Kind.valueOf(o.optString("kind")) }.getOrDefault(Kind.Http),
-                source = o.optString("source"), hint = o.optString("hint"), poster = o.optString("poster"),
+                source = o.optString("source"), hint = o.optString("hint"),
                 files = o.optString("files"), sequential = o.optBoolean("sequential"), format = o.optString("format"),
             )
         }
