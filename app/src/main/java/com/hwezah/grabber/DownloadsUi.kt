@@ -289,7 +289,7 @@ private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
 private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var confirm by remember { mutableStateOf(false) }
-    BottomSheet(item.name, onDismiss) {
+    BottomSheet(item.name, onDismiss, icon = iconOf(item.category), iconTint = tintOf(item.category)) {
         Column(Modifier.padding(horizontal = CARD)) {
             Text(item.url, style = Type.meta, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(14.dp))
@@ -353,7 +353,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
 /** Pause all, resume all, clear finished. */
 @Composable
 private fun AllSheet(onDismiss: () -> Unit) {
-    BottomSheet("All downloads", onDismiss) {
+    BottomSheet("All downloads", onDismiss, icon = L.drawable.lucide_ic_sliders_horizontal) {
         StretchRow(Modifier.padding(horizontal = CARD)) {
             Button("Pause all", { Downloads.pauseAll(); onDismiss() }, icon = com.hwezah.grabber.design.R.drawable.pause_bars, compact = true)
             Button("Resume all", { Downloads.resumeAll(); onDismiss() }, icon = L.drawable.lucide_ic_play, accent = Ink.green, compact = true)
@@ -392,7 +392,7 @@ private fun AddSheet(onDismiss: () -> Unit) {
     val off = remember { mutableStateListOf<String>() }
     val chosen = found.map { it.text }.filter { it !in off }
     val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    BottomSheet("Add downloads", onDismiss) {
+    BottomSheet("Add downloads", onDismiss, icon = L.drawable.lucide_ic_plus) {
         Column(Modifier.padding(horizontal = CARD)) {
             if (Prefs.folder == null) {
                 Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))

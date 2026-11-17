@@ -86,6 +86,11 @@ fun SettingsPage() {
                 SettingRow("Clear clipboard history", "Pinned clips stay") { Button("Clear", { sheet = "clear" }, compact = true) }
             }
             Spacer(Modifier.height(20.dp))
+            Overline("Browser")
+            Group {
+                SettingRow("Block ads", "Drops requests to ad and tracker networks, and pop-up windows") { Toggle(Prefs.blockAds, Prefs::useBlockAds) }
+            }
+            Spacer(Modifier.height(20.dp))
             Overline("Video sites")
             Group {
                 YtDlpRow()
@@ -123,7 +128,7 @@ fun SettingsPage() {
     when (sheet) {
         "ua" -> {
             var ua by remember { mutableStateOf(Prefs.userAgent) }
-            com.hwezah.grabber.design.BottomSheet("Browser identity", { sheet = null }) {
+            com.hwezah.grabber.design.BottomSheet("Browser identity", { sheet = null }, icon = com.composables.icons.lucide.R.drawable.lucide_ic_globe) {
                 Column(Modifier.padding(horizontal = CARD)) {
                     Text("The User-Agent sent with every download. Leave empty for Chrome on Android.", style = Type.body)
                     Spacer(Modifier.height(10.dp))
@@ -136,7 +141,7 @@ fun SettingsPage() {
                 }
             }
         }
-        "clear" -> com.hwezah.grabber.design.BottomSheet("Clear clipboard history?", { sheet = null }) {
+        "clear" -> com.hwezah.grabber.design.BottomSheet("Clear clipboard history?", { sheet = null }, icon = com.composables.icons.lucide.R.drawable.lucide_ic_trash_2) {
             Column(Modifier.padding(horizontal = CARD)) {
                 Text("Every clip goes except pinned ones. This can't be undone.", style = Type.body)
                 Spacer(Modifier.height(12.dp))
@@ -146,7 +151,7 @@ fun SettingsPage() {
                 }
             }
         }
-        "licences" -> com.hwezah.grabber.design.BottomSheet("Open-source licences", { sheet = null }) {
+        "licences" -> com.hwezah.grabber.design.BottomSheet("Open-source licences", { sheet = null }, icon = com.composables.icons.lucide.R.drawable.lucide_ic_file_text) {
             Column(Modifier.padding(horizontal = CARD).heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                 listOf(
                     "yt-dlp" to "Unlicense (public domain)",

@@ -13,9 +13,13 @@ object Capture {
     /** The title that came with [pending] (the copying app's label), used as the file name. */
     var pendingTitle by mutableStateOf<String?>(null)
 
-    /** Offers [text] in the in-app sheet, with its [title] if known. */
-    fun offer(text: String, title: String?) {
+    /** Headers a download needs (the browser's page as Referer, its cookies). */
+    var pendingHeaders by mutableStateOf<Map<String, String>>(emptyMap())
+
+    /** Offers [text] in the in-app sheet, with its [title] and [headers] if known. */
+    fun offer(text: String, title: String?, headers: Map<String, String> = emptyMap()) {
         pendingTitle = title
+        pendingHeaders = headers
         pending = text
     }
 

@@ -152,7 +152,16 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
             }.toMap()
     }
     val nameHint = (if (single) linkTitles[found[0].text] else null) ?: title ?: if (single) Capture.nameAround(text) else null
-    BottomSheet(if (single && found[0] is Found.Web) "Download file" else heading, onDismiss) {
+    BottomSheet(
+        if (single && found[0] is Found.Web) "Download file" else heading, onDismiss,
+        icon = when {
+            found.isEmpty() -> L.drawable.lucide_ic_clipboard_check
+            single && found[0] is Found.Magnet -> L.drawable.lucide_ic_magnet
+            single -> L.drawable.lucide_ic_download
+            else -> L.drawable.lucide_ic_link
+        },
+        iconTint = if (found.isEmpty()) Ink.red else Ink.green,
+    ) {
         Column(Modifier.padding(horizontal = CARD)) {
             if (found.isEmpty()) {
                 Text(text, style = Type.body.copy(color = Ink.text), maxLines = 6, overflow = TextOverflow.Ellipsis)

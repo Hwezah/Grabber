@@ -246,7 +246,7 @@ val LocalInSheet = androidx.compose.runtime.compositionLocalOf { false }
 
 /** The frame every sheet shares: a dimmed page, a plain grey sheet with a grab handle and a heading. */
 @Composable
-fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+fun BottomSheet(title: String, onDismiss: () -> Unit, @DrawableRes icon: Int? = null, iconTint: Color = Ink.red, content: @Composable () -> Unit) {
     BackHandler(onBack = onDismiss)
     androidx.compose.runtime.DisposableEffect(Unit) {
         Sheets.open++
@@ -269,7 +269,16 @@ fun BottomSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
                     .navigationBarsPadding().padding(bottom = 24.dp),
             ) {
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(36.dp, 4.dp).clip(CircleShape).background(Ink.stroke))
-                Text(title, Modifier.padding(start = CARD, end = CARD, top = 14.dp, bottom = 8.dp), style = Type.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                // The heading, with the sheet's icon beside it.
+                Row(Modifier.padding(start = CARD, end = CARD, top = 14.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (icon != null) {
+                        Box(Modifier.size(36.dp).clip(CircleShape).background(iconTint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                            Lc(icon, tint = iconTint, size = 19.dp)
+                        }
+                        Spacer(Modifier.width(10.dp))
+                    }
+                    Text(title, Modifier.weight(1f), style = Type.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 androidx.compose.runtime.CompositionLocalProvider(LocalInSheet provides true) { content() }
             }
         }

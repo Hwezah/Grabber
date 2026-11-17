@@ -53,6 +53,7 @@ import com.hwezah.grabber.design.grain
 
 enum class Tab(val label: String, @DrawableRes val icon: Int) {
     Downloads("Downloads", L.drawable.lucide_ic_download),
+    Browser("Browser", L.drawable.lucide_ic_globe),
     Clipboard("Clipboard", L.drawable.lucide_ic_clipboard_list),
     Settings("Settings", L.drawable.lucide_ic_settings),
 }
@@ -81,6 +82,7 @@ fun App() {
                             Tab.Downloads -> DownloadsPage()
                             Tab.Clipboard -> ClipboardPage()
                             Tab.Settings -> SettingsPage()
+                            Tab.Browser -> BrowserPage()
                         }
                     }
                 }
@@ -95,7 +97,7 @@ fun App() {
                 ) { PillBar(tab, { tab = it; barShown = true }) }
             }
             UpdateBar(Modifier.align(Alignment.TopCenter))
-            Capture.pending?.let { CaptureSheet(it, title = Capture.pendingTitle) { Capture.pending = null; Capture.pendingTitle = null } }
+            Capture.pending?.let { CaptureSheet(it, title = Capture.pendingTitle, headers = Capture.pendingHeaders) { Capture.pending = null; Capture.pendingTitle = null; Capture.pendingHeaders = emptyMap() } }
         }
     }
 }

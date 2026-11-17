@@ -53,6 +53,12 @@ object Prefs {
     var audioFormat by mutableStateOf("mp3")
         private set
 
+    /** The browser drops requests to ad and tracker networks. */
+    var blockAds by mutableStateOf(true)
+        private set
+
+    fun useBlockAds(v: Boolean) { blockAds = v; sp.edit().putBoolean("blockAds", v).apply() }
+
     /** The main accent's name, one of Ink.ACCENTS. */
     var accent by mutableStateOf("Red")
         private set
@@ -78,6 +84,7 @@ object Prefs {
         audioFormat = sp.getString("audioFormat", "mp3") ?: "mp3"
         com.hwezah.grabber.engine.Http.userAgent = userAgent
         useAccent(sp.getString("accent", "Red") ?: "Red", save = false)
+        blockAds = sp.getBoolean("blockAds", true)
     }
 
     fun useAccent(name: String, save: Boolean = true) {

@@ -81,7 +81,7 @@ fun SaveFilesSheet(uris: List<Uri>, onDismiss: () -> Unit) {
     val shared = remember(uris) { uris.map { describe(context, it) } }
     var busy by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
-    BottomSheet(if (shared.size == 1) "Save file" else "Save ${shared.size} files", onDismiss) {
+    BottomSheet(if (shared.size == 1) "Save file" else "Save ${shared.size} files", onDismiss, icon = L.drawable.lucide_ic_download, iconTint = Ink.green) {
         Column(Modifier.padding(horizontal = CARD)) {
             if (Prefs.folder == null) {
                 Text("First, choose where files go.", style = Type.body.copy(color = Ink.text))

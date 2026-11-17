@@ -147,7 +147,7 @@ fun ClipboardPage() {
 private fun ClipSheet(clip: Clip, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val links = remember(clip) { LinkFinder.find(clip.text).isNotEmpty() }
-    BottomSheet("Clip", onDismiss) {
+    BottomSheet("Clip", onDismiss, icon = L.drawable.lucide_ic_clipboard_list) {
         Column(Modifier.padding(horizontal = CARD)) {
             Text(clip.text, style = Type.body.copy(color = Ink.text), maxLines = 8, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(14.dp))
@@ -191,7 +191,7 @@ fun CatchRows() {
     }
     SettingRow("Quick Settings tile", "Swipe down, edit tiles, add \"Grab clipboard\" for one-tap catching") {}
     SettingRow("Share → Grabber", "Share a link from any app to Grabber, or select text and pick Grabber") {}
-    if (help) BottomSheet("Turn on auto-catch", { help = false }) {
+    if (help) BottomSheet("Turn on auto-catch", { help = false }, icon = L.drawable.lucide_ic_accessibility) {
         Column(Modifier.padding(horizontal = CARD)) {
             Text(
                 "Android lets an app read the clipboard only while it's on screen. Grabber's accessibility service watches for you tapping Copy " +
