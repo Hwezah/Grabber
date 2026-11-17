@@ -59,6 +59,10 @@ object Browser {
     val found: androidx.compose.runtime.snapshots.SnapshotStateList<Sniffed> get() = tab.found
     /** Goes up each time a page scrolls: the tab bar shows while it does. */
     var scrollTick by mutableIntStateOf(0)
+    /** A page's video is full screen; [exitFull] leaves it (Back does). */
+    var fullScreen by mutableStateOf(false)
+    var exitFull: (() -> Unit)? = null
+
     /** Goes up when a tab's page had to be rebuilt (its renderer crashed): the screen puts the new one in. */
     var rebuilt by mutableIntStateOf(0)
 
@@ -250,6 +254,35 @@ object Browser {
         w.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView, newProgress: Int) { t.progress = newProgress }
             override fun onReceivedTitle(view: WebView, title: String?) { t.title = title.orEmpty() }
+
+            // Full screen for a page's video player: its view laid over the whole window, back out with Back.
+            private var full: android.view.View? = null
+            private var fullDone: CustomViewCallback? = null
+
+            override fun onShowCustomView(view: android.view.View, callback: CustomViewCallback) {
+                val activity = w.context as? android.app.Activity ?: return callback.onCustomViewHidden()
+                if (full != null) { callback.onCustomViewHidden(); return }
+                full = view
+                fullDone = callback
+                runCatching {
+                    (activity.window.decorView as ViewGroup).addView(view, ViewGroup.LayoutParams(-1, -1))
+                    view.setBackgroundColor(android.graphics.Color.BLACK)
+                    activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                }
+                fullScreen = true
+                exitFull = { onHideCustomView() }
+            }
+
+            override fun onHideCustomView() {
+                val activity = w.context as? android.app.Activity
+                full?.let { v -> runCatching { (activity?.window?.decorView as? ViewGroup)?.removeView(v) } }
+                full = null
+                runCatching { fullDone?.onCustomViewHidden() }
+                fullDone = null
+                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                fullScreen = false
+                exitFull = null
+            }
         }
         w.setOnScrollChangeListener { _, _, y, _, oldY -> if (y != oldY) scrollTick++ }
         // A file the site hands over: straight to Grabber's download sheet, with this page's headers.

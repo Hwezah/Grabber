@@ -68,7 +68,8 @@ fun BrowserPage() {
     var menu by remember { mutableStateOf(false) }
     var tabsOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Browser.url, typing, Browser.current) { if (!typing) input = Browser.url }
-    BackHandler(enabled = Browser.canBack) { Browser.back() }
+    BackHandler(enabled = Browser.canBack && !Browser.fullScreen) { Browser.back() }
+    BackHandler(enabled = Browser.fullScreen) { Browser.exitFull?.invoke() }
     val site = Browser.url.isNotBlank() && Media.looksLikeSite(Browser.url)
     // One frosted dark background for the whole tab: behind the bar and the blank page alike.
     Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f)) {
