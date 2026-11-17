@@ -98,6 +98,8 @@ object Browser {
         }
     }
 
+    private val expanded = java.util.Collections.synchronizedSet(HashSet<String>())
+
     private fun sniff(url: String) {
         if (!Prefs.sniffMedia) return
         val kind = kindOf(url) ?: return
@@ -107,6 +109,33 @@ object Browser {
         val t = title
         main.post {
             if (found.none { it.url == url }) found.add(0, Sniffed(url, kind, page, t))
+        }
+        // A stream: read its list of qualities, like 1DM, and offer each one.
+        if (kind == "Stream (HLS)" && expanded.add(url)) qualities(Sniffed(url, kind, page, t))
+    }
+
+    /** Fetches an HLS master playlist (with the page's headers) and lists each quality it offers, best first. */
+    private fun qualities(s: Sniffed) {
+        val headers = headersFor(s)
+        kotlin.concurrent.thread(name = "grabber-hls-qualities") {
+            val text = runCatching {
+                val b = okhttp3.Request.Builder().url(s.url)
+                headers.forEach { (k, v) -> b.header(k, v) }
+                com.hwezah.grabber.engine.Http.client.newCall(b.build()).execute().use { r -> if (r.isSuccessful) r.body?.string() else null }
+            }.getOrNull() ?: return@thread
+            val variants = com.hwezah.grabber.engine.Hls.variants(s.url, text)
+            if (variants.isEmpty()) return@thread
+            main.post {
+                val at = found.indexOfFirst { it.url == s.url }.coerceAtLeast(0)
+                // The master stays as "best quality"; each quality follows it.
+                found.removeAll { it.url == s.url }
+                val rows = listOf(s.copy(kind = "Best quality · HLS")) + variants.mapNotNull { v ->
+                    if (found.any { it.url == v.url }) found.removeAll { it.url == v.url }
+                    val rate = if (v.bandwidth > 0) " · ${"%.1f".format(v.bandwidth / 1_000_000.0)} Mbps" else ""
+                    Sniffed(v.url, "${v.label} · HLS$rate", s.page, s.title)
+                }
+                found.addAll(at.coerceAtMost(found.size), rows)
+            }
         }
     }
 
@@ -152,6 +181,13 @@ object Browser {
                 val u = request.url
                 // Links Grabber handles itself: magnets, and pages that are files.
                 if (u.scheme == "magnet") { Capture.offer(u.toString(), title); return true }
+                // A link straight to a file (video, audio, archive, app, document, torrent): Grabber takes it.
+                val k = kindOf(u.toString())
+                if (k != null && !k.startsWith("Stream")) {
+                    val name = u.lastPathSegment?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+                    Capture.offer(u.toString(), name, headersFor(Sniffed(u.toString(), k, this@Browser.url, title)))
+                    return true
+                }
                 if (u.scheme != "http" && u.scheme != "https") return true
                 if (Prefs.blockAds && blockedHost(u.host.orEmpty())) { blocked++; return true }
                 return false

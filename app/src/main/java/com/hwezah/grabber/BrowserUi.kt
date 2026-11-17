@@ -136,7 +136,7 @@ fun BrowserPage() {
                                 Box(Modifier.size(36.dp).clip(CircleShape).background(Ink.text.copy(alpha = 0.07f)), contentAlignment = Alignment.Center) {
                                     Lc(
                                         when {
-                                            s.kind.startsWith("Stream") || s.kind == "Video" -> L.drawable.lucide_ic_film
+                                            "HLS" in s.kind || "Stream" in s.kind || s.kind == "Video" -> L.drawable.lucide_ic_film
                                             s.kind == "Audio" -> L.drawable.lucide_ic_music
                                             s.kind == "Torrent" -> L.drawable.lucide_ic_magnet
                                             else -> L.drawable.lucide_ic_file

@@ -231,7 +231,9 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
                 val probed = if (site) null else runCatching { Http.probe(url, headers) }
                 probed?.exceptionOrNull()?.let { throw it }
                 val i = probed?.getOrNull()
-                if (i == null || i.mime == "text/html") {
+                // DASH (.mpd) too: yt-dlp lists its qualities and joins video with audio.
+                val dash = i != null && (i.mime?.contains("dash") == true || i.finalUrl.substringBefore('?').endsWith(".mpd", true))
+                if (i == null || i.mime == "text/html" || dash) {
                     val m = try {
                         Media.info(context, url)
                     } catch (e: Exception) {
