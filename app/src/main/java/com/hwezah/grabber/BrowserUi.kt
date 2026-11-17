@@ -84,7 +84,7 @@ fun BrowserPage() {
         Box(Modifier.fillMaxWidth().statusBarsPadding().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
             val shape = RoundedCornerShape(50)
             Row(
-                Modifier.fillMaxWidth(0.92f).height(BAR).clip(shape).background(Ink.surface2).frost(shape, alpha = 0.04f).padding(horizontal = 4.dp),
+                Modifier.fillMaxWidth(0.92f).height(BAR).clip(shape).background(androidx.compose.ui.graphics.lerp(Ink.surface, Ink.surface2, 0.35f)).frost(shape, alpha = 0.03f).padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(L.drawable.lucide_ic_arrow_left, Browser.canBack) { Browser.back() }
