@@ -21,7 +21,13 @@ import androidx.compose.runtime.setValue
 import java.io.ByteArrayInputStream
 
 /** Something playable or downloadable the page loaded. */
-data class Sniffed(val url: String, val kind: String, val page: String, val title: String)
+data class Sniffed(
+    val url: String, val kind: String, val page: String, val title: String,
+    /** The headers the page itself sent for it (Referer, Origin, cookies): a player in an embed needs its own. */
+    val headers: Map<String, String> = emptyMap(),
+    /** Second line: resolution, bitrate, length, size, when known. */
+    val detail: String = "",
+)
 
 /** One browser tab: its own page, history and finds. */
 class BTab(val id: Long) {
@@ -35,6 +41,9 @@ class BTab(val id: Long) {
     var canForward by mutableStateOf(false)
     var blocked by mutableIntStateOf(0)
     val found = mutableStateListOf<Sniffed>()
+    /** Quality playlists already listed under their stream, so they aren't listed twice. */
+    val children: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())
+    @Volatile var ua: String = ""
 }
 
 /**
@@ -122,51 +131,106 @@ object Browser {
 
     private val expanded = java.util.Collections.synchronizedSet(HashSet<String>())
 
-    private fun sniff(t0: BTab, url: String) {
+    private fun sniff(t0: BTab, url: String, sent: Map<String, String> = emptyMap()) {
         if (!Prefs.sniffMedia) return
         val kind = kindOf(url) ?: return
         // Pieces of a stream aren't worth listing; the stream itself is.
         if (Regex("""(seg|chunk|frag|part)[-_]?\d+""", RegexOption.IGNORE_CASE).containsMatchIn(url) && kind != "Stream (HLS)") return
+        if (url in t0.children) return
         val page = t0.url
         val t = t0.title
+        val s = Sniffed(url, kind, page, t, sent)
         main.post {
-            if (t0.found.none { it.url == url }) t0.found.add(0, Sniffed(url, kind, page, t))
+            if (t0.found.none { it.url == url } && url !in t0.children) t0.found.add(0, s)
         }
-        // A stream: read its list of qualities, like 1DM, and offer each one.
-        if (kind == "Stream (HLS)" && expanded.add(url)) qualities(t0, Sniffed(url, kind, page, t))
+        // A stream: read what it holds, like 1DM: every quality with its size, or this one quality's details.
+        if (kind == "Stream (HLS)" && expanded.add(url)) qualities(t0, s)
     }
 
-    /** Fetches an HLS master playlist (with the page's headers) and lists each quality it offers, best first. */
+    private fun fetchText(url: String, headers: Map<String, String>): String? = runCatching {
+        val b = okhttp3.Request.Builder().url(url)
+        headers.forEach { (k, v) -> runCatching { b.header(k, v) } }
+        com.hwezah.grabber.engine.Http.client.newCall(b.build()).execute().use { r -> if (r.isSuccessful) r.body?.string() else null }
+    }.getOrNull()
+
+    private fun sizeOf(url: String, headers: Map<String, String>): Long = runCatching {
+        val b = okhttp3.Request.Builder().url(url).head()
+        headers.forEach { (k, v) -> runCatching { b.header(k, v) } }
+        com.hwezah.grabber.engine.Http.client.newCall(b.build()).execute().use { r -> if (r.isSuccessful) r.header("Content-Length")?.toLongOrNull() ?: -1 else -1 }
+    }.getOrDefault(-1)
+
+    private fun length(sec: Double): String {
+        val m = (sec / 60).toInt()
+        return if (m >= 60) "${m / 60} h ${m % 60} min" else if (m > 0) "$m min" else "${sec.toInt()} s"
+    }
+
+    private fun bytes(b: Long): String = when {
+        b >= 1L shl 30 -> "%.2f GB".format(b / (1L shl 30).toDouble())
+        b >= 1L shl 20 -> "%.0f MB".format(b / (1L shl 20).toDouble())
+        else -> "%.0f KB".format(b / 1024.0)
+    }
+
+    /** One quality's playlist: how long it runs and, from its first piece, roughly how big it is. */
+    private fun measure(url: String, headers: Map<String, String>): Pair<Double, Long>? {
+        val text = fetchText(url, headers) ?: return null
+        val m = com.hwezah.grabber.engine.Hls.media(url, text)
+        if (m.segments.isEmpty()) return null
+        val first = sizeOf(m.segments.first().url, headers)
+        val est = if (first > 0) first * m.segments.size else -1
+        return m.duration to est
+    }
+
+    /** Fetches a stream's playlist (with the page's own headers) and lists each quality it offers, best first, with sizes. */
     private fun qualities(t0: BTab, s: Sniffed) {
         val found = t0.found
-        val headers = headersFor(s)
+        val headers = headersFor(s, t0)
         kotlin.concurrent.thread(name = "grabber-hls-qualities") {
-            val text = runCatching {
-                val b = okhttp3.Request.Builder().url(s.url)
-                headers.forEach { (k, v) -> b.header(k, v) }
-                com.hwezah.grabber.engine.Http.client.newCall(b.build()).execute().use { r -> if (r.isSuccessful) r.body?.string() else null }
-            }.getOrNull() ?: return@thread
+            val text = fetchText(s.url, headers) ?: return@thread
             val variants = com.hwezah.grabber.engine.Hls.variants(s.url, text)
-            if (variants.isEmpty()) return@thread
+            if (variants.isEmpty()) {
+                // Already a single quality: say how long and how big.
+                val m = com.hwezah.grabber.engine.Hls.media(s.url, text)
+                if (m.segments.isEmpty()) return@thread
+                val first = sizeOf(m.segments.first().url, headers)
+                val parts = listOfNotNull(
+                    "One quality",
+                    m.duration.takeIf { it > 0 }?.let { length(it) },
+                    if (first > 0) "~" + bytes(first * m.segments.size) else null,
+                )
+                main.post {
+                    val i = found.indexOfFirst { it.url == s.url }
+                    if (i >= 0) found[i] = found[i].copy(detail = parts.joinToString(" · "))
+                }
+                return@thread
+            }
+            t0.children.addAll(variants.map { it.url })
+            // Every quality runs as long as the others: measure one, then size each by its bitrate.
+            val dur = measure(variants.last().url, headers)?.first ?: 0.0
             main.post {
                 val at = found.indexOfFirst { it.url == s.url }.coerceAtLeast(0)
-                // The master stays as "best quality"; each quality follows it.
-                found.removeAll { it.url == s.url }
-                val rows = listOf(s.copy(kind = "Best quality · HLS")) + variants.mapNotNull { v ->
-                    if (found.any { it.url == v.url }) found.removeAll { it.url == v.url }
-                    val rate = if (v.bandwidth > 0) " · ${"%.1f".format(v.bandwidth / 1_000_000.0)} Mbps" else ""
-                    Sniffed(v.url, "${v.label} · HLS$rate", s.page, s.title)
-                }
+                found.removeAll { it.url == s.url || it.url in t0.children }
+                val best = variants.first()
+                val rows = listOf(s.copy(kind = "Best quality · ${best.label}", detail = "Picks the best when downloading" + (if (dur > 0) " · " + length(dur) else ""))) +
+                    variants.map { v ->
+                        val bits = listOfNotNull(
+                            v.resolution?.replace('x', '×'),
+                            v.bandwidth.takeIf { it > 0 }?.let { "%.1f Mbps".format(it / 1_000_000.0) },
+                            if (dur > 0 && v.bandwidth > 0) "~" + bytes((v.bandwidth * dur / 8).toLong()) else null,
+                        )
+                        Sniffed(v.url, "${v.label} · HLS", s.page, s.title, s.headers, bits.joinToString(" · "))
+                    }
                 found.addAll(at.coerceAtMost(found.size), rows)
             }
         }
     }
 
     /** The headers a download from this page needs: where it came from, the browser's identity, its cookies. */
-    fun headersFor(s: Sniffed): Map<String, String> {
+    fun headersFor(s: Sniffed, t0: BTab = tab): Map<String, String> {
         val h = linkedMapOf<String, String>()
         if (s.page.isNotBlank()) h["Referer"] = s.page
-        tab.web?.settings?.userAgentString?.let { h["User-Agent"] = it }
+        t0.ua.takeIf { it.isNotBlank() }?.let { h["User-Agent"] = it }
+        // What the page itself sent wins: an embedded player checks its own Referer and Origin.
+        s.headers.forEach { (k, v) -> if (k.lowercase() !in setOf("range", "accept-encoding", "host")) h[k] = v }
         CookieManager.getInstance().getCookie(s.url)?.takeIf { it.isNotBlank() }?.let { h["Cookie"] = it }
         return h
     }
@@ -189,6 +253,7 @@ object Browser {
             useWideViewPort = true
         }
         darken(w.settings)
+        t.ua = w.settings.userAgentString.orEmpty()
         CookieManager.getInstance().setAcceptThirdPartyCookies(w, true)
         w.webViewClient = object : WebViewClient() {
             // Runs on a background thread for every request: it must never throw.
@@ -198,7 +263,7 @@ object Browser {
                     main.post { t.blocked++ }
                     WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                 } else {
-                    sniff(t, u.toString())
+                    sniff(t, u.toString(), request.requestHeaders.orEmpty())
                     null
                 }
             } catch (e: Throwable) {

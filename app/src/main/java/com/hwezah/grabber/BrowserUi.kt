@@ -215,7 +215,7 @@ fun BrowserPage() {
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(s.kind, style = Type.label.copy(fontWeight = FontWeight.SemiBold))
-                                    Text(s.url.substringBefore('?').substringAfterLast('/').ifBlank { s.url }, style = Type.meta, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(s.detail.ifBlank { s.url.substringBefore('?').substringAfterLast('/').ifBlank { s.url } }, style = Type.meta, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }
