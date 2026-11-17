@@ -65,7 +65,8 @@ fun BrowserPage() {
     var picking by remember { mutableStateOf(false) }
     LaunchedEffect(Browser.url, typing) { if (!typing) input = Browser.url }
     BackHandler(enabled = Browser.canBack) { Browser.back() }
-    Box(Modifier.fillMaxSize()) {
+    // One frosted dark background for the whole tab: behind the bar and the blank page alike.
+    Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f)) {
         // The page first, the bar drawn after it: nothing the web view paints can cover the bar.
         Column(Modifier.fillMaxSize()) {
             Spacer(Modifier.statusBarsPadding().height(BAR + 16.dp))
@@ -80,7 +81,7 @@ fun BrowserPage() {
         }
         // The bar: a frosted pill about 92% of the width; back and forward inside on the left, reload on the right,
         // and the address in the middle on a slightly darker field.
-        Box(Modifier.fillMaxWidth().background(Ink.bg).statusBarsPadding().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().statusBarsPadding().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
             val shape = RoundedCornerShape(50)
             Row(
                 Modifier.fillMaxWidth(0.92f).height(BAR).clip(shape).background(Ink.surface2).frost(shape, alpha = 0.04f).padding(horizontal = 4.dp),
