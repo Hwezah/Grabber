@@ -27,19 +27,36 @@ data class Sniffed(val url: String, val kind: String, val page: String, val titl
 class BTab(val id: Long) {
     @SuppressLint("StaticFieldLeak")
     var web: WebView? = null
+    var url by mutableStateOf("")
+    var title by mutableStateOf("")
+    var loading by mutableStateOf(false)
+    var progress by mutableIntStateOf(0)
+    var canBack by mutableStateOf(false)
+    var canForward by mutableStateOf(false)
+    var blocked by mutableIntStateOf(0)
+    val found = mutableStateListOf<Sniffed>()
+}
+
+/**
+ * The browser: tabs, each a WebView kept for the app's life (so a tab switch doesn't reload the page). It watches
+ * every request a page makes to find videos, streams, audio and files, and drops requests to ad and tracker networks.
+ */
+object Browser {
+    private val main = Handler(Looper.getMainLooper())
+
     val tabs = mutableStateListOf(BTab(1))
     var current by mutableIntStateOf(0)
     val tab: BTab get() = tabs[current.coerceIn(0, tabs.lastIndex)]
 
     // The current tab's state, as the screen reads it.
-    val url get() = tab.url
-    val title get() = tab.title
-    val loading get() = tab.loading
-    val progress get() = tab.progress
-    val canBack get() = tab.canBack
-    val canForward get() = tab.canForward
-    val blocked get() = tab.blocked
-    val found get() = tab.found
+    val url: String get() = tab.url
+    val title: String get() = tab.title
+    val loading: Boolean get() = tab.loading
+    val progress: Int get() = tab.progress
+    val canBack: Boolean get() = tab.canBack
+    val canForward: Boolean get() = tab.canForward
+    val blocked: Int get() = tab.blocked
+    val found: androidx.compose.runtime.snapshots.SnapshotStateList<Sniffed> get() = tab.found
     /** Goes up each time a page scrolls: the tab bar shows while it does. */
     var scrollTick by mutableIntStateOf(0)
 
