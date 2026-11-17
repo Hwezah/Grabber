@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -66,6 +67,17 @@ fun App() {
         var tab by rememberSaveable { mutableStateOf(Tab.Downloads) }
         // The floating bar slips away while you scroll down and comes back when you scroll up.
         var barShown by remember { mutableStateOf(true) }
+        // In the browser the tab bar keeps out of the way: shown while the page scrolls, gone 1.5 s after it stops.
+        // On the blank start page it stays, so the tab can always be left.
+        var browserNav by remember { mutableStateOf(false) }
+        LaunchedEffect(Browser.scrollTick) {
+            if (Browser.scrollTick > 0) {
+                browserNav = true
+                kotlinx.coroutines.delay(1500)
+                browserNav = false
+            }
+        }
+        val navShown = if (tab == Tab.Browser) browserNav || Browser.url.isEmpty() else barShown
         val scrollWatch = remember {
             object : NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -86,11 +98,19 @@ fun App() {
                         }
                     }
                 }
-                if (!Prefs.pillBar) TabBar(tab) { tab = it }
+                // The bottom bar: part of the layout on the other tabs; over the page in the browser, so it can come
+                // and go without the page jumping.
+                if (!Prefs.pillBar && tab != Tab.Browser) TabBar(tab) { tab = it; barShown = true }
             }
+            if (!Prefs.pillBar && tab == Tab.Browser) AnimatedVisibility(
+                navShown && Sheets.open == 0,
+                Modifier.align(Alignment.BottomCenter),
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
+            ) { TabBar(tab) { tab = it; barShown = true } }
             if (Prefs.pillBar) {
                 AnimatedVisibility(
-                    barShown && Sheets.open == 0,
+                    navShown && Sheets.open == 0,
                     Modifier.align(Alignment.BottomCenter),
                     enter = slideInVertically { it * 2 } + fadeIn(),
                     exit = slideOutVertically { it * 2 } + fadeOut(),

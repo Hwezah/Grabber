@@ -39,6 +39,8 @@ object Browser {
     var canBack by mutableStateOf(false)
     var canForward by mutableStateOf(false)
     var blocked by mutableIntStateOf(0)
+    /** Goes up each time the page scrolls: the tab bar shows while it does. */
+    var scrollTick by mutableIntStateOf(0)
     /** What this page has loaded that Grabber can take, newest first. */
     val found = mutableStateListOf<Sniffed>()
 
@@ -179,6 +181,7 @@ object Browser {
             override fun onProgressChanged(view: WebView, newProgress: Int) { progress = newProgress }
             override fun onReceivedTitle(view: WebView, t: String?) { title = t.orEmpty() }
         }
+        w.setOnScrollChangeListener { _, _, y, _, oldY -> if (y != oldY) scrollTick++ }
         // A file the site hands over: straight to Grabber's download sheet, with this page's headers.
         w.setDownloadListener { url, ua, disposition, mime, _ ->
             val name = URLUtil.guessFileName(url, disposition, mime)
