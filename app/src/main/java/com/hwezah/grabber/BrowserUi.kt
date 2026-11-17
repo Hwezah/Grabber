@@ -126,6 +126,7 @@ fun BrowserPage() {
                 AndroidView(
                     factory = { android.widget.FrameLayout(it) },
                     update = { frame ->
+                        Browser.rebuilt // a crashed page's tab gets its new view here
                         val w = Browser.view(frame.context, Browser.tab)
                         if (w.parent !== frame) {
                             (w.parent as? android.view.ViewGroup)?.removeView(w)

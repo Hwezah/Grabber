@@ -59,6 +59,8 @@ object Browser {
     val found: androidx.compose.runtime.snapshots.SnapshotStateList<Sniffed> get() = tab.found
     /** Goes up each time a page scrolls: the tab bar shows while it does. */
     var scrollTick by mutableIntStateOf(0)
+    /** Goes up when a tab's page had to be rebuilt (its renderer crashed): the screen puts the new one in. */
+    var rebuilt by mutableIntStateOf(0)
 
     /** Search engines: name to the address words are added to. */
     val ENGINES = listOf(
@@ -184,14 +186,28 @@ object Browser {
         }
         CookieManager.getInstance().setAcceptThirdPartyCookies(w, true)
         w.webViewClient = object : WebViewClient() {
-            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+            // Runs on a background thread for every request: it must never throw.
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? = try {
                 val u = request.url
                 if (Prefs.blockAds && !request.isForMainFrame && blockedHost(u.host.orEmpty())) {
                     main.post { t.blocked++ }
-                    return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                    WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                } else {
+                    sniff(t, u.toString())
+                    null
                 }
-                sniff(t, u.toString())
-                return null
+            } catch (e: Throwable) {
+                null
+            }
+
+            // The page's renderer crashed or was killed for memory: rebuild this tab instead of closing the app.
+            override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                runCatching { (view.parent as? ViewGroup)?.removeView(view) }
+                runCatching { view.destroy() }
+                if (t.web === view) t.web = null
+                t.loading = false
+                main.post { rebuilt++ }
+                return true
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -201,7 +217,7 @@ object Browser {
                 // A link straight to a file (video, audio, archive, app, document, torrent): Grabber takes it.
                 val k = kindOf(u.toString())
                 if (k != null && !k.startsWith("Stream")) {
-                    val name = u.lastPathSegment?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+                    val name = u.lastPathSegment?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
                     Capture.offer(u.toString(), name, headersFor(Sniffed(u.toString(), k, t.url, t.title)))
                     return true
                 }
@@ -242,8 +258,9 @@ object Browser {
             val s = Sniffed(url, "File", t.url, name)
             Capture.offer(url, name, headersFor(s) + ("User-Agent" to ua))
         }
-        // Nothing loaded until something is searched or typed: a blank start.
+        // Nothing loaded until something is searched or typed: a blank start. A rebuilt tab reloads its page.
         t.web = w
+        if (t.url.isNotEmpty()) w.loadUrl(t.url)
         return w
     }
 
