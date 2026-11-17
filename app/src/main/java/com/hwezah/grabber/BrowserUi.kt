@@ -2,6 +2,9 @@ package com.hwezah.grabber
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import com.hwezah.grabber.design.StretchRow
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,62 +61,125 @@ import com.hwezah.grabber.design.solo
 
 @Composable
 fun BrowserPage() {
-    val context = LocalContext.current
     val focus = LocalFocusManager.current
     var typing by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
     var picking by remember { mutableStateOf(false) }
-    LaunchedEffect(Browser.url, typing) { if (!typing) input = Browser.url }
+    var menu by remember { mutableStateOf(false) }
+    var tabsOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(Browser.url, typing, Browser.current) { if (!typing) input = Browser.url }
     BackHandler(enabled = Browser.canBack) { Browser.back() }
+    val site = Browser.url.isNotBlank() && Media.looksLikeSite(Browser.url)
     // One frosted dark background for the whole tab: behind the bar and the blank page alike.
     Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f)) {
-        // The page first, the bar drawn after it: nothing the web view paints can cover the bar.
         Column(Modifier.fillMaxSize()) {
-            Spacer(Modifier.statusBarsPadding().height(BAR + 16.dp))
-            if (Browser.loading) Box(Modifier.fillMaxWidth().height(2.dp)) {
-                Box(Modifier.fillMaxWidth(Browser.progress / 100f).height(2.dp).background(Ink.red))
+            // The bar: tabs, the address, what's on the page to download, and the menu.
+            Row(
+                Modifier.statusBarsPadding().padding(start = EDGE + 2.dp, end = 2.dp, top = 6.dp, bottom = 6.dp).fillMaxWidth().height(BAR),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Tabs: a squircle with how many are open.
+                Tap({ tabsOpen = true }, Modifier.size(40.dp), RoundedCornerShape(12.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier.size(28.dp).border(2.dp, Ink.text, RoundedCornerShape(9.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) { Text("${Browser.tabs.size}", style = Type.meta.copy(color = Ink.text, fontWeight = FontWeight.Bold)) }
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                val pill = RoundedCornerShape(50)
+                Row(
+                    Modifier.weight(1f).height(46.dp).clip(pill).background(Ink.surface).padding(start = 16.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.weight(1f)) {
+                        if (input.isEmpty()) Text("Search or type an address", style = Type.label.copy(color = Ink.faint), maxLines = 1)
+                        BasicTextField(
+                            input, { input = it },
+                            Modifier.fillMaxWidth().onFocusChanged { typing = it.isFocused },
+                            singleLine = true, textStyle = Type.label, cursorBrush = SolidColor(Ink.red),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                            keyboardActions = KeyboardActions(onGo = { Browser.go(input); focus.clearFocus() }),
+                        )
+                    }
+                    if (input.isNotEmpty()) Icon(L.drawable.lucide_ic_x, true) { input = "" }
+                }
+                // What this page has that can be downloaded, with a count.
+                Tap({ picking = true }, Modifier.size(44.dp), CircleShape) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Lc(L.drawable.lucide_ic_download, tint = if (Browser.found.isNotEmpty() || site) Ink.green else Ink.text, size = 22.dp)
+                        if (Browser.found.isNotEmpty()) Box(
+                            Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 2.dp).size(17.dp).clip(CircleShape).background(Ink.green),
+                            contentAlignment = Alignment.Center,
+                        ) { Text("${Browser.found.size.coerceAtMost(99)}", style = Type.meta.copy(fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)) }
+                    }
+                }
+                Icon(L.drawable.lucide_ic_ellipsis_vertical, true) { menu = true }
+            }
+            Box(Modifier.fillMaxWidth().height(2.dp)) {
+                if (Browser.loading) Box(Modifier.fillMaxWidth(Browser.progress / 100f).height(2.dp).background(Ink.red))
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                AndroidView(factory = { Browser.view(it) }, modifier = Modifier.fillMaxSize())
+                // The current tab's page, swapped in when the tab changes.
+
+                AndroidView(
+                    factory = { android.widget.FrameLayout(it) },
+                    update = { frame ->
+                        val w = Browser.view(frame.context, Browser.tab)
+                        if (w.parent !== frame) {
+                            (w.parent as? android.view.ViewGroup)?.removeView(w)
+                            frame.removeAllViews()
+                            frame.addView(w, android.view.ViewGroup.LayoutParams(-1, -1))
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
                 // Nothing open yet: a bare, dark frosted page.
                 if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f))
             }
         }
-        // The bar: a frosted pill about 92% of the width; back and forward inside on the left, reload on the right,
-        // and the address in the middle on a slightly darker field.
-        Box(Modifier.fillMaxWidth().statusBarsPadding().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-            val shape = RoundedCornerShape(50)
-            Row(
-                Modifier.fillMaxWidth(0.92f).height(BAR).clip(shape).background(androidx.compose.ui.graphics.lerp(Ink.surface, Ink.surface2, 0.35f)).frost(shape, alpha = 0.03f).padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(L.drawable.lucide_ic_arrow_left, Browser.canBack) { Browser.back() }
-                Icon(L.drawable.lucide_ic_arrow_right, Browser.canForward) { Browser.forward() }
-                Box(
-                    Modifier.weight(1f).height(BAR - 12.dp).clip(shape).background(Ink.surface).padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.CenterStart,
-                ) {
-                    if (input.isEmpty()) Text("Search or type an address", style = Type.label.copy(color = Ink.faint), maxLines = 1)
-                    BasicTextField(
-                        input, { input = it },
-                        Modifier.fillMaxWidth().onFocusChanged { typing = it.isFocused },
-                        singleLine = true, textStyle = Type.label, cursorBrush = SolidColor(Ink.red),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-                        keyboardActions = KeyboardActions(onGo = { Browser.go(input); focus.clearFocus() }),
-                    )
+        if (menu) BottomSheet("Browser", { menu = false }, icon = L.drawable.lucide_ic_globe) {
+            Column(Modifier.padding(horizontal = CARD)) {
+                StretchRow {
+                    Button("Back", { Browser.back(); menu = false }, icon = L.drawable.lucide_ic_arrow_left, compact = true)
+                    Button("Forward", { Browser.forward(); menu = false }, icon = L.drawable.lucide_ic_arrow_right, compact = true)
+                    Button("Reload", { Browser.reload(); menu = false }, icon = L.drawable.lucide_ic_rotate_cw, compact = true)
                 }
-                Icon(L.drawable.lucide_ic_rotate_cw, Browser.url.isNotEmpty()) { Browser.reload() }
+                Spacer(Modifier.height(8.dp))
+                StretchRow {
+                    Button("New tab", { Browser.newTab(); menu = false }, icon = L.drawable.lucide_ic_plus, compact = true)
+                    Button("Close tab", { Browser.close(Browser.current); menu = false }, icon = L.drawable.lucide_ic_x, compact = true)
+                }
+                if (site) {
+                    Spacer(Modifier.height(8.dp))
+                    Button("Grab this page's video", { menu = false; Capture.offer(Browser.url, Browser.title) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
+                }
             }
         }
-        // What the page has loaded that can be grabbed; or, on a video site, the page itself.
-        val site = Browser.url.isNotBlank() && Media.looksLikeSite(Browser.url)
-        if (Prefs.sniffMedia && (Browser.found.isNotEmpty() || site)) {
-            Tap({ picking = true }, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = BottomRoom), RoundedCornerShape(50)) {
-                Row(Modifier.clip(RoundedCornerShape(50)).background(Ink.greenButton.copy(alpha = 0.92f)).padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Lc(L.drawable.lucide_ic_download, tint = Color.White, size = 20.dp)
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (Browser.found.isEmpty()) "Grab" else "${Browser.found.size}", style = Type.label.copy(color = Color.White, fontWeight = FontWeight.Bold))
+        if (tabsOpen) BottomSheet("Tabs", { tabsOpen = false }, icon = L.drawable.lucide_ic_copy) {
+            Column(Modifier.padding(horizontal = CARD)) {
+                Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+                    Browser.tabs.forEachIndexed { i, t ->
+                        val on = i == Browser.current
+                        Tap({ Browser.select(i); tabsOpen = false }, Modifier.fillMaxWidth(), RoundedCornerShape(12.dp)) {
+                            Row(
+                                Modifier.background(if (on) Ink.text.copy(alpha = 0.07f) else Color.Transparent).padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Lc(L.drawable.lucide_ic_globe, tint = if (on) Ink.red else Ink.muted, size = 18.dp)
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(t.title.ifBlank { if (t.url.isBlank()) "New tab" else t.url }, style = Type.label.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    if (t.url.isNotBlank()) Text(t.url, style = Type.meta, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Icon(L.drawable.lucide_ic_x, true) { Browser.close(i) }
+                            }
+                        }
+                    }
                 }
+                Spacer(Modifier.height(10.dp))
+                Button("New tab", { Browser.newTab(); tabsOpen = false }, Modifier.solo(), icon = L.drawable.lucide_ic_plus)
             }
         }
         if (picking) BottomSheet("On this page", { picking = false }, icon = L.drawable.lucide_ic_radar, iconTint = Ink.green) {

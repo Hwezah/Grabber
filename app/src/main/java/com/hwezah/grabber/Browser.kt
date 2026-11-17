@@ -23,26 +23,25 @@ import java.io.ByteArrayInputStream
 /** Something playable or downloadable the page loaded. */
 data class Sniffed(val url: String, val kind: String, val page: String, val title: String)
 
-/**
- * The browser: one WebView kept for the app's life (so a tab switch doesn't reload the page). It watches every
- * request the page makes to find videos, streams, audio and files, and drops requests to ad and tracker networks.
- */
-object Browser {
+/** One browser tab: its own page, history and finds. */
+class BTab(val id: Long) {
     @SuppressLint("StaticFieldLeak")
-    private var web: WebView? = null
-    private val main = Handler(Looper.getMainLooper())
+    var web: WebView? = null
+    val tabs = mutableStateListOf(BTab(1))
+    var current by mutableIntStateOf(0)
+    val tab: BTab get() = tabs[current.coerceIn(0, tabs.lastIndex)]
 
-    var url by mutableStateOf("")
-    var title by mutableStateOf("")
-    var loading by mutableStateOf(false)
-    var progress by mutableIntStateOf(0)
-    var canBack by mutableStateOf(false)
-    var canForward by mutableStateOf(false)
-    var blocked by mutableIntStateOf(0)
-    /** Goes up each time the page scrolls: the tab bar shows while it does. */
+    // The current tab's state, as the screen reads it.
+    val url get() = tab.url
+    val title get() = tab.title
+    val loading get() = tab.loading
+    val progress get() = tab.progress
+    val canBack get() = tab.canBack
+    val canForward get() = tab.canForward
+    val blocked get() = tab.blocked
+    val found get() = tab.found
+    /** Goes up each time a page scrolls: the tab bar shows while it does. */
     var scrollTick by mutableIntStateOf(0)
-    /** What this page has loaded that Grabber can take, newest first. */
-    val found = mutableStateListOf<Sniffed>()
 
     /** Search engines: name to the address words are added to. */
     val ENGINES = listOf(
@@ -100,22 +99,23 @@ object Browser {
 
     private val expanded = java.util.Collections.synchronizedSet(HashSet<String>())
 
-    private fun sniff(url: String) {
+    private fun sniff(t0: BTab, url: String) {
         if (!Prefs.sniffMedia) return
         val kind = kindOf(url) ?: return
         // Pieces of a stream aren't worth listing; the stream itself is.
         if (Regex("""(seg|chunk|frag|part)[-_]?\d+""", RegexOption.IGNORE_CASE).containsMatchIn(url) && kind != "Stream (HLS)") return
-        val page = this.url
-        val t = title
+        val page = t0.url
+        val t = t0.title
         main.post {
-            if (found.none { it.url == url }) found.add(0, Sniffed(url, kind, page, t))
+            if (t0.found.none { it.url == url }) t0.found.add(0, Sniffed(url, kind, page, t))
         }
         // A stream: read its list of qualities, like 1DM, and offer each one.
-        if (kind == "Stream (HLS)" && expanded.add(url)) qualities(Sniffed(url, kind, page, t))
+        if (kind == "Stream (HLS)" && expanded.add(url)) qualities(t0, Sniffed(url, kind, page, t))
     }
 
     /** Fetches an HLS master playlist (with the page's headers) and lists each quality it offers, best first. */
-    private fun qualities(s: Sniffed) {
+    private fun qualities(t0: BTab, s: Sniffed) {
+        val found = t0.found
         val headers = headersFor(s)
         kotlin.concurrent.thread(name = "grabber-hls-qualities") {
             val text = runCatching {
@@ -143,14 +143,14 @@ object Browser {
     fun headersFor(s: Sniffed): Map<String, String> {
         val h = linkedMapOf<String, String>()
         if (s.page.isNotBlank()) h["Referer"] = s.page
-        web?.settings?.userAgentString?.let { h["User-Agent"] = it }
+        tab.web?.settings?.userAgentString?.let { h["User-Agent"] = it }
         CookieManager.getInstance().getCookie(s.url)?.takeIf { it.isNotBlank() }?.let { h["Cookie"] = it }
         return h
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    fun view(context: Context): WebView {
-        web?.let { (it.parent as? ViewGroup)?.removeView(it); return it }
+    fun view(context: Context, t: BTab = tab): WebView {
+        t.web?.let { return it }
         CookieManager.getInstance().setAcceptCookie(true)
         val w = WebView(context)
         w.settings.apply {
@@ -170,68 +170,89 @@ object Browser {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val u = request.url
                 if (Prefs.blockAds && !request.isForMainFrame && blockedHost(u.host.orEmpty())) {
-                    main.post { blocked++ }
+                    main.post { t.blocked++ }
                     return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                 }
-                sniff(u.toString())
+                sniff(t, u.toString())
                 return null
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url
                 // Links Grabber handles itself: magnets, and pages that are files.
-                if (u.scheme == "magnet") { Capture.offer(u.toString(), title); return true }
+                if (u.scheme == "magnet") { Capture.offer(u.toString(), t.title); return true }
                 // A link straight to a file (video, audio, archive, app, document, torrent): Grabber takes it.
                 val k = kindOf(u.toString())
                 if (k != null && !k.startsWith("Stream")) {
                     val name = u.lastPathSegment?.let { java.net.URLDecoder.decode(it, "UTF-8") }
-                    Capture.offer(u.toString(), name, headersFor(Sniffed(u.toString(), k, this@Browser.url, title)))
+                    Capture.offer(u.toString(), name, headersFor(Sniffed(u.toString(), k, t.url, t.title)))
                     return true
                 }
                 if (u.scheme != "http" && u.scheme != "https") return true
-                if (Prefs.blockAds && blockedHost(u.host.orEmpty())) { blocked++; return true }
+                if (Prefs.blockAds && blockedHost(u.host.orEmpty())) { t.blocked++; return true }
                 return false
             }
 
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
-                if (url != this@Browser.url) found.clear()
-                this@Browser.url = if (url == "about:blank") "" else url
-                loading = true
-                blocked = 0
-                nav(view)
+                val u = if (url == "about:blank") "" else url
+                if (u != t.url) t.found.clear()
+                t.url = u
+                t.loading = true
+                t.blocked = 0
+                nav(t, view)
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                this@Browser.url = if (url == "about:blank") "" else url
-                loading = false
-                title = view.title.orEmpty()
-                nav(view)
+                t.url = if (url == "about:blank") "" else url
+                t.loading = false
+                t.title = view.title.orEmpty()
+                nav(t, view)
             }
 
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
-                this@Browser.url = if (url == "about:blank") "" else url
-                nav(view)
+                t.url = if (url == "about:blank") "" else url
+                nav(t, view)
             }
         }
         w.webChromeClient = object : WebChromeClient() {
-            override fun onProgressChanged(view: WebView, newProgress: Int) { progress = newProgress }
-            override fun onReceivedTitle(view: WebView, t: String?) { title = t.orEmpty() }
+            override fun onProgressChanged(view: WebView, newProgress: Int) { t.progress = newProgress }
+            override fun onReceivedTitle(view: WebView, title: String?) { t.title = title.orEmpty() }
         }
         w.setOnScrollChangeListener { _, _, y, _, oldY -> if (y != oldY) scrollTick++ }
         // A file the site hands over: straight to Grabber's download sheet, with this page's headers.
         w.setDownloadListener { url, ua, disposition, mime, _ ->
             val name = URLUtil.guessFileName(url, disposition, mime)
-            val s = Sniffed(url, "File", this.url, name)
+            val s = Sniffed(url, "File", t.url, name)
             Capture.offer(url, name, headersFor(s) + ("User-Agent" to ua))
         }
         // Nothing loaded until something is searched or typed: a blank start.
-        web = w
+        t.web = w
         return w
     }
 
-    private fun nav(v: WebView) {
-        canBack = v.canGoBack()
-        canForward = v.canGoForward()
+    /** A new tab, blank, made current. */
+    fun newTab() {
+        tabs.add(BTab((tabs.maxOfOrNull { it.id } ?: 0) + 1))
+        current = tabs.lastIndex
+    }
+
+    fun select(i: Int) { current = i.coerceIn(0, tabs.lastIndex) }
+
+    fun close(i: Int) {
+        val t = tabs.getOrNull(i) ?: return
+        t.web?.apply { (parent as? ViewGroup)?.removeView(this); destroy() }
+        tabs.removeAt(i)
+        if (tabs.isEmpty()) tabs.add(BTab(1))
+        current = when {
+            i < current -> current - 1
+            current > tabs.lastIndex -> tabs.lastIndex
+            else -> current
+        }
+    }
+
+    private fun nav(t: BTab, v: WebView) {
+        t.canBack = v.canGoBack()
+        t.canForward = v.canGoForward()
     }
 
     /** An address, or words to search for. */
@@ -243,30 +264,32 @@ object Browser {
             !t.contains(' ') && t.contains('.') -> "https://$t"
             else -> (ENGINES.firstOrNull { it.first == Prefs.searchEngine } ?: ENGINES.first()).second + java.net.URLEncoder.encode(t, "UTF-8")
         }
-        web?.loadUrl(target)
+        tab.web?.loadUrl(target)
     }
 
     fun applySettings() {
-        web?.settings?.javaScriptCanOpenWindowsAutomatically = !Prefs.blockPopups
+        tabs.forEach { it.web?.settings?.javaScriptCanOpenWindowsAutomatically = !Prefs.blockPopups }
     }
 
     /** Settings: forget cookies, history and the cache, and go back to the blank start. */
     fun clearData() {
         CookieManager.getInstance().removeAllCookies(null)
         android.webkit.WebStorage.getInstance().deleteAllData()
-        web?.apply {
-            clearHistory()
-            clearCache(true)
-            loadUrl("about:blank")
+        tabs.forEach { t ->
+            t.web?.apply {
+                clearHistory()
+                clearCache(true)
+                loadUrl("about:blank")
+            }
+            t.url = ""
+            t.title = ""
+            t.found.clear()
+            t.canBack = false
+            t.canForward = false
         }
-        url = ""
-        title = ""
-        found.clear()
-        canBack = false
-        canForward = false
     }
 
-    fun back() = web?.takeIf { it.canGoBack() }?.goBack()
-    fun forward() = web?.takeIf { it.canGoForward() }?.goForward()
-    fun reload() = web?.reload()
+    fun back() = tab.web?.takeIf { it.canGoBack() }?.goBack()
+    fun forward() = tab.web?.takeIf { it.canGoForward() }?.goForward()
+    fun reload() = tab.web?.reload()
 }
