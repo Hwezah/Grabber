@@ -107,7 +107,7 @@ fun BrowserPage() {
                     if (input.isNotEmpty()) Icon(L.drawable.lucide_ic_x, true) { input = "" }
                 }
                 // What this page has that can be downloaded, with a count.
-                Tap({ picking = true }, Modifier.size(44.dp), CircleShape) {
+                Tap({ picking = true }, Modifier.size(width = 42.dp, height = 44.dp), CircleShape) {
                     Box(contentAlignment = Alignment.Center) {
                         Lc(L.drawable.lucide_ic_download, tint = if (Browser.found.isNotEmpty() || site) Ink.green else Ink.text, size = 22.dp)
                         if (Browser.found.isNotEmpty()) Box(
@@ -116,7 +116,9 @@ fun BrowserPage() {
                         ) { Text("${Browser.found.size.coerceAtMost(99)}", style = Type.meta.copy(fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)) }
                     }
                 }
-                Icon(L.drawable.lucide_ic_ellipsis_vertical, true) { menu = true }
+                Tap({ menu = true }, Modifier.size(width = 30.dp, height = 44.dp), CircleShape) {
+                    Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_ellipsis_vertical, tint = Ink.text, size = 22.dp) }
+                }
             }
             Box(Modifier.fillMaxWidth().height(2.dp)) {
                 if (Browser.loading) Box(Modifier.fillMaxWidth(Browser.progress / 100f).height(2.dp).background(Ink.red))
