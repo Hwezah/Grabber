@@ -26,6 +26,8 @@ class CaptureActivity : ComponentActivity() {
     private var headers by mutableStateOf<Map<String, String>>(emptyMap())
     /** A batch's per-link names ("titles", one per line of the shared text, same order). */
     private var titles by mutableStateOf<List<String>>(emptyList())
+    /** Posters: one for a single link ("poster"), or one per batch line ("posters"). */
+    private var posters by mutableStateOf<List<String>>(emptyList())
     /** A batch's per-link headers (Referer, User-Agent, cookies), same order as its lines. */
     private var linkHeaders by mutableStateOf<List<Map<String, String>>>(emptyList())
     private var looked = false
@@ -40,7 +42,7 @@ class CaptureActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Ink.red)) {
                 if (files.isNotEmpty()) SaveFilesSheet(files) { finish() }
-                else text?.let { CaptureSheet(it, title = title, headers = headers, titles = titles, linkHeaders = linkHeaders) { finish() } }
+                else text?.let { CaptureSheet(it, title = title, headers = headers, titles = titles, linkHeaders = linkHeaders, posters = posters) { finish() } }
             }
         }
     }
@@ -59,6 +61,7 @@ class CaptureActivity : ComponentActivity() {
         Intent.ACTION_SEND -> i.getStringExtra(Intent.EXTRA_TEXT)?.also {
             title = i.getStringExtra(Intent.EXTRA_SUBJECT)?.takeIf { s -> s.isNotBlank() }
             titles = i.getStringArrayExtra("titles")?.toList().orEmpty()
+            posters = i.getStringArrayExtra("posters")?.toList() ?: listOfNotNull(i.getStringExtra("poster"))
             // "headers_json" (an array of name → value objects) wins; else "referers" (one per link, "" for none).
             linkHeaders = runCatching {
                 val a = org.json.JSONArray(i.getStringExtra("headers_json") ?: error("none"))
@@ -107,6 +110,7 @@ class CaptureActivity : ComponentActivity() {
     /** WatchHub, CloudStream and others send "title", "headers" (key, value, key, value…) and "referer". */
     private fun extras(i: Intent) {
         title = i.getStringExtra("title") ?: i.getStringExtra(Intent.EXTRA_TITLE)
+        posters = listOfNotNull(i.getStringExtra("poster"))
         val h = LinkedHashMap<String, String>()
         i.getStringArrayExtra("headers")?.toList()?.chunked(2)?.forEach { if (it.size == 2) h[it[0]] = it[1] }
         i.getBundleExtra("android.media.intent.extra.HTTP_HEADERS")?.let { b -> b.keySet().forEach { k -> b.getString(k)?.let { h[k] = it } } }
