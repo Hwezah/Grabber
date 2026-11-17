@@ -66,17 +66,32 @@ fun BrowserPage() {
     LaunchedEffect(Browser.url, typing) { if (!typing) input = Browser.url }
     BackHandler(enabled = Browser.canBack) { Browser.back() }
     Box(Modifier.fillMaxSize()) {
+        // The page first, the bar drawn after it: nothing the web view paints can cover the bar.
         Column(Modifier.fillMaxSize()) {
-            // The address bar: roomy; back and forward inside it on the left, reload inside on the right.
+            Spacer(Modifier.statusBarsPadding().height(BAR + 16.dp))
+            if (Browser.loading) Box(Modifier.fillMaxWidth().height(2.dp)) {
+                Box(Modifier.fillMaxWidth(Browser.progress / 100f).height(2.dp).background(Ink.red))
+            }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                AndroidView(factory = { Browser.view(it) }, modifier = Modifier.fillMaxSize())
+                // Nothing open yet: a bare, dark frosted page.
+                if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f))
+            }
+        }
+        // The bar: a frosted pill about 92% of the width; back and forward inside on the left, reload on the right,
+        // and the address in the middle on a slightly darker field.
+        Box(Modifier.fillMaxWidth().background(Ink.bg).statusBarsPadding().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
             val shape = RoundedCornerShape(50)
             Row(
-                Modifier.statusBarsPadding().padding(horizontal = EDGE, vertical = 8.dp).fillMaxWidth().height(52.dp)
-                    .frost(shape, alpha = 0.08f).padding(horizontal = 4.dp),
+                Modifier.fillMaxWidth(0.92f).height(BAR).clip(shape).background(Ink.surface2).frost(shape, alpha = 0.04f).padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(L.drawable.lucide_ic_arrow_left, Browser.canBack) { Browser.back() }
                 Icon(L.drawable.lucide_ic_arrow_right, Browser.canForward) { Browser.forward() }
-                Box(Modifier.weight(1f).padding(horizontal = 4.dp)) {
+                Box(
+                    Modifier.weight(1f).height(BAR - 12.dp).clip(shape).background(Ink.surface).padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
                     if (input.isEmpty()) Text("Search or type an address", style = Type.label.copy(color = Ink.faint), maxLines = 1)
                     BasicTextField(
                         input, { input = it },
@@ -87,14 +102,6 @@ fun BrowserPage() {
                     )
                 }
                 Icon(L.drawable.lucide_ic_rotate_cw, Browser.url.isNotEmpty()) { Browser.reload() }
-            }
-            if (Browser.loading) Box(Modifier.fillMaxWidth().height(2.dp)) {
-                Box(Modifier.fillMaxWidth(Browser.progress / 100f).height(2.dp).background(Ink.red))
-            }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                AndroidView(factory = { Browser.view(it) }, modifier = Modifier.fillMaxSize())
-                // Nothing open yet: a bare, dark frosted page.
-                if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f))
             }
         }
         // What the page has loaded that can be grabbed; or, on a video site, the page itself.
@@ -150,6 +157,8 @@ fun BrowserPage() {
         }
     }
 }
+
+private val BAR = 54.dp
 
 @Composable
 private fun Icon(icon: Int, enabled: Boolean, onClick: () -> Unit) {
