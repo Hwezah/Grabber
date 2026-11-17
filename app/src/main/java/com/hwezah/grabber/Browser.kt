@@ -188,6 +188,7 @@ object Browser {
             loadWithOverviewMode = true
             useWideViewPort = true
         }
+        darken(w.settings)
         CookieManager.getInstance().setAcceptThirdPartyCookies(w, true)
         w.webViewClient = object : WebViewClient() {
             // Runs on a background thread for every request: it must never throw.
@@ -335,7 +336,26 @@ object Browser {
     }
 
     fun applySettings() {
-        tabs.forEach { it.web?.settings?.javaScriptCanOpenWindowsAutomatically = !Prefs.blockPopups }
+        tabs.forEach { t ->
+            t.web?.settings?.let { s ->
+                s.javaScriptCanOpenWindowsAutomatically = !Prefs.blockPopups
+                darken(s)
+            }
+        }
+    }
+
+    /** Dark pages: Android's own darkening of light sites (where the phone's WebView supports it). */
+    @Suppress("DEPRECATION")
+    private fun darken(s: android.webkit.WebSettings) {
+        runCatching {
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.ALGORITHMIC_DARKENING)) {
+                androidx.webkit.WebSettingsCompat.setAlgorithmicDarkeningAllowed(s, Prefs.darkPages)
+            } else if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.FORCE_DARK)) {
+                androidx.webkit.WebSettingsCompat.setForceDark(
+                    s, if (Prefs.darkPages) androidx.webkit.WebSettingsCompat.FORCE_DARK_ON else androidx.webkit.WebSettingsCompat.FORCE_DARK_OFF,
+                )
+            }
+        }
     }
 
     /** Settings: forget cookies, history and the cache, and go back to the blank start. */

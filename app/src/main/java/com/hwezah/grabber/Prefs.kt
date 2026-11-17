@@ -67,6 +67,11 @@ object Prefs {
     /** Watch what pages load for videos and files (the grab button). */
     var sniffMedia by mutableStateOf(true)
         private set
+    /** Show light web pages dark. */
+    var darkPages by mutableStateOf(true)
+        private set
+
+    fun useDarkPages(v: Boolean) { darkPages = v; sp.edit().putBoolean("darkPages", v).apply(); Browser.applySettings() }
 
     fun useSearchEngine(v: String) { searchEngine = v; sp.edit().putString("searchEngine", v).apply() }
     fun useBlockPopups(v: Boolean) { blockPopups = v; sp.edit().putBoolean("blockPopups", v).apply(); Browser.applySettings() }
@@ -101,6 +106,7 @@ object Prefs {
         searchEngine = sp.getString("searchEngine", "DuckDuckGo") ?: "DuckDuckGo"
         blockPopups = sp.getBoolean("blockPopups", true)
         sniffMedia = sp.getBoolean("sniffMedia", true)
+        darkPages = sp.getBoolean("darkPages", true)
     }
 
     fun useAccent(name: String, save: Boolean = true) {
