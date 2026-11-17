@@ -67,10 +67,14 @@ object Prefs {
     /** Watch what pages load for videos and files (the grab button). */
     var sniffMedia by mutableStateOf(true)
         private set
+    /** Stop pages jumping to other sites (ads, betting) unless asked. */
+    var blockRedirects by mutableStateOf(true)
+        private set
     /** Show light web pages dark. */
     var darkPages by mutableStateOf(true)
         private set
 
+    fun useBlockRedirects(v: Boolean) { blockRedirects = v; sp.edit().putBoolean("blockRedirects", v).apply() }
     fun useDarkPages(v: Boolean) { darkPages = v; sp.edit().putBoolean("darkPages", v).apply(); Browser.applySettings() }
 
     fun useSearchEngine(v: String) { searchEngine = v; sp.edit().putString("searchEngine", v).apply() }
@@ -107,6 +111,7 @@ object Prefs {
         blockPopups = sp.getBoolean("blockPopups", true)
         sniffMedia = sp.getBoolean("sniffMedia", true)
         darkPages = sp.getBoolean("darkPages", true)
+        blockRedirects = sp.getBoolean("blockRedirects", true)
     }
 
     fun useAccent(name: String, save: Boolean = true) {

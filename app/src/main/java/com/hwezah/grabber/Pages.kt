@@ -92,6 +92,7 @@ fun SettingsPage() {
                 SettingRow("Block ads", "Drops requests to ad and tracker networks") { Toggle(Prefs.blockAds, Prefs::useBlockAds) }
                 SettingRow("Dark pages", "Shows light websites dark") { Toggle(Prefs.darkPages, Prefs::useDarkPages) }
                 SettingRow("Block pop-ups", "Pages can't open new windows") { Toggle(Prefs.blockPopups, Prefs::useBlockPopups) }
+                SettingRow("Block redirects", "Stops pages jumping to ad and betting sites; a bar offers Open anyway") { Toggle(Prefs.blockRedirects, Prefs::useBlockRedirects) }
                 SettingRow("Spot videos and files", "Watches what pages load and offers it to download") { Toggle(Prefs.sniffMedia, Prefs::useSniffMedia) }
                 SettingRow("Clear browsing data", "Cookies, history and cache. Site sign-ins in the browser go too") {
                     Button("Clear", { Browser.clearData() }, compact = true)

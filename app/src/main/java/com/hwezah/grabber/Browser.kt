@@ -44,6 +44,10 @@ class BTab(val id: Long) {
     /** Quality playlists already listed under their stream, so they aren't listed twice. */
     val children: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())
     @Volatile var ua: String = ""
+    /** A jump to another site that was stopped, offered with "Open anyway". */
+    var stopped by mutableStateOf<String?>(null)
+    /** One address let through after "Open anyway". */
+    var pass: String? = null
 }
 
 /**
@@ -104,6 +108,47 @@ object Browser {
     )
 
     private val MEDIA = Regex("""\.(m3u8|mpd|mp4|m4v|webm|mkv|mov|avi|flv|mp3|m4a|aac|ogg|opus|flac|wav|zip|rar|7z|apk|pdf|torrent)(\?|#|$)""", RegexOption.IGNORE_CASE)
+
+    /** Sites whose redirects are allowed (from the menu), for this run of the app. */
+    val allowJumps = mutableStateListOf<String>()
+
+    /** Where pop-under and betting jumps go: stopped even after a tap, since a tap on a player is often hijacked. */
+    private val BAD_JUMP = Regex(
+        """(^|[.-])(1x[a-z0-9-]*|bet(way|win|365|ika|pawa|winner|king)|sportybet|melbet|mostbet|22bet|linebet|parimatch|pin-?up|[a-z]*casino[a-z]*|""" +
+            """adsterra|popads|propeller[a-z]*|clickadu|hilltopads|exoclick|trafficjunky|juicyads|popcash|galaksion|monetag|onclick[a-z]*|""" +
+            """[a-z]*push[a-z]*notif[a-z]*)([.-]|$)""",
+    )
+
+    /** The site part of a host: "www.movies2watch.tv" → "movies2watch.tv". */
+    fun siteOf(host: String?): String {
+        val parts = host.orEmpty().lowercase().split('.').filter { it.isNotEmpty() }
+        if (parts.size <= 2) return parts.joinToString(".")
+        val two = parts.takeLast(2)
+        // co.uk, com.ng and the like keep one more part.
+        return if (two[0].length <= 3 && two[1].length == 2) parts.takeLast(3).joinToString(".") else two.joinToString(".")
+    }
+
+    /** Whether this page jump should be stopped: to another site, and either untapped or to an ad or betting site. */
+    private fun stopJump(t: BTab, request: WebResourceRequest): Boolean {
+        if (!Prefs.blockRedirects || !request.isForMainFrame) return false
+        val to = request.url.toString()
+        if (t.pass == to) { t.pass = null; return false }
+        val from = siteOf(android.net.Uri.parse(t.url).host)
+        val dest = siteOf(request.url.host)
+        if (from.isEmpty() || from == dest || from in allowJumps) return false
+        val bad = BAD_JUMP.containsMatchIn(request.url.host.orEmpty().lowercase())
+        // A server's own redirect (sign-ins, short links) and a real tap go through, unless it's to an ad or betting site.
+        return bad || (!request.hasGesture() && !request.isRedirect)
+    }
+
+    /** Opens a jump that was stopped. */
+    fun openStopped() {
+        val t = tab
+        val u = t.stopped ?: return
+        t.stopped = null
+        t.pass = u
+        t.web?.loadUrl(u)
+    }
 
     private fun blockedHost(host: String): Boolean {
         var h = host.lowercase()
@@ -293,6 +338,7 @@ object Browser {
                 }
                 if (u.scheme != "http" && u.scheme != "https") return true
                 if (Prefs.blockAds && blockedHost(u.host.orEmpty())) { t.blocked++; return true }
+                if (stopJump(t, request)) { t.stopped = u.toString(); return true }
                 return false
             }
 
@@ -302,6 +348,7 @@ object Browser {
                 t.url = u
                 t.loading = true
                 t.blocked = 0
+                t.stopped = null
                 nav(t, view)
             }
 

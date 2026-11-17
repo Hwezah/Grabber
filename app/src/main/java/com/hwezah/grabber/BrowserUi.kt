@@ -55,6 +55,7 @@ import com.hwezah.grabber.design.Ink
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Note
 import com.hwezah.grabber.design.Tap
+import com.hwezah.grabber.design.Toggle
 import com.hwezah.grabber.design.Type
 import com.hwezah.grabber.design.frost
 import com.hwezah.grabber.design.solo
@@ -123,6 +124,24 @@ fun BrowserPage() {
             Box(Modifier.fillMaxWidth().height(2.dp)) {
                 if (Browser.loading) Box(Modifier.fillMaxWidth(Browser.progress / 100f).height(2.dp).background(Ink.red))
             }
+            // A jump to another site was stopped: say where, with a way through.
+            Browser.tab.stopped?.let { to ->
+                Row(
+                    Modifier.fillMaxWidth().background(Ink.surface).padding(start = EDGE + 4.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "Stopped a jump to ${android.net.Uri.parse(to).host.orEmpty().removePrefix("www.")}",
+                        Modifier.weight(1f), style = Type.meta, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                    Tap({ Browser.openStopped() }, Modifier.height(40.dp), RoundedCornerShape(10.dp)) {
+                        Box(Modifier.padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
+                            Text("Open anyway", style = Type.meta.copy(color = Ink.red, fontWeight = FontWeight.SemiBold))
+                        }
+                    }
+                    Icon(L.drawable.lucide_ic_x, true) { Browser.tab.stopped = null }
+                }
+            }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 // The current tab's page, swapped in when the tab changes.
 
@@ -154,6 +173,12 @@ fun BrowserPage() {
                 StretchRow {
                     Button("New tab", { Browser.newTab(); menu = false }, icon = L.drawable.lucide_ic_plus, compact = true)
                     Button("Close tab", { Browser.close(Browser.current); menu = false }, icon = L.drawable.lucide_ic_x, compact = true)
+                }
+                if (site && Prefs.blockRedirects) {
+                    val here = Browser.siteOf(android.net.Uri.parse(Browser.url).host)
+                    SettingRow("Allow redirects on this site", "Let $here send you to other sites") {
+                        Toggle(here in Browser.allowJumps, { on -> if (on) Browser.allowJumps.add(here) else Browser.allowJumps.remove(here) })
+                    }
                 }
                 if (site) {
                     Spacer(Modifier.height(8.dp))
