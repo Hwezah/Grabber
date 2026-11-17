@@ -42,7 +42,14 @@ object Browser {
     /** What this page has loaded that Grabber can take, newest first. */
     val found = mutableStateListOf<Sniffed>()
 
-    private const val HOME = "https://duckduckgo.com/"
+    /** Search engines: name to the address words are added to. */
+    val ENGINES = listOf(
+        "DuckDuckGo" to "https://duckduckgo.com/?q=",
+        "Google" to "https://www.google.com/search?q=",
+        "Bing" to "https://www.bing.com/search?q=",
+        "Brave" to "https://search.brave.com/search?q=",
+        "Startpage" to "https://www.startpage.com/do/search?q=",
+    )
 
     /** Ad and tracker networks: a request to any of these hosts (or their subdomains) gets an empty answer. */
     private val AD_HOSTS = setOf(
@@ -90,6 +97,7 @@ object Browser {
     }
 
     private fun sniff(url: String) {
+        if (!Prefs.sniffMedia) return
         val kind = kindOf(url) ?: return
         // Pieces of a stream aren't worth listing; the stream itself is.
         if (Regex("""(seg|chunk|frag|part)[-_]?\d+""", RegexOption.IGNORE_CASE).containsMatchIn(url) && kind != "Stream (HLS)") return
@@ -118,9 +126,9 @@ object Browser {
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = true
-            // No pop-up windows: most are ads.
+            // No pop-up windows (most are ads), unless turned off in Settings.
             setSupportMultipleWindows(false)
-            javaScriptCanOpenWindowsAutomatically = false
+            javaScriptCanOpenWindowsAutomatically = !Prefs.blockPopups
             builtInZoomControls = true
             displayZoomControls = false
             loadWithOverviewMode = true
@@ -149,21 +157,21 @@ object Browser {
 
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 if (url != this@Browser.url) found.clear()
-                this@Browser.url = url
+                this@Browser.url = if (url == "about:blank") "" else url
                 loading = true
                 blocked = 0
                 nav(view)
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                this@Browser.url = url
+                this@Browser.url = if (url == "about:blank") "" else url
                 loading = false
                 title = view.title.orEmpty()
                 nav(view)
             }
 
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
-                this@Browser.url = url
+                this@Browser.url = if (url == "about:blank") "" else url
                 nav(view)
             }
         }
@@ -177,7 +185,7 @@ object Browser {
             val s = Sniffed(url, "File", this.url, name)
             Capture.offer(url, name, headersFor(s) + ("User-Agent" to ua))
         }
-        w.loadUrl(HOME)
+        // Nothing loaded until something is searched or typed: a blank start.
         web = w
         return w
     }
@@ -194,9 +202,29 @@ object Browser {
         val target = when {
             t.startsWith("http://", true) || t.startsWith("https://", true) -> t
             !t.contains(' ') && t.contains('.') -> "https://$t"
-            else -> "https://duckduckgo.com/?q=" + java.net.URLEncoder.encode(t, "UTF-8")
+            else -> (ENGINES.firstOrNull { it.first == Prefs.searchEngine } ?: ENGINES.first()).second + java.net.URLEncoder.encode(t, "UTF-8")
         }
         web?.loadUrl(target)
+    }
+
+    fun applySettings() {
+        web?.settings?.javaScriptCanOpenWindowsAutomatically = !Prefs.blockPopups
+    }
+
+    /** Settings: forget cookies, history and the cache, and go back to the blank start. */
+    fun clearData() {
+        CookieManager.getInstance().removeAllCookies(null)
+        android.webkit.WebStorage.getInstance().deleteAllData()
+        web?.apply {
+            clearHistory()
+            clearCache(true)
+            loadUrl("about:blank")
+        }
+        url = ""
+        title = ""
+        found.clear()
+        canBack = false
+        canForward = false
     }
 
     fun back() = web?.takeIf { it.canGoBack() }?.goBack()

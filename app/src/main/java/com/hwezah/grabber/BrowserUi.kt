@@ -67,38 +67,39 @@ fun BrowserPage() {
     BackHandler(enabled = Browser.canBack) { Browser.back() }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            // The address bar: roomy, with back, forward and reload.
-            Row(Modifier.statusBarsPadding().padding(horizontal = EDGE, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The address bar: roomy; back and forward inside it on the left, reload inside on the right.
+            val shape = RoundedCornerShape(50)
+            Row(
+                Modifier.statusBarsPadding().padding(horizontal = EDGE, vertical = 8.dp).fillMaxWidth().height(52.dp)
+                    .frost(shape, alpha = 0.08f).padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Icon(L.drawable.lucide_ic_arrow_left, Browser.canBack) { Browser.back() }
                 Icon(L.drawable.lucide_ic_arrow_right, Browser.canForward) { Browser.forward() }
-                val shape = RoundedCornerShape(50)
-                Row(
-                    Modifier.weight(1f).height(52.dp).frost(shape, alpha = 0.08f).padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Lc(if (Prefs.blockAds) L.drawable.lucide_ic_shield_check else L.drawable.lucide_ic_globe, tint = if (Prefs.blockAds) Ink.green else Ink.faint, size = 18.dp)
-                    Spacer(Modifier.width(10.dp))
-                    Box(Modifier.weight(1f)) {
-                        if (input.isEmpty()) Text("Search or type an address", style = Type.label.copy(color = Ink.faint), maxLines = 1)
-                        BasicTextField(
-                            input, { input = it },
-                            Modifier.fillMaxWidth().onFocusChanged { typing = it.isFocused },
-                            singleLine = true, textStyle = Type.label, cursorBrush = SolidColor(Ink.red),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-                            keyboardActions = KeyboardActions(onGo = { Browser.go(input); focus.clearFocus() }),
-                        )
-                    }
+                Box(Modifier.weight(1f).padding(horizontal = 4.dp)) {
+                    if (input.isEmpty()) Text("Search or type an address", style = Type.label.copy(color = Ink.faint), maxLines = 1)
+                    BasicTextField(
+                        input, { input = it },
+                        Modifier.fillMaxWidth().onFocusChanged { typing = it.isFocused },
+                        singleLine = true, textStyle = Type.label, cursorBrush = SolidColor(Ink.red),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                        keyboardActions = KeyboardActions(onGo = { Browser.go(input); focus.clearFocus() }),
+                    )
                 }
-                Icon(L.drawable.lucide_ic_rotate_cw, true) { Browser.reload() }
+                Icon(L.drawable.lucide_ic_rotate_cw, Browser.url.isNotEmpty()) { Browser.reload() }
             }
             if (Browser.loading) Box(Modifier.fillMaxWidth().height(2.dp)) {
                 Box(Modifier.fillMaxWidth(Browser.progress / 100f).height(2.dp).background(Ink.red))
             }
-            AndroidView(factory = { Browser.view(it) }, modifier = Modifier.weight(1f).fillMaxWidth())
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                AndroidView(factory = { Browser.view(it) }, modifier = Modifier.fillMaxSize())
+                // Nothing open yet: a bare, dark frosted page.
+                if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f))
+            }
         }
         // What the page has loaded that can be grabbed; or, on a video site, the page itself.
         val site = Browser.url.isNotBlank() && Media.looksLikeSite(Browser.url)
-        if (Browser.found.isNotEmpty() || site) {
+        if (Prefs.sniffMedia && (Browser.found.isNotEmpty() || site)) {
             Tap({ picking = true }, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = BottomRoom), RoundedCornerShape(50)) {
                 Row(Modifier.clip(RoundedCornerShape(50)).background(Ink.greenButton.copy(alpha = 0.92f)).padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Lc(L.drawable.lucide_ic_download, tint = Color.White, size = 20.dp)

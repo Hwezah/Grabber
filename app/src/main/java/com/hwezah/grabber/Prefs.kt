@@ -59,6 +59,19 @@ object Prefs {
 
     fun useBlockAds(v: Boolean) { blockAds = v; sp.edit().putBoolean("blockAds", v).apply() }
 
+    /** Where typed words are searched: a name from [Browser.ENGINES]. */
+    var searchEngine by mutableStateOf("DuckDuckGo")
+        private set
+    var blockPopups by mutableStateOf(true)
+        private set
+    /** Watch what pages load for videos and files (the grab button). */
+    var sniffMedia by mutableStateOf(true)
+        private set
+
+    fun useSearchEngine(v: String) { searchEngine = v; sp.edit().putString("searchEngine", v).apply() }
+    fun useBlockPopups(v: Boolean) { blockPopups = v; sp.edit().putBoolean("blockPopups", v).apply(); Browser.applySettings() }
+    fun useSniffMedia(v: Boolean) { sniffMedia = v; sp.edit().putBoolean("sniffMedia", v).apply() }
+
     /** The main accent's name, one of Ink.ACCENTS. */
     var accent by mutableStateOf("Red")
         private set
@@ -85,6 +98,9 @@ object Prefs {
         com.hwezah.grabber.engine.Http.userAgent = userAgent
         useAccent(sp.getString("accent", "Red") ?: "Red", save = false)
         blockAds = sp.getBoolean("blockAds", true)
+        searchEngine = sp.getString("searchEngine", "DuckDuckGo") ?: "DuckDuckGo"
+        blockPopups = sp.getBoolean("blockPopups", true)
+        sniffMedia = sp.getBoolean("sniffMedia", true)
     }
 
     fun useAccent(name: String, save: Boolean = true) {

@@ -88,7 +88,13 @@ fun SettingsPage() {
             Spacer(Modifier.height(20.dp))
             Overline("Browser")
             Group {
-                SettingRow("Block ads", "Drops requests to ad and tracker networks, and pop-up windows") { Toggle(Prefs.blockAds, Prefs::useBlockAds) }
+                ChipRow("Search engine", Browser.ENGINES.map { it.first to it.first }, Prefs.searchEngine, Prefs::useSearchEngine)
+                SettingRow("Block ads", "Drops requests to ad and tracker networks") { Toggle(Prefs.blockAds, Prefs::useBlockAds) }
+                SettingRow("Block pop-ups", "Pages can't open new windows") { Toggle(Prefs.blockPopups, Prefs::useBlockPopups) }
+                SettingRow("Spot videos and files", "Watches what pages load and offers it to download") { Toggle(Prefs.sniffMedia, Prefs::useSniffMedia) }
+                SettingRow("Clear browsing data", "Cookies, history and cache. Site sign-ins in the browser go too") {
+                    Button("Clear", { Browser.clearData() }, compact = true)
+                }
             }
             Spacer(Modifier.height(20.dp))
             Overline("Video sites")
