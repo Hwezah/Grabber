@@ -154,7 +154,7 @@ private fun TabBar(tab: Tab, onTab: (Tab) -> Unit) {
                             .clip(RoundedCornerShape(bottomStart = 2.dp, bottomEnd = 2.dp)).background(Ink.red),
                     )
                     Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Lc(t.icon, tint = if (on) Ink.text else Ink.faint, size = 22.dp)
+                        Lc(t.icon, tint = if (on) Ink.red else Ink.faint, size = 22.dp)
                         Text(
                             t.label, Modifier.padding(top = 3.dp),
                             style = Type.meta.copy(fontSize = 11.sp, color = if (on) Ink.text else Ink.faint, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium),
@@ -181,7 +181,7 @@ private fun PillBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifie
                     Modifier.clip(RoundedCornerShape(18.dp)).background(if (on) Ink.text.copy(alpha = 0.16f) else Color.Transparent)
                         .padding(horizontal = 22.dp, vertical = 12.dp),
                     contentAlignment = Alignment.Center,
-                ) { Lc(t.icon, tint = if (on) Ink.text else Ink.muted, size = 24.dp) }
+                ) { Lc(t.icon, tint = if (on) Ink.red else Ink.muted, size = 24.dp) }
             }
         }
     }
