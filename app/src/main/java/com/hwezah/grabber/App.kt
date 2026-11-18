@@ -156,7 +156,7 @@ private fun TabBar(tab: Tab, onTab: (Tab) -> Unit) {
 @Composable
 private fun PillBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.navigationBarsPadding().padding(bottom = 12.dp).frost(RoundedCornerShape(24.dp), if (Ink.isDark) Color(0xFF050505) else Ink.bg, alpha = 0.035f).padding(6.dp),
+        modifier.navigationBarsPadding().padding(bottom = 12.dp).frost(RoundedCornerShape(24.dp), if (Ink.isDark) Color(0xFF1E1E1E) else Ink.bg, alpha = if (Ink.isDark) 0.05f else 0.035f).padding(6.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
