@@ -33,7 +33,7 @@ object Ink {
         Color(0xFFFFFFFF), Color(0xFFB3B3B3), Color(0xFF7A7A7A), Color(0xFFFF5A4E),
     )
     private val LIGHT = Palette(
-        Color(0xFFF6F2EE), Color(0xFFFFFFFF), Color(0xFFEAE4DE), Color(0xFFDDD5CE),
+        Color(0xFFEAE5DF), Color(0xFFFFFFFF), Color(0xFFE0D9D2), Color(0xFFDDD5CE),
         Color(0xFF141414), Color(0xFF575757), Color(0xFF8A8A8A), Color(0xFFD32F2F),
     )
     private var p by mutableStateOf(DARK)
