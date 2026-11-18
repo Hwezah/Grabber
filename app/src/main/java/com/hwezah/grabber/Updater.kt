@@ -29,7 +29,7 @@ object Updater {
     sealed interface Status {
         data object None : Status
         data class Ready(val code: Int, val url: String, val size: Long) : Status
-        data class Downloading(val pct: Int) : Status
+        data class Downloading(val pct: Int, val done: Long = 0, val total: Long = 0) : Status
         data object Installing : Status
         data object NeedsPermission : Status
         data class Failed(val message: String) : Status
@@ -113,7 +113,7 @@ object Updater {
                         kotlinx.coroutines.coroutineScope {
                             val ticker = launch {
                                 while (true) {
-                                    if (info.size > 0) status = Status.Downloading((dl.downloaded() * 100 / info.size).toInt())
+                                    if (info.size > 0) dl.downloaded().let { d -> status = Status.Downloading((d * 100 / info.size).toInt(), d, info.size) }
                                     kotlinx.coroutines.delay(500)
                                 }
                             }

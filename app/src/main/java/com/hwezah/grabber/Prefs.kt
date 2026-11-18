@@ -82,7 +82,7 @@ object Prefs {
     fun useSniffMedia(v: Boolean) { sniffMedia = v; sp.edit().putBoolean("sniffMedia", v).apply() }
 
     /** The main accent's name, one of Ink.ACCENTS. */
-    var accent by mutableStateOf("Red")
+    var accent by mutableStateOf("Deep Red")
         private set
 
     fun init(context: Context) {
@@ -105,7 +105,9 @@ object Prefs {
         videoQuality = sp.getString("videoQuality", "v:1080") ?: "v:1080"
         audioFormat = sp.getString("audioFormat", "mp3") ?: "mp3"
         com.hwezah.grabber.engine.Http.userAgent = userAgent
-        useAccent(sp.getString("accent", "Olive") ?: "Olive", save = false)
+        // Deep red is the house accent: switched to once, after that whatever is picked stays.
+        if (!sp.getBoolean("deepRed", false)) sp.edit().putString("accent", "Deep Red").putBoolean("deepRed", true).apply()
+        useAccent(sp.getString("accent", "Deep Red") ?: "Deep Red", save = false)
         blockAds = sp.getBoolean("blockAds", true)
         searchEngine = sp.getString("searchEngine", "DuckDuckGo") ?: "DuckDuckGo"
         blockPopups = sp.getBoolean("blockPopups", true)
