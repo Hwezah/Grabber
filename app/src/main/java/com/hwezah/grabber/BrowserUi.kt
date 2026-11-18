@@ -81,7 +81,7 @@ fun BrowserPage() {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Tabs: a squircle with how many are open.
-                Tap({ tabsOpen = true }, Modifier.size(40.dp), RoundedCornerShape(12.dp)) {
+                Tap({ tabsOpen = true }, Modifier.size(40.dp), RoundedCornerShape(10.dp)) {
                     Box(contentAlignment = Alignment.Center) {
                         Box(
                             Modifier.size(28.dp).border(2.dp, Ink.text, RoundedCornerShape(9.dp)),
@@ -90,7 +90,7 @@ fun BrowserPage() {
                     }
                 }
                 Spacer(Modifier.width(8.dp))
-                val pill = RoundedCornerShape(50)
+                val pill = RoundedCornerShape(18.dp)
                 Row(
                     Modifier.weight(1f).height(46.dp).clip(pill).background(Ink.surface).padding(start = 16.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -134,7 +134,7 @@ fun BrowserPage() {
                         "Stopped a jump to ${android.net.Uri.parse(to).host.orEmpty().removePrefix("www.")}",
                         Modifier.weight(1f), style = Type.meta, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
-                    Tap({ Browser.openStopped() }, Modifier.height(40.dp), RoundedCornerShape(10.dp)) {
+                    Tap({ Browser.openStopped() }, Modifier.height(40.dp), RoundedCornerShape(8.dp)) {
                         Box(Modifier.padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
                             Text("Open anyway", style = Type.meta.copy(color = Ink.red, fontWeight = FontWeight.SemiBold))
                         }
@@ -191,7 +191,7 @@ fun BrowserPage() {
                 Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
                     Browser.tabs.forEachIndexed { i, t ->
                         val on = i == Browser.current
-                        Tap({ Browser.select(i); tabsOpen = false }, Modifier.fillMaxWidth(), RoundedCornerShape(12.dp)) {
+                        Tap({ Browser.select(i); tabsOpen = false }, Modifier.fillMaxWidth(), RoundedCornerShape(10.dp)) {
                             Row(
                                 Modifier.background(if (on) Ink.text.copy(alpha = 0.07f) else Color.Transparent).padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -226,7 +226,7 @@ fun BrowserPage() {
                         Tap({
                             picking = false
                             Capture.offer(s.url, s.title.ifBlank { null }, Browser.headersFor(s))
-                        }, Modifier.fillMaxWidth(), RoundedCornerShape(10.dp)) {
+                        }, Modifier.fillMaxWidth(), RoundedCornerShape(8.dp)) {
                             Row(Modifier.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(36.dp).clip(CircleShape).background(Ink.text.copy(alpha = 0.07f)), contentAlignment = Alignment.Center) {
                                     Lc(

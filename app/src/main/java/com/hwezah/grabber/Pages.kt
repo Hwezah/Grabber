@@ -225,7 +225,7 @@ fun TempRow() {
 
 @Composable
 fun Group(content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().frost(RoundedCornerShape(18.dp)).padding(horizontal = CARD, vertical = 6.dp)) { content() }
+    Column(Modifier.fillMaxWidth().frost(RoundedCornerShape(15.dp)).padding(horizontal = CARD, vertical = 6.dp)) { content() }
 }
 
 @Composable

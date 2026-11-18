@@ -85,7 +85,7 @@ fun Lc(@DrawableRes icon: Int, modifier: Modifier = Modifier, tint: Color = Ink.
 fun Tap(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(10.dp),
+    shape: Shape = RoundedCornerShape(8.dp),
     onLongClick: (() -> Unit)? = null,
     content: @Composable BoxScope.(pressed: Boolean) -> Unit,
 ) {
@@ -119,12 +119,12 @@ fun Button(
 ) {
     // Green buttons are a deeper green than icons and progress bars.
     val accent = if (accent == Ink.green) Ink.greenButton else accent
-    Tap(onClick, modifier, RoundedCornerShape(50)) { pressed ->
+    Tap(onClick, modifier, RoundedCornerShape(16.dp)) { pressed ->
         val fg = if (accent != null) Ink.on(accent) else Ink.text
         // A solid accent, or a lighter shade of frosted glass.
         // Frosted everywhere: coloured ones are the colour, a touch see-through, with the grain over it.
         val base = if (accent != null) Modifier.background(accent.copy(alpha = if (pressed) 0.7f else 0.86f)).grain()
-        else Modifier.frost(RoundedCornerShape(50), alpha = if (pressed) 0.14f else 0.08f)
+        else Modifier.frost(RoundedCornerShape(16.dp), alpha = if (pressed) 0.14f else 0.08f)
         Row(
             base.height(if (LocalInSheet.current) (if (compact) 38.dp else 44.dp) else if (compact) 42.dp else 50.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -260,7 +260,7 @@ fun BottomSheet(
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
-    val shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
+    val shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
     Box(
         Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f))
             .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),

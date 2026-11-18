@@ -151,15 +151,15 @@ private fun TabBar(tab: Tab, onTab: (Tab) -> Unit) {
 @Composable
 private fun PillBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.navigationBarsPadding().padding(bottom = 12.dp).frost(RoundedCornerShape(50), if (Ink.isDark) Color(0xFF050505) else Ink.bg, alpha = 0.035f).padding(6.dp),
+        modifier.navigationBarsPadding().padding(bottom = 12.dp).frost(RoundedCornerShape(24.dp), if (Ink.isDark) Color(0xFF050505) else Ink.bg, alpha = 0.035f).padding(6.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Tab.entries.forEach { t ->
             val on = t == tab
-            Tap({ onTab(t) }, shape = RoundedCornerShape(50)) {
+            Tap({ onTab(t) }, shape = RoundedCornerShape(18.dp)) {
                 Box(
-                    Modifier.clip(RoundedCornerShape(50)).background(if (on) Ink.text.copy(alpha = 0.16f) else Color.Transparent)
+                    Modifier.clip(RoundedCornerShape(18.dp)).background(if (on) Ink.text.copy(alpha = 0.16f) else Color.Transparent)
                         .padding(horizontal = 22.dp, vertical = 12.dp),
                     contentAlignment = Alignment.Center,
                 ) { Lc(t.icon, tint = if (on) Ink.text else Ink.muted, size = 24.dp) }

@@ -179,7 +179,7 @@ fun DownloadsPage() {
                                 else -> L.drawable.lucide_ic_play
                             },
                             leftColor = Ink.red, rightColor = if (active) Ink.orange else Ink.green,
-                            shape = RoundedCornerShape(18.dp), modifier = Modifier.animateItem(),
+                            shape = RoundedCornerShape(15.dp), modifier = Modifier.animateItem(),
                         ) { DownloadRow(item, live[item.id]) { picked = item.id } }
                     }
                 }
@@ -188,7 +188,7 @@ fun DownloadsPage() {
         removed?.let { r ->
             Row(
                 Modifier.align(Alignment.BottomCenter).padding(start = EDGE, end = EDGE, bottom = BottomRoom).fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp)).background(Ink.sheet).padding(start = CARD, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                    .clip(RoundedCornerShape(13.dp)).background(Ink.sheet).padding(start = CARD, end = 8.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(if (r.state == State.Done) "Removed from the list (file kept)" else "Removed; its unfinished file goes too", Modifier.weight(1f), style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -203,7 +203,7 @@ fun DownloadsPage() {
 
 @Composable
 private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(15.dp)
     Tap(onClick, Modifier.fillMaxWidth(), shape) {
         val done = live?.bytes ?: item.done
         Column(Modifier.frost(shape, alpha = 0.025f).padding(top = 12.dp, bottom = 12.dp)) {
@@ -366,7 +366,7 @@ private fun AddSheet(onDismiss: () -> Unit) {
                 FolderRow()
                 Spacer(Modifier.height(8.dp))
             }
-            val shape = RoundedCornerShape(14.dp)
+            val shape = RoundedCornerShape(12.dp)
             Box(Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 160.dp).frost(shape).padding(horizontal = CARD, vertical = 12.dp)) {
                 if (text.isEmpty()) Text("Paste links, or any text with links in it", style = Type.label.copy(color = Ink.faint))
                 BasicTextField(

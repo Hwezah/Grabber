@@ -369,7 +369,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
 /** A text box on frosted glass. */
 @Composable
 fun Field(value: String, onValue: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, onGo: (() -> Unit)? = null) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(10.dp)
     Box(modifier.fillMaxWidth().frost(shape).padding(horizontal = CARD, vertical = 12.dp)) {
         if (value.isEmpty()) Text(placeholder, style = Type.label.copy(color = Ink.faint), maxLines = 1)
         BasicTextField(

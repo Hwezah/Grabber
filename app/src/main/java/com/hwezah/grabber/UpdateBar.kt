@@ -47,7 +47,7 @@ fun UpdateBar(modifier: Modifier = Modifier) {
     // Solid, so the page's heading doesn't show through; taller, with room for a progress line.
     Row(
         modifier.statusBarsPadding().padding(horizontal = EDGE, vertical = 8.dp).fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp)).background(Ink.sheet)
+            .clip(RoundedCornerShape(15.dp)).background(Ink.sheet)
             .heightIn(min = 72.dp).padding(start = CARD, end = 10.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
