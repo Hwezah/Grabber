@@ -259,7 +259,7 @@ private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: 
                     Box(Modifier.fillMaxWidth(p).height(2.dp).clip(CircleShape).background(
                         // Running: clear. Paused or waiting: quieter.
                         if (item.state == State.Running) (if (Ink.isDark) Color.White.copy(alpha = 0.55f) else Ink.green)
-                        else (if (Ink.isDark) Color.White.copy(alpha = 0.3f) else Ink.green.copy(alpha = 0.45f)),
+                        else (if (Ink.isDark) Color.White.copy(alpha = 0.3f) else Ink.green),
                     ))
                 }
             }
