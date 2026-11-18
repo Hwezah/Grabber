@@ -30,7 +30,7 @@ private val grainBrush: ShaderBrush by lazy {
 }
 
 /** Film grain on a surface, under its content: put it after `.background(…)`. */
-fun Modifier.grain() = drawBehind { drawRect(grainBrush) }
+fun Modifier.grain(strength: Float = 1f) = drawBehind { drawRect(grainBrush, alpha = strength) }
 
 /** A grainy radial glow from ([cx], [cy]) (fractions of the size): the loud surfaces, like the main button. */
 fun Modifier.glow(colors: List<Color>, cx: Float = 0.85f, cy: Float = 1.1f) = drawBehind {
@@ -47,8 +47,8 @@ fun Modifier.rim(shape: Shape, width: Dp = 1.dp) =
  * Frosted glass, no border: a slightly lighter translucent shade of the page with fine grain in it.
  * [fill] goes underneath first, for surfaces that float over content (the tab bar).
  */
-fun Modifier.frost(shape: Shape, fill: Color = Color.Transparent, alpha: Float = 0.05f) = this
+fun Modifier.frost(shape: Shape, fill: Color = Color.Transparent, alpha: Float = 0.05f, grain: Float = 1f) = this
     .clip(shape)
     .background(fill)
     .background(Ink.text.copy(alpha = alpha))
-    .grain()
+    .grain(grain)

@@ -206,7 +206,7 @@ private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
     val shape = RoundedCornerShape(15.dp)
     Tap(onClick, Modifier.fillMaxWidth(), shape) {
         val done = live?.bytes ?: item.done
-        Column(Modifier.frost(shape, alpha = 0.025f).padding(top = 12.dp, bottom = 12.dp)) {
+        Column(Modifier.frost(shape, alpha = 0.012f, grain = 0.6f).padding(top = 12.dp, bottom = 12.dp)) {
         // The play/pause target is 40dp around a 20dp icon: less padding on the right so the icon sits CARD from the edge.
         Row(Modifier.padding(start = CARD, end = CARD - 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clip(CircleShape).background(tintOf(item.category).copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
