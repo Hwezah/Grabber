@@ -44,35 +44,37 @@ fun UpdateBar(modifier: Modifier = Modifier) {
         is Updater.Status.Failed -> s.message
         Updater.Status.None -> ""
     }
-    // Solid, so the page's heading doesn't show through; taller, with room for a progress line.
+    // The accent itself, solid, with white on it; taller, with room for a progress line.
     Row(
         modifier.statusBarsPadding().padding(horizontal = EDGE, vertical = 8.dp).fillMaxWidth()
-            .clip(RoundedCornerShape(15.dp)).background(Ink.sheet)
+            .clip(RoundedCornerShape(15.dp)).background(Ink.red)
             .heightIn(min = 72.dp).padding(start = CARD, end = 10.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(50)).background((if (s is Updater.Status.Failed) Ink.orange else Ink.green).copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-            Lc(L.drawable.lucide_ic_download, tint = if (s is Updater.Status.Failed) Ink.orange else Ink.green, size = 20.dp)
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(50)).background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+            Lc(L.drawable.lucide_ic_download, tint = androidx.compose.ui.graphics.Color.White, size = 20.dp)
         }
         Spacer(Modifier.width(12.dp))
         androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
-            Text(text, style = Type.title.copy(fontSize = 16.sp), maxLines = 2)
+            Text(text, style = Type.title.copy(fontSize = 16.sp, color = androidx.compose.ui.graphics.Color.White), maxLines = 2)
             if (s is Updater.Status.Downloading) {
-                Box(Modifier.padding(top = 8.dp, end = 4.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(Ink.text.copy(alpha = 0.1f))) {
-                    Box(Modifier.fillMaxWidth(s.pct / 100f).height(4.dp).clip(RoundedCornerShape(50)).background(Ink.green))
+                Box(Modifier.padding(top = 8.dp, end = 4.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f))) {
+                    Box(Modifier.fillMaxWidth(s.pct / 100f).height(4.dp).clip(RoundedCornerShape(50)).background(androidx.compose.ui.graphics.Color.White))
                 }
             } else if (s is Updater.Status.Ready) {
-                Text("Tap Update, then confirm Android's prompt", Modifier.padding(top = 2.dp), style = Type.meta)
+                Text("Tap Update, then confirm Android's prompt", Modifier.padding(top = 2.dp), style = Type.meta.copy(color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f)))
             }
         }
         when (s) {
-            is Updater.Status.Ready -> Button("Update", { Updater.update(context) }, accent = Ink.green, compact = true)
+            is Updater.Status.Ready -> Button("Update", { Updater.update(context) }, accent = androidx.compose.ui.graphics.Color.White, compact = true)
             is Updater.Status.Failed -> {
                 Updater.last?.let { r ->
-                    Button("Retry", { Updater.status = r; Updater.update(context) }, accent = Ink.green, compact = true)
+                    Button("Retry", { Updater.status = r; Updater.update(context) }, accent = androidx.compose.ui.graphics.Color.White, compact = true)
                     Spacer(Modifier.width(6.dp))
                 }
-                Button("", { Updater.dismissed = true; Updater.status = Updater.Status.None }, icon = L.drawable.lucide_ic_x, compact = true)
+                com.hwezah.grabber.design.Tap({ Updater.dismissed = true; Updater.status = Updater.Status.None }, Modifier.size(40.dp), RoundedCornerShape(50)) {
+                    Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_x, tint = androidx.compose.ui.graphics.Color.White, size = 20.dp) }
+                }
             }
             else -> {}
         }
