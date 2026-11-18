@@ -411,6 +411,16 @@ object Browser {
     }
 
     /** A new tab, blank, made current. */
+    /** Set when a link should open in the browser: the app switches to the Browser tab and clears it. */
+    var openNow by mutableStateOf(false)
+
+    /** Opens [url] in a new tab (the page loads when the tab's view is made). */
+    fun open(url: String) {
+        newTab()
+        tab.url = url
+        openNow = true
+    }
+
     fun newTab() {
         tabs.add(BTab((tabs.maxOfOrNull { it.id } ?: 0) + 1))
         current = tabs.lastIndex

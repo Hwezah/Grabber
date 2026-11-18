@@ -153,7 +153,7 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
             else -> L.drawable.lucide_ic_link
         },
         iconTint = if (found.isEmpty()) Ink.red else Ink.green,
-        actions = if (single) ({ LinkActions(found[0].text) }) else null,
+        actions = if (single) ({ LinkActions(found[0].text, onDismiss) }) else null,
     ) {
         Column(Modifier.padding(horizontal = CARD)) {
             if (found.isEmpty()) {
@@ -461,14 +461,33 @@ private fun OneMagnet(magnet: String, onDismiss: () -> Unit) {
 
 /** Copy and share for a link, as small buttons beside a sheet's heading. */
 @Composable
-fun LinkActions(link: String) {
+fun LinkActions(link: String, onDismiss: () -> Unit = {}) {
     val context = LocalContext.current
-    Button("", {
+    // Pages that only play in a browser: open them in Grabber's, where the video gets picked up as it plays.
+    if (link.startsWith("http://", true) || link.startsWith("https://", true)) BareIcon({
+        Browser.open(link)
+        onDismiss()
+        if (context !is MainActivity) runCatching {
+            context.startActivity(
+                android.content.Intent(context, MainActivity::class.java)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),
+            )
+        }
+    }, L.drawable.lucide_ic_globe)
+    BareIcon({
         context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("link", link))
         Capture.seen(context, link)
         android.widget.Toast.makeText(context, "Copied", android.widget.Toast.LENGTH_SHORT).show()
-    }, icon = L.drawable.lucide_ic_copy, compact = true)
-    Button("", {
+    }, L.drawable.lucide_ic_copy)
+    BareIcon({
         runCatching { context.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, link), null)) }
-    }, icon = L.drawable.lucide_ic_share_2, compact = true)
+    }, L.drawable.lucide_ic_share_2)
+}
+
+/** An icon on its own, no disc behind it. */
+@Composable
+private fun BareIcon(onClick: () -> Unit, icon: Int) {
+    Tap(onClick, Modifier.size(40.dp), CircleShape) {
+        Box(contentAlignment = Alignment.Center) { Lc(icon, tint = Ink.text, size = 22.dp) }
+    }
 }

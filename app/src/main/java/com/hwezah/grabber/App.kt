@@ -65,6 +65,11 @@ fun App() {
     else lightColorScheme(primary = Ink.red, background = Ink.bg, surface = Ink.surface)
     MaterialTheme(colorScheme = scheme) {
         var tab by rememberSaveable { mutableStateOf(Tab.Downloads) }
+        // A link sent to the browser (the globe in a download sheet): show it.
+        if (Browser.openNow) {
+            tab = Tab.Browser
+            Browser.openNow = false
+        }
         // The floating bar slips away while you scroll down and comes back when you scroll up.
         var barShown by remember { mutableStateOf(true) }
         // In the browser the tab bar keeps out of the way: shown while the page scrolls, gone 1.5 s after it stops.
