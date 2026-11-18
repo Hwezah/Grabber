@@ -170,7 +170,20 @@ fun BrowserPage() {
                 }
             }
         }
-        if (menu) BottomSheet("Browser", { menu = false }, icon = L.drawable.lucide_ic_globe) {
+        if (menu) BottomSheet(
+            "Browser", { menu = false }, icon = L.drawable.lucide_ic_globe,
+            // Bookmark this page: the icon fills with the accent once it's saved.
+            actions = if (Browser.url.isNotEmpty()) ({
+                val marked = Places.isBookmarked(Browser.url)
+                val context = androidx.compose.ui.platform.LocalContext.current
+                Tap({
+                    Places.toggleBookmark(Browser.url, Browser.title)
+                    android.widget.Toast.makeText(context, if (marked) "Bookmark removed" else "Bookmarked", android.widget.Toast.LENGTH_SHORT).show()
+                }, Modifier.size(44.dp), CircleShape) {
+                    Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_bookmark, tint = if (marked) Ink.red else Ink.text, size = 24.dp) }
+                }
+            }) else null,
+        ) {
             Column(Modifier.padding(horizontal = CARD)) {
                 StretchRow {
                     Button("Back", { Browser.back(); menu = false }, icon = L.drawable.lucide_ic_arrow_left, compact = true)
@@ -184,10 +197,6 @@ fun BrowserPage() {
                 }
                 Spacer(Modifier.height(8.dp))
                 StretchRow {
-                    if (site) {
-                        val marked = Places.isBookmarked(Browser.url)
-                        Button(if (marked) "Saved" else "Bookmark", { Places.toggleBookmark(Browser.url, Browser.title) }, icon = L.drawable.lucide_ic_star, accent = if (marked) Ink.red else null, compact = true)
-                    }
                     Button("Bookmarks", { menu = false; places = "bookmarks" }, icon = L.drawable.lucide_ic_bookmark, compact = true)
                     Button("History", { menu = false; places = "history" }, icon = L.drawable.lucide_ic_history, compact = true)
                 }
