@@ -191,10 +191,11 @@ fun SettingsPage() {
 @Composable
 fun <T> ChipRow(title: String, options: List<Pair<T, String>>, value: T, onPick: (T) -> Unit, accent: androidx.compose.ui.graphics.Color = Ink.red) {
     Text(title, Modifier.padding(top = 10.dp), style = Type.label.copy(fontWeight = FontWeight.SemiBold))
-    // Many choices (search engines) scroll sideways rather than squeeze.
+    // Short choices (numbers) spread across the full width; many long ones (search engines) scroll sideways.
+    val scroll = options.size > 4 && options.sumOf { it.second.length } > 24
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp).then(if (options.size > 4) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
-        horizontalArrangement = if (options.size > 4) Arrangement.spacedBy(6.dp) else SpreadOut, verticalAlignment = Alignment.CenterVertically,
+        Modifier.fillMaxWidth().padding(vertical = 6.dp).then(if (scroll) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
+        horizontalArrangement = if (scroll) Arrangement.spacedBy(6.dp) else SpreadOut, verticalAlignment = Alignment.CenterVertically,
     ) {
         options.forEachIndexed { i, (v, l) ->
             if (i > 0) com.hwezah.grabber.design.Pipe(com.hwezah.grabber.design.pipeColor(i - 1))
