@@ -17,6 +17,9 @@ object Prefs {
         private set
     var pillBar by mutableStateOf(true)
         private set
+    /** The chosen tab's icon in the accent; off: white. */
+    var accentTabIcon by mutableStateOf(true)
+        private set
     /** Connections per file. */
     var connections by mutableIntStateOf(32)
         private set
@@ -90,6 +93,7 @@ object Prefs {
         ctx = context.applicationContext
         dark = sp.getBoolean("dark", true)
         pillBar = sp.getBoolean("pillBar", true)
+        accentTabIcon = sp.getBoolean("accentTabIcon", true)
         connections = sp.getInt("connections", 32)
         parallel = sp.getInt("parallel", 3)
         speedLimit = sp.getLong("speedLimit", 0L)
@@ -135,6 +139,7 @@ object Prefs {
     fun useAudioFormat(v: String) { audioFormat = v; sp.edit().putString("audioFormat", v).apply() }
 
     fun useDark(v: Boolean) { dark = v; sp.edit().putBoolean("dark", v).apply() }
+    fun useAccentTabIcon(v: Boolean) { accentTabIcon = v; sp.edit().putBoolean("accentTabIcon", v).apply() }
     fun usePillBar(v: Boolean) { pillBar = v; sp.edit().putBoolean("pillBar", v).apply() }
     fun useConnections(v: Int) { connections = v; sp.edit().putInt("connections", v).apply() }
     fun useParallel(v: Int) { parallel = v; sp.edit().putInt("parallel", v).apply() }

@@ -122,6 +122,7 @@ fun SettingsPage() {
                 SettingRow("Dark theme", "Near-black page; off for warm paper") { Toggle(Prefs.dark, Prefs::useDark) }
                 AccentRow()
                 SettingRow("Floating tab bar", "A pill that hides as you scroll; off for a bar along the bottom") { Toggle(Prefs.pillBar, Prefs::usePillBar) }
+                SettingRow("Accent tab icon", "The tab you're on in your accent colour; off for white") { Toggle(Prefs.accentTabIcon, Prefs::useAccentTabIcon) }
             }
             Spacer(Modifier.height(20.dp))
             Overline("About")
