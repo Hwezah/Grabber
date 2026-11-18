@@ -69,7 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** Side margin of every page: tight on an upright phone. */
-val EDGE: Dp = 8.dp
+val EDGE: Dp = 12.dp
 
 /** Padding inside cards and sheets. */
 val CARD: Dp = 14.dp
