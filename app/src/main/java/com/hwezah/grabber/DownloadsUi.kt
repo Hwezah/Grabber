@@ -256,7 +256,11 @@ private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: 
             if (item.state != State.Done) {
                 val p = if (item.size > 0) (done.toFloat() / item.size).coerceIn(0f, 1f) else 0f
                 Box(Modifier.padding(top = 10.dp, end = 6.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(if (Ink.isDark) Color.White.copy(alpha = 0.25f) else Ink.text.copy(alpha = 0.1f))) {
-                    Box(Modifier.fillMaxWidth(p).height(2.dp).clip(CircleShape).background(if (Ink.isDark) Color.White.copy(alpha = 0.55f) else Ink.green))
+                    Box(Modifier.fillMaxWidth(p).height(2.dp).clip(CircleShape).background(
+                        // Running: clear. Paused or waiting: quieter.
+                        if (item.state == State.Running) (if (Ink.isDark) Color.White.copy(alpha = 0.55f) else Ink.green)
+                        else (if (Ink.isDark) Color.White.copy(alpha = 0.3f) else Ink.green.copy(alpha = 0.45f)),
+                    ))
                 }
             }
         }
