@@ -233,7 +233,7 @@ private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: 
                         State.Done -> Fmt.bytes(item.size.coerceAtLeast(item.done))
                         State.Failed -> "Failed: " + (item.error ?: "unknown error")
                     }
-                    Text(line, style = Type.meta.copy(fontSize = 12.sp, color = if (item.state == State.Failed) Ink.danger else Color(0xFFB3B3B3)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(line, style = Type.meta.copy(fontSize = 12.sp, color = if (item.state == State.Failed) Ink.danger else if (Ink.isDark) Color(0xFFB3B3B3) else Ink.muted), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 // Bare icons, no disc, at the foot of the text.
                 Row(Modifier.align(Alignment.Bottom), verticalAlignment = Alignment.CenterVertically) {
@@ -254,8 +254,8 @@ private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: 
             // The bar: the card's full width under the row, 2dp.
             if (item.state != State.Done) {
                 val p = if (item.size > 0) (done.toFloat() / item.size).coerceIn(0f, 1f) else 0f
-                Box(Modifier.padding(top = 10.dp, end = 6.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.25f))) {
-                    Box(Modifier.fillMaxWidth(p).height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.55f)))
+                Box(Modifier.padding(top = 10.dp, end = 6.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(if (Ink.isDark) Color.White.copy(alpha = 0.25f) else Ink.text.copy(alpha = 0.1f))) {
+                    Box(Modifier.fillMaxWidth(p).height(2.dp).clip(CircleShape).background(if (Ink.isDark) Color.White.copy(alpha = 0.55f) else Ink.green))
                 }
             }
         }
