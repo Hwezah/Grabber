@@ -246,7 +246,8 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
                             if (name.isEmpty()) name = Names.clean(title ?: direct.title) + ".mp4"
                             return@withContext
                         }
-                        throw IllegalStateException(if (site) e.message else "This link opens a web page, not a file, and no video was found on it (${e.message})")
+                        val why = if (Insta.code(url) != null && Insta.lastWhy.isNotBlank()) "Grabber's own try: ${Insta.lastWhy}. yt-dlp: " else ""
+                        throw IllegalStateException(why + (if (site) e.message else "This link opens a web page, not a file, and no video was found on it (${e.message})"))
                     }
                     media = m
                     val cap = Prefs.videoQuality.removePrefix("v:").toIntOrNull() ?: Int.MAX_VALUE
