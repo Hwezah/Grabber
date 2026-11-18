@@ -56,7 +56,7 @@ object Ink {
     /** Download and source list cards: 45% of the way from the page to [surface]. */
     val card get() = if (isDark) Color(0xFF101010) else Color(0xFFFBF8F5)
     /** Settings sections and similar groups: 75% of the way from the page to [surface]. */
-    val section get() = if (isDark) Color(0xFF141414) else Color(0xFFFDFBF9)
+    val section get() = if (isDark) Color(0xFF121212) else Color(0xFFFDFBF9)
     val good = Color(0xFF46D369)
     val warn = Color(0xFFFFB340)
 

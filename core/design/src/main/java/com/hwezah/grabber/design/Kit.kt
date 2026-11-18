@@ -132,7 +132,7 @@ fun Button(
             else -> Ink.on(accent)
         }
         val base = if (fill != null) Modifier.background(fill).grain()
-        else Modifier.frost(RoundedCornerShape(16.dp), alpha = if (pressed) 0.18f else 0.09f)
+        else Modifier.frost(RoundedCornerShape(16.dp), alpha = if (LocalQuiet.current) (if (pressed) 0.1f else 0.05f) else if (pressed) 0.18f else 0.09f, grain = if (LocalQuiet.current) 0.7f else 1f)
         Row(
             base.height(if (LocalInSheet.current) (if (compact) 38.dp else 44.dp) else if (compact) 42.dp else 50.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -255,6 +255,9 @@ object Sheets {
 }
 
 /** True inside a sheet: buttons there are a little smaller. */
+/** Inside a settings section: plain buttons go quieter. */
+val LocalQuiet = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 val LocalInSheet = androidx.compose.runtime.compositionLocalOf { false }
 
 /** The frame every sheet shares: a dimmed page, a plain grey sheet with a grab handle and a heading. */
@@ -298,7 +301,7 @@ fun BottomSheet(
                     Text(title, Modifier.weight(1f), style = Type.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     if (actions != null) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { actions() }
                 }
-                androidx.compose.runtime.CompositionLocalProvider(LocalInSheet provides true) { content() }
+                androidx.compose.runtime.CompositionLocalProvider(LocalInSheet provides true, LocalQuiet provides false) { content() }
             }
         }
     }
