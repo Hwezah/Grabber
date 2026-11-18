@@ -14,6 +14,7 @@ class MainActivity : ComponentActivity() {
         Prefs.init(this)
         Downloads.init(this)
         Clips.init(this)
+        Places.init(this)
         Ink.use(Prefs.dark)
         // Downloads left waiting when the app was closed carry on.
         Downloads.kick()

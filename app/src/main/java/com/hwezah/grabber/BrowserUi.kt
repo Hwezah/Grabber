@@ -68,6 +68,8 @@ fun BrowserPage() {
     var picking by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var tabsOpen by remember { mutableStateOf(false) }
+    /** "bookmarks" or "history" while that list is open. */
+    var places by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Browser.url, typing, Browser.current) { if (!typing) input = Browser.url }
     BackHandler(enabled = Browser.canBack && !Browser.fullScreen) { Browser.back() }
     BackHandler(enabled = Browser.fullScreen) { Browser.exitFull?.invoke() }
@@ -159,7 +161,13 @@ fun BrowserPage() {
                     modifier = Modifier.fillMaxSize(),
                 )
                 // Nothing open yet: a bare, dark frosted page.
-                if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f))
+                if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f)) {
+                    // The start page: your bookmarks, a tap away.
+                    if (Places.bookmarks.isNotEmpty()) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = EDGE + 4.dp, vertical = 12.dp)) {
+                        Text("BOOKMARKS", Modifier.padding(start = 4.dp, bottom = 6.dp), style = Type.overline)
+                        Places.bookmarks.toList().forEach { p -> PlaceRow(p, onOpen = { Browser.go(p.url) }, onRemove = null) }
+                    }
+                }
             }
         }
         if (menu) BottomSheet("Browser", { menu = false }, icon = L.drawable.lucide_ic_globe) {
@@ -174,6 +182,15 @@ fun BrowserPage() {
                     Button("New tab", { Browser.newTab(); menu = false }, icon = L.drawable.lucide_ic_plus, compact = true)
                     Button("Close tab", { Browser.close(Browser.current); menu = false }, icon = L.drawable.lucide_ic_x, compact = true)
                 }
+                Spacer(Modifier.height(8.dp))
+                StretchRow {
+                    if (site) {
+                        val marked = Places.isBookmarked(Browser.url)
+                        Button(if (marked) "Saved" else "Bookmark", { Places.toggleBookmark(Browser.url, Browser.title) }, icon = L.drawable.lucide_ic_star, accent = if (marked) Ink.red else null, compact = true)
+                    }
+                    Button("Bookmarks", { menu = false; places = "bookmarks" }, icon = L.drawable.lucide_ic_bookmark, compact = true)
+                    Button("History", { menu = false; places = "history" }, icon = L.drawable.lucide_ic_history, compact = true)
+                }
                 if (site && Prefs.blockRedirects) {
                     val here = Browser.siteOf(android.net.Uri.parse(Browser.url).host)
                     SettingRow("Allow redirects on this site", "Let $here send you to other sites") {
@@ -183,6 +200,25 @@ fun BrowserPage() {
                 if (site) {
                     Spacer(Modifier.height(8.dp))
                     Button("Grab this page's video", { menu = false; Capture.offer(Browser.url, Browser.title) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
+                }
+            }
+        }
+        places?.let { which ->
+            val list = if (which == "bookmarks") Places.bookmarks else Places.history
+            BottomSheet(if (which == "bookmarks") "Bookmarks" else "History", { places = null }, icon = if (which == "bookmarks") L.drawable.lucide_ic_bookmark else L.drawable.lucide_ic_history) {
+                Column(Modifier.padding(horizontal = CARD)) {
+                    if (list.isEmpty()) Note(if (which == "bookmarks") "No bookmarks yet. Open ⋮ on a page and tap Bookmark." else "Pages you visit show up here.")
+                    Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                        list.toList().forEach { p ->
+                            PlaceRow(p, onOpen = { Browser.go(p.url); places = null }) {
+                                if (which == "bookmarks") Places.removeBookmark(p) else Places.removeVisit(p)
+                            }
+                        }
+                    }
+                    if (which == "history" && list.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Button("Clear history", { Places.clearHistory() }, Modifier.solo(), icon = L.drawable.lucide_ic_trash_2)
+                    }
                 }
             }
         }
@@ -260,5 +296,19 @@ private val BAR = 54.dp
 private fun Icon(icon: Int, enabled: Boolean, onClick: () -> Unit) {
     Tap({ if (enabled) onClick() }, Modifier.size(44.dp), CircleShape) {
         Box(contentAlignment = Alignment.Center) { Lc(icon, tint = if (enabled) Ink.text else Ink.faint, size = 22.dp) }
+    }
+}
+
+/** A bookmark or a visited page: its title and address; tap to open, ✕ to remove. */
+@Composable
+private fun PlaceRow(p: Place, onOpen: () -> Unit, onRemove: (() -> Unit)?) {
+    Tap(onOpen, Modifier.fillMaxWidth(), RoundedCornerShape(10.dp)) {
+        Row(Modifier.padding(vertical = 8.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(p.title, style = Type.label.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(p.url.removePrefix("https://").removePrefix("http://").removePrefix("www."), style = Type.meta, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (onRemove != null) Icon(L.drawable.lucide_ic_x, true, onRemove)
+        }
     }
 }

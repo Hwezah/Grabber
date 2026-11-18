@@ -357,6 +357,7 @@ object Browser {
                 t.loading = false
                 t.title = view.title.orEmpty()
                 nav(t, view)
+                Places.visited(t.url, t.title)
             }
 
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
