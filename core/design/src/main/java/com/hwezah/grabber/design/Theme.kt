@@ -52,7 +52,7 @@ object Ink {
     val faint get() = p.faint
     val danger get() = p.danger
     /** Sheets and popups: a plain grey. */
-    val sheet get() = if (isDark) Color(0xFF1F1F1F) else Color(0xFFFFFFFF)
+    val sheet get() = if (isDark) Color(0xFF161616) else Color(0xFFFFFFFF)
 
     /** Primary: deep red by default; the user can pick another in Settings ([ACCENTS]). */
     var red by mutableStateOf(Color(0xFFB81D24))

@@ -123,8 +123,8 @@ fun Button(
         val fg = if (accent != null) Ink.on(accent) else Ink.text
         // A solid accent, or a lighter shade of frosted glass.
         // Frosted everywhere: coloured ones are the colour, a touch see-through, with the grain over it.
-        val base = if (accent != null) Modifier.background(accent.copy(alpha = if (pressed) 0.7f else 0.86f)).grain()
-        else Modifier.frost(RoundedCornerShape(16.dp), alpha = if (pressed) 0.14f else 0.08f)
+        val base = if (accent != null) Modifier.background(accent.copy(alpha = if (pressed) 0.58f else 0.72f)).grain()
+        else Modifier.frost(RoundedCornerShape(16.dp), alpha = if (pressed) 0.1f else 0.055f)
         Row(
             base.height(if (LocalInSheet.current) (if (compact) 38.dp else 44.dp) else if (compact) 42.dp else 50.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
