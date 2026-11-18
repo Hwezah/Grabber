@@ -38,12 +38,12 @@ object Media {
             true
         }.getOrDefault(false)
         ready = true
-        // Sites change often: keep yt-dlp fresh, quietly, about once a week.
+        // Sites (Instagram most) change often: keep yt-dlp on its nightly build, checked once a day.
         val sp = context.getSharedPreferences("media", Context.MODE_PRIVATE)
-        if (System.currentTimeMillis() - sp.getLong("updated", 0) > 7L * 24 * 3600 * 1000) {
+        if (System.currentTimeMillis() - sp.getLong("updated", 0) > 24L * 3600 * 1000) {
             thread(name = "yt-dlp-update") {
                 runCatching {
-                    YoutubeDL.getInstance().updateYoutubeDL(context.applicationContext, YoutubeDL.UpdateChannel.STABLE)
+                    YoutubeDL.getInstance().updateYoutubeDL(context.applicationContext, YoutubeDL.UpdateChannel.NIGHTLY)
                     sp.edit().putLong("updated", System.currentTimeMillis()).apply()
                 }
             }
@@ -79,7 +79,7 @@ object Media {
     /** Settings: bring yt-dlp up to date when sites change. Returns the version now installed. */
     fun update(context: Context): String {
         ensure(context)
-        YoutubeDL.getInstance().updateYoutubeDL(context.applicationContext, YoutubeDL.UpdateChannel.STABLE)
+        YoutubeDL.getInstance().updateYoutubeDL(context.applicationContext, YoutubeDL.UpdateChannel.NIGHTLY)
         return YoutubeDL.getInstance().version(context.applicationContext) ?: "?"
     }
 

@@ -238,6 +238,14 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
                     val m = try {
                         Media.info(context, url)
                     } catch (e: Exception) {
+                        // Instagram often refuses yt-dlp: ask Instagram directly, signed in, for the video file.
+                        val direct = if (Insta.code(url) != null) Insta.find(context, url) else null
+                        if (direct != null) {
+                            val d = Http.probe(direct.url, emptyMap())
+                            info = d
+                            if (name.isEmpty()) name = Names.clean(title ?: direct.title) + ".mp4"
+                            return@withContext
+                        }
                         throw IllegalStateException(if (site) e.message else "This link opens a web page, not a file, and no video was found on it (${e.message})")
                     }
                     media = m
