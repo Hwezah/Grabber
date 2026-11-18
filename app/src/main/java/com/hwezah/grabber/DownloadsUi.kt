@@ -482,7 +482,7 @@ private fun RefreshLink(item: Item) {
 @Composable
 fun PauseBars(color: Color = Ink.text) {
     // Matched to the play icon beside it: its line weight (about 2dp at this size), its height, a clear gap.
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         repeat(2) { Box(Modifier.size(width = 2.dp, height = 16.dp).clip(RoundedCornerShape(1.dp)).background(color)) }
     }
 }
