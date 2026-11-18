@@ -83,11 +83,25 @@ fun App() {
             }
         }
         val navShown = if (tab == Tab.Browser) browserNav || Browser.url.isEmpty() else barShown
+        // Hidden only while the list moves down; back as soon as scrolling stops.
+        var scrollTick by remember { mutableStateOf(0) }
+        LaunchedEffect(scrollTick) {
+            if (scrollTick > 0) {
+                kotlinx.coroutines.delay(700)
+                barShown = true
+            }
+        }
         val scrollWatch = remember {
             object : NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                     if (available.y < -6f) barShown = false else if (available.y > 6f) barShown = true
+                    if (available.y != 0f) scrollTick++
                     return Offset.Zero
+                }
+
+                override suspend fun onPostFling(consumed: androidx.compose.ui.unit.Velocity, available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
+                    barShown = true
+                    return androidx.compose.ui.unit.Velocity.Zero
                 }
             }
         }
