@@ -273,7 +273,7 @@ fun BrowserPage() {
                             Capture.offer(s.url, s.title.ifBlank { null }, Browser.headersFor(s))
                         }, Modifier.fillMaxWidth(), RoundedCornerShape(8.dp)) {
                             Row(Modifier.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(36.dp).clip(CircleShape).background(Ink.text.copy(alpha = 0.07f)), contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
                                     Lc(
                                         when {
                                             "HLS" in s.kind || "Stream" in s.kind || s.kind == "Video" -> L.drawable.lucide_ic_film
@@ -281,7 +281,7 @@ fun BrowserPage() {
                                             s.kind == "Torrent" -> L.drawable.lucide_ic_magnet
                                             else -> L.drawable.lucide_ic_file
                                         },
-                                        tint = Ink.green, size = 18.dp,
+                                        tint = Ink.green, size = 24.dp,
                                     )
                                 }
                                 Spacer(Modifier.width(10.dp))

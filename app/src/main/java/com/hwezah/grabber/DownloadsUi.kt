@@ -212,8 +212,9 @@ private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: 
         val done = live?.bytes ?: item.done
         Column(Modifier.clip(shape).background(Ink.card).grain().padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(38.dp).clip(CircleShape).background(Ink.red.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-                    Lc(iconOf(item.category), tint = Ink.red, size = 18.dp)
+                // A bare icon in the accent, no disc behind it.
+                Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                    Lc(iconOf(item.category), tint = Ink.red, size = 26.dp)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
