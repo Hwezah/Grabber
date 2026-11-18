@@ -1,5 +1,6 @@
 package com.hwezah.grabber
 
+import com.hwezah.grabber.design.grain
 import androidx.compose.foundation.background
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.border
@@ -225,7 +226,7 @@ fun TempRow() {
 
 @Composable
 fun Group(content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().frost(RoundedCornerShape(15.dp)).padding(horizontal = CARD, vertical = 6.dp)) { content() }
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ink.section).grain().padding(horizontal = CARD, vertical = 6.dp)) { content() }
 }
 
 @Composable

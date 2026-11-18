@@ -105,7 +105,7 @@ object Prefs {
         videoQuality = sp.getString("videoQuality", "v:1080") ?: "v:1080"
         audioFormat = sp.getString("audioFormat", "mp3") ?: "mp3"
         com.hwezah.grabber.engine.Http.userAgent = userAgent
-        useAccent(sp.getString("accent", "Red") ?: "Red", save = false)
+        useAccent(sp.getString("accent", "Olive") ?: "Olive", save = false)
         blockAds = sp.getBoolean("blockAds", true)
         searchEngine = sp.getString("searchEngine", "DuckDuckGo") ?: "DuckDuckGo"
         blockPopups = sp.getBoolean("blockPopups", true)

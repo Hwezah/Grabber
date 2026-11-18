@@ -1,5 +1,6 @@
 package com.hwezah.grabber
 
+import com.hwezah.grabber.design.grain
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -102,7 +103,7 @@ fun ClipboardPage() {
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(shown, key = { it.id }) { clip ->
-                        val shape = RoundedCornerShape(13.dp)
+                        val shape = RoundedCornerShape(18.dp)
                         SwipeRow(
                             onLeft = { Clips.delete(clip.id); deleted = clip },
                             onRight = { Clips.pin(clip.id) },
@@ -110,7 +111,7 @@ fun ClipboardPage() {
                             leftColor = Ink.red, rightColor = Ink.orange, shape = shape, modifier = Modifier.animateItem(),
                         ) {
                         Tap({ picked = clip }, Modifier.fillMaxWidth(), shape) {
-                            Row(Modifier.frost(shape).padding(horizontal = CARD, vertical = 12.dp), verticalAlignment = Alignment.Top) {
+                            Row(Modifier.clip(shape).background(Ink.card).grain().padding(horizontal = CARD, vertical = 12.dp), verticalAlignment = Alignment.Top) {
                                 Column(Modifier.weight(1f)) {
                                     clip.title?.let { Text(it, style = Type.label.copy(fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis) }
                                     Text(clip.text, style = if (clip.title != null) Type.meta else Type.label, maxLines = 3, overflow = TextOverflow.Ellipsis)

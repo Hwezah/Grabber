@@ -1,5 +1,8 @@
 package com.hwezah.grabber
 
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.ui.unit.sp
+import com.hwezah.grabber.design.grain
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -179,8 +182,8 @@ fun DownloadsPage() {
                                 else -> L.drawable.lucide_ic_play
                             },
                             leftColor = Ink.red, rightColor = if (active) Ink.orange else Ink.green,
-                            shape = RoundedCornerShape(15.dp), modifier = Modifier.animateItem(),
-                        ) { DownloadRow(item, live[item.id]) { picked = item.id } }
+                            shape = RoundedCornerShape(18.dp), modifier = Modifier.animateItem(),
+                        ) { DownloadRow(item, live[item.id], { Downloads.delete(item.id, false); removed = item }) { picked = item.id } }
                     }
                 }
             }
@@ -201,52 +204,60 @@ fun DownloadsPage() {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun DownloadRow(item: Item, live: Live?, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(15.dp)
+private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(18.dp)
     Tap(onClick, Modifier.fillMaxWidth(), shape) {
         val done = live?.bytes ?: item.done
-        Column(Modifier.frost(shape, alpha = 0.022f, grain = 0.8f).padding(top = 12.dp, bottom = 12.dp)) {
-        // The play/pause target is 40dp around a 20dp icon: less padding on the right so the icon sits CARD from the edge.
-        Row(Modifier.padding(start = CARD, end = CARD - 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(tintOf(item.category).copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-                Lc(iconOf(item.category), tint = tintOf(item.category), size = 20.dp)
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(item.name, style = Type.label.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val pctOnly = (item.kind == Kind.Media || item.kind == Kind.Hls && item.doc == null && item.format != "native") && item.state != State.Done
-                val line = when (item.state) {
-                    State.Running -> live?.text ?: if (live == null) "Starting…" else listOf(
-                        Fmt.speed(live.speed),
-                        Fmt.bytes(done) + if (item.size > 0) " of ${Fmt.bytes(item.size)}" else "",
-                        if (item.size > 0) Fmt.eta(item.size - done, live.speed) else "",
-                    ).filter { it.isNotEmpty() }.joinToString(" · ")
-                    State.Queued -> "Waiting"
-                    State.Paused -> "Paused · " + if (pctOnly) "${done / 10}%" else Fmt.bytes(done) + if (item.size > 0) " of ${Fmt.bytes(item.size)}" else ""
-                    State.Done -> Fmt.bytes(item.size.coerceAtLeast(item.done))
-                    State.Failed -> "Failed: " + (item.error ?: "unknown error")
+        Column(Modifier.clip(shape).background(Ink.card).grain().padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(38.dp).clip(CircleShape).background(Ink.red.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                    Lc(iconOf(item.category), tint = Ink.red, size = 18.dp)
                 }
-                Text(line, style = Type.meta.copy(color = if (item.state == State.Failed) Ink.danger else Ink.muted), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Spacer(Modifier.width(4.dp))
-            when (item.state) {
-                State.Running, State.Queued -> Tap({ Downloads.pause(item.id) }, Modifier.size(40.dp), CircleShape) {
-                    Box(contentAlignment = Alignment.Center) { PauseBars() }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        item.name, Modifier.basicMarquee(),
+                        style = Type.label.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), maxLines = 1,
+                    )
+                    val pctOnly = (item.kind == Kind.Media || item.kind == Kind.Hls && item.doc == null && item.format != "native") && item.state != State.Done
+                    val line = when (item.state) {
+                        State.Running -> live?.text ?: if (live == null) "Starting…" else listOf(
+                            Fmt.speed(live.speed),
+                            Fmt.bytes(done) + if (item.size > 0) " of ${Fmt.bytes(item.size)}" else "",
+                            if (item.size > 0) Fmt.eta(item.size - done, live.speed) else "",
+                        ).filter { it.isNotEmpty() }.joinToString(" · ")
+                        State.Queued -> "Waiting"
+                        State.Paused -> "Paused · " + if (pctOnly) "${done / 10}%" else Fmt.bytes(done) + if (item.size > 0) " of ${Fmt.bytes(item.size)}" else ""
+                        State.Done -> Fmt.bytes(item.size.coerceAtLeast(item.done))
+                        State.Failed -> "Failed: " + (item.error ?: "unknown error")
+                    }
+                    Text(line, style = Type.meta.copy(fontSize = 12.sp, color = if (item.state == State.Failed) Ink.danger else Color(0xFFB3B3B3)), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                State.Paused, State.Failed -> Tap({ Downloads.resume(item.id) }, Modifier.size(40.dp), CircleShape) {
-                    Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_play, tint = Ink.green) }
+                // Bare icons, no disc, at the foot of the text.
+                Row(Modifier.align(Alignment.Bottom), verticalAlignment = Alignment.CenterVertically) {
+                    when (item.state) {
+                        State.Running, State.Queued -> Tap({ Downloads.pause(item.id) }, Modifier.size(34.dp), CircleShape) {
+                            Box(contentAlignment = Alignment.Center) { PauseBars() }
+                        }
+                        State.Paused, State.Failed -> Tap({ Downloads.resume(item.id) }, Modifier.size(34.dp), CircleShape) {
+                            Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_play, tint = Ink.text, size = 18.dp) }
+                        }
+                        State.Done -> {}
+                    }
+                    Tap(onRemove, Modifier.size(34.dp), CircleShape) {
+                        Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_x, tint = Ink.text, size = 20.dp) }
+                    }
                 }
-                State.Done -> {}
             }
-        }
-        // The bar under everything, across the whole row's content, a thin 3dp.
-        if (item.state != State.Done) {
-            val p = if (item.size > 0) (done.toFloat() / item.size).coerceIn(0f, 1f) else 0f
-            Box(Modifier.padding(start = CARD, end = CARD, top = 10.dp).fillMaxWidth().height(3.dp).clip(CircleShape).background(Ink.text.copy(alpha = 0.1f))) {
-                Box(Modifier.fillMaxWidth(p).height(3.dp).clip(CircleShape).background(if (item.state == State.Running) Ink.green else Ink.faint))
+            // The bar: the card's full width under the row, 2dp.
+            if (item.state != State.Done) {
+                val p = if (item.size > 0) (done.toFloat() / item.size).coerceIn(0f, 1f) else 0f
+                Box(Modifier.padding(top = 10.dp, end = 6.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.25f))) {
+                    Box(Modifier.fillMaxWidth(p).height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.55f)))
+                }
             }
-        }
         }
     }
 }

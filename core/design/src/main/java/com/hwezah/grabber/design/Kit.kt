@@ -117,14 +117,22 @@ fun Button(
     accent: Color? = null,
     compact: Boolean = false,
 ) {
-    // Green buttons are a deeper green than icons and progress bars.
-    val accent = if (accent == Ink.green) Ink.greenButton else accent
+    // Flat colour with grain, no gradient, no border.
+    // Accent: mixed 12% toward black (28% pressed). Green: #1E9E52 mixed 46% toward black (56% pressed).
+    val green = accent == Ink.green || accent == Ink.greenButton
     Tap(onClick, modifier, RoundedCornerShape(16.dp)) { pressed ->
-        val fg = if (accent != null) Ink.on(accent) else Ink.text
-        // A solid accent, or a lighter shade of frosted glass.
-        // Frosted everywhere: coloured ones are the colour, a touch see-through, with the grain over it.
-        val base = if (accent != null) Modifier.background(accent.copy(alpha = if (pressed) 0.58f else 0.72f)).grain()
-        else Modifier.frost(RoundedCornerShape(16.dp), alpha = if (pressed) 0.1f else 0.055f)
+        val fill = when {
+            accent == null -> null
+            green -> androidx.compose.ui.graphics.lerp(Color(0xFF1E9E52), Color.Black, if (pressed) 0.56f else 0.46f)
+            else -> androidx.compose.ui.graphics.lerp(accent, Color.Black, if (pressed) 0.28f else 0.12f)
+        }
+        val fg = when {
+            accent == null -> Ink.text
+            green -> Color.White
+            else -> Ink.on(accent)
+        }
+        val base = if (fill != null) Modifier.background(fill).grain()
+        else Modifier.frost(RoundedCornerShape(16.dp), alpha = if (pressed) 0.18f else 0.09f)
         Row(
             base.height(if (LocalInSheet.current) (if (compact) 38.dp else 44.dp) else if (compact) 42.dp else 50.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -151,6 +159,10 @@ fun Chip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = M
             Modifier.height(36.dp).padding(horizontal = 6.dp),
             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (on) {
+                Box(Modifier.size(6.dp).clip(CircleShape).background(accent))
+                Spacer(Modifier.width(6.dp))
+            }
             if (icon != null) {
                 Lc(icon, tint = fg, size = 15.dp)
                 Spacer(Modifier.width(3.dp))
@@ -164,12 +176,12 @@ fun Chip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = M
 }
 
 /** The pipes' colours, one after another: each bar between choices differs from its neighbours. */
-fun pipeColor(i: Int): Color = listOf(Ink.red, Ink.green, Color(0xFF6B8AA6), Color(0xFF0F8B8D), Color(0xFFB8A07A), Color(0xFF8A8A8A))[i % 6]
+fun pipeColor(i: Int): Color = listOf(Ink.red, Color(0xFF1E9E52), Color(0xFFB3B3B3), Ink.good.copy(alpha = 0.8f))[i % 4]
 
 /** The thin coloured line between choices in a row. */
 @Composable
 fun Pipe(color: Color = Ink.red) {
-    Box(Modifier.size(width = 1.5.dp, height = 16.dp).clip(RoundedCornerShape(1.dp)).background(color.copy(alpha = 0.7f)))
+    Box(Modifier.size(width = 2.dp, height = 18.dp).clip(RoundedCornerShape(1.dp)).background(color))
 }
 
 /** An on/off switch: a flat pill, red when on. */
@@ -219,13 +231,14 @@ fun spreadOut(min: Dp = 8.dp): Arrangement.Horizontal = object : Arrangement.Hor
         val free = totalSize - sizes.sum()
         var x: Int
         val gap: Int
-        if (sizes.size > 2) {
+        if (sizes.size > 3) {
+            // Three or more choices (with bars between them): spread across the width.
             gap = maxOf(floor, free / (sizes.size - 1))
             x = 0
         } else {
-            // Space-around: half a gap at each end, a whole one between.
-            gap = maxOf(floor, free / sizes.size.coerceAtLeast(1))
-            x = maxOf(0, (totalSize - sizes.sum() - gap * (sizes.size - 1)) / 2)
+            // Two choices: side by side.
+            gap = floor
+            x = 0
         }
         sizes.forEachIndexed { i, w ->
             outPositions[i] = x

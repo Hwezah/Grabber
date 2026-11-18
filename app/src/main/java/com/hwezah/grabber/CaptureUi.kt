@@ -308,14 +308,14 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
         Text("Video", Modifier.padding(top = 10.dp), style = Type.meta)
         Row(Modifier.fillMaxWidth().padding(top = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             (video.map { "v:$it" }.ifEmpty { listOf("v:best") }).forEachIndexed { i, v ->
-                if (i > 0) com.hwezah.grabber.design.Pipe(Ink.green)
+                if (i > 0) com.hwezah.grabber.design.Pipe(com.hwezah.grabber.design.pipeColor(i - 1))
                 com.hwezah.grabber.design.Chip(if (v == "v:best") "Best" else v.removePrefix("v:") + "p", pick == v, { pick = v }, accent = Ink.green)
             }
         }
         Text("Audio only", Modifier.padding(top = 10.dp), style = Type.meta)
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             listOf("a:mp3", "a:m4a", "a:opus").sortedByDescending { it == "a:" + Prefs.audioFormat }.forEachIndexed { i, a ->
-                if (i > 0) com.hwezah.grabber.design.Pipe(Ink.orange)
+                if (i > 0) com.hwezah.grabber.design.Pipe(com.hwezah.grabber.design.pipeColor(i - 1))
                 com.hwezah.grabber.design.Chip(a.removePrefix("a:").uppercase(), pick == a, { pick = a }, accent = Ink.orange)
             }
         }
@@ -323,7 +323,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
     stream?.takeIf { it.isNotEmpty() }?.let { vs ->
         Row(Modifier.fillMaxWidth().padding(top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             vs.forEachIndexed { i, v ->
-                if (i > 0) com.hwezah.grabber.design.Pipe(Ink.green)
+                if (i > 0) com.hwezah.grabber.design.Pipe(com.hwezah.grabber.design.pipeColor(i - 1))
                 com.hwezah.grabber.design.Chip(v.label, v == variant, { variant = v }, accent = Ink.green)
             }
         }

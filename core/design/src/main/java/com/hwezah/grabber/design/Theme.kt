@@ -52,31 +52,40 @@ object Ink {
     val faint get() = p.faint
     val danger get() = p.danger
     /** Sheets and popups: a plain grey. */
-    val sheet get() = if (isDark) Color(0xFF161616) else Color(0xFFFFFFFF)
+    val sheet get() = if (isDark) Color(0xFF181818) else Color(0xFFFFFFFF)
+    /** Download and source list cards: 45% of the way from the page to [surface]. */
+    val card get() = if (isDark) Color(0xFF101010) else Color(0xFFFBF8F5)
+    /** Settings sections and similar groups: 75% of the way from the page to [surface]. */
+    val section get() = if (isDark) Color(0xFF141414) else Color(0xFFFDFBF9)
+    val good = Color(0xFF46D369)
+    val warn = Color(0xFFFFB340)
 
     /** Primary: deep red by default; the user can pick another in Settings ([ACCENTS]). */
-    var red by mutableStateOf(Color(0xFFB81D24))
+    var red by mutableStateOf(Color(0xFF6B6E3A))
 
     /** The choices offered in Settings: name to colour. */
     val ACCENTS = listOf(
         "Red" to Color(0xFFB81D24),
-        "Plum" to Color(0xFF6E4A5E),
-        "Sand" to Color(0xFFB8A07A),
-        "Olive" to Color(0xFF6B7A3A),
-        "Teal" to Color(0xFF0F8B8D),
-        "Slate" to Color(0xFF4A5A6A),
-        "Graphite" to Color(0xFF3A3A3A),
-        "Grey" to Color(0xFF8A8A8A),
-        "White" to Color(0xFFEDEDED),
+        "Deep Orange" to Color(0xFFD84315),
+        "Amber" to Color(0xFFC77700),
+        "Teal" to Color(0xFF00897B),
+        "Rust" to Color(0xFF9A4A2E),
+        "Dusty Rose" to Color(0xFF9A6B72),
+        "Olive" to Color(0xFF6B6E3A),
+        "Sage" to Color(0xFF6E8B74),
+        "Slate" to Color(0xFF4A5D6E),
+        "Grey" to Color(0xFF5F6368),
+        "Sand" to Color(0xFFC8B89A),
+        "White" to Color(0xFFECECEC),
     )
 
     /** Text and icons on [c]: dark on light shades (white, sand), white otherwise. */
-    fun on(c: Color): Color = if (c.luminance() > 0.45f) Color(0xFF141414) else Color.White
+    fun on(c: Color): Color = if (c == Color(0xFFC8B89A) || c == Color(0xFFECECEC) || c.luminance() > 0.5f) Color(0xFF141414) else Color.White
     val ember = Color(0xFFD9C2C2)
     /** Downloads and success. A shade deeper on the light page so it still reads. */
     val green get() = if (isDark) Color(0xFF1E9E52) else Color(0xFF13703A)
     /** Green buttons: a darker green than the icons and bars. */
-    val greenButton get() = if (isDark) Color(0xFF15703A) else Color(0xFF0F5C2E)
+    val greenButton get() = if (isDark) Color(0xFF10552C) else Color(0xFF0F5C2E)
     /** Third accent (torrents, conversion, warnings): a subtle warm taupe. No orange anywhere. */
     val orange = Color(0xFFA3927A)
 }
