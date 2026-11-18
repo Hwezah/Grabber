@@ -35,12 +35,21 @@ object Insta {
         lastWhy = ""
         // Inside a hidden browser page on instagram.com: the same session, cookies and fingerprint as signing in.
         viaPage(context, code)?.let { body -> parse(body, code)?.let { return it } }
+        val first = lastWhy
         // Then a plain request with the same cookies.
         direct(context, code)?.let { body -> parse(body, code)?.let { return it } }
+        if (first.isNotBlank()) lastWhy = first
         return null
     }
 
     private fun parse(body: String, code: String): Found? = runCatching {
+        if (body.startsWith("V\n")) {
+            // Found in the reel page itself: its list of video files.
+            val arr = org.json.JSONArray("[" + body.substringAfter('\n').substringBefore("\nT\n") + "]")
+            val best = (0 until arr.length()).map { arr.getJSONObject(it) }.maxByOrNull { it.optInt("width") * it.optInt("height") } ?: return null
+            val t = body.substringAfter("\nT\n", "").take(60)
+            return Found(best.getString("url"), t.ifBlank { "Instagram $code" })
+        }
         val item = JSONObject(body).getJSONArray("items").getJSONObject(0)
         // A single video, or the first video of a carousel.
         val videos = item.optJSONArray("video_versions")
@@ -88,7 +97,11 @@ object Insta {
                     @android.webkit.JavascriptInterface
                     fun done(s: String) {
                         val status = s.substringBefore('\n')
-                        if (status == "200") out = s.substringAfter('\n') else lastWhy = "Instagram answered $status"
+                        when (status) {
+                            "200" -> out = s.substringAfter('\n')
+                            "V" -> out = s
+                            else -> lastWhy = "Instagram showed " + s.substringAfter('\n').take(90)
+                        }
                         latch.countDown()
                     }
                 }, "Grab")
@@ -97,18 +110,22 @@ object Insta {
                     override fun onPageFinished(view: android.webkit.WebView, u: String) {
                         if (asked) return
                         asked = true
+                        // First Instagram's own API from inside its page; else the video list written into the reel page.
                         view.evaluateJavascript(
-                            """(async()=>{try{const c=(document.cookie.match(/csrftoken=([^;]+)/)||[])[1]||'';""" +
-                                """const r=await fetch('/api/v1/media/$id/info/',{credentials:'include',headers:{'X-IG-App-ID':'936619743392459','X-Requested-With':'XMLHttpRequest','X-CSRFToken':c}});""" +
-                                """Grab.done(r.status+'\n'+await r.text())}catch(e){Grab.done('0\n'+e)}})()""",
+                            """setTimeout(async()=>{try{const c=(document.cookie.match(/csrftoken=([^;]+)/)||[])[1]||'';""" +
+                                """try{const r=await fetch('/api/v1/media/$id/info/',{credentials:'include',headers:{'X-IG-App-ID':'936619743392459','X-Requested-With':'XMLHttpRequest','X-CSRFToken':c}});""" +
+                                """const t=await r.text();if(t.trim().startsWith('{')&&t.indexOf('video_versions')>0){Grab.done('200\n'+t);return}}catch(e){}""" +
+                                """const h=document.documentElement.innerHTML;const m=h.match(/"video_versions":\[(.*?)\]/);""" +
+                                """if(m){Grab.done('V\n'+m[1]+'\nT\n'+(document.title||''));return}""" +
+                                """Grab.done('H\n'+(document.title||'no title')+' at '+location.pathname)}catch(e){Grab.done('E\n'+e)}},1500)""",
                             null,
                         )
                     }
                 }
-                w.loadUrl("https://www.instagram.com/robots.txt")
+                w.loadUrl("https://www.instagram.com/reel/$code/")
             }.onFailure { latch.countDown() }
         }
-        latch.await(25, java.util.concurrent.TimeUnit.SECONDS)
+        if (!latch.await(30, java.util.concurrent.TimeUnit.SECONDS)) lastWhy = "Instagram's page didn't load in time"
         main.post { runCatching { web?.destroy() } }
         return out
     }
