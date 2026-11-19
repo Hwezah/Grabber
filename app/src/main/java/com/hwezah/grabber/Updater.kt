@@ -43,6 +43,7 @@ object Updater {
     var summary by mutableStateOf("")
     /** The newest build fetched, kept for Install and for Retry after a cancelled install. */
     @Volatile var fetched: Status.Downloaded? = null
+    private val retries = HashMap<Int, Int>()
 
     private const val RELEASE = "https://api.github.com/repos/Hwezah/Grabber/releases/tags/grabber-latest"
     var status by mutableStateOf<Status>(Status.None)
@@ -68,7 +69,8 @@ object Updater {
                 val assets = json.getJSONArray("assets")
                 val byName = (0 until assets.length()).map { assets.getJSONObject(it) }.associateBy { it.getString("name") }
                 val pick = Build.SUPPORTED_ABIS.firstNotNullOfOrNull { byName["Grabber-$it.apk"] } ?: byName["Grabber-universal.apk"] ?: return@runCatching
-                summary = Regex("""What's new: (.+)""").find(json.optString("body"))?.groupValues?.get(1)?.trim().orEmpty()
+                summary = Regex("""^(?:Summary|What's new): (.+)$""", RegexOption.MULTILINE).find(json.optString("body"))?.groupValues?.get(1)
+                    ?.trim()?.replace(Regex("""^(Phone|Core|CI)\s*:\s*""", RegexOption.IGNORE_CASE), "").orEmpty()
                 fetched?.takeIf { it.code == code && it.file.exists() }?.let { status = it; dismissed = false; return@runCatching }
                 val ready = Status.Ready(code, pick.getString("browser_download_url"), pick.optLong("size"))
                 status = ready
@@ -150,17 +152,32 @@ object Updater {
                     }
                     break
                 } catch (e: java.io.IOException) {
-                    if (++tries > 5) throw e
+                    if (++tries > 3) throw e
                     kotlinx.coroutines.delay(2000L * tries)
                 }
             }
             segments = mutableListOf()
             segmentsFor = null
+            // An error page instead of an APK (every APK is a zip, starting "PK").
+            val head = ByteArray(2).also { b -> file.inputStream().use { it.read(b) } }
+            if (head[0] != 'P'.code.toByte() || head[1] != 'K'.code.toByte()) { file.delete(); error("the file wasn't an app") }
+            retries.remove(ready.code)
             Status.Downloaded(ready.code, file).let { fetched = it; status = it; dismissed = false }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Throwable) {
-            status = Status.Failed("Couldn't download the update")
+            segments = mutableListOf()
+            segmentsFor = null
+            val msg = e.message.orEmpty()
+            // Each push replaces the release's files, so for a minute or so the link answers 404.
+            status = Status.Failed((if (e is java.io.FileNotFoundException || "404" in msg) "the build was still being published" else msg.ifBlank { "network" }).take(80))
+            // Tries again by itself, up to 3 times a minute apart.
+            val n = (retries[ready.code] ?: 0) + 1
+            retries[ready.code] = n
+            if (n <= 3) scope.launch {
+                kotlinx.coroutines.delay(60_000L)
+                if (status is Status.Failed) app?.let { update(it) }
+            }
         }
     }
 

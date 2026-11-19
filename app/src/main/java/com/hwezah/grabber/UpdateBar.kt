@@ -1,12 +1,9 @@
 package com.hwezah.grabber
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,17 +14,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -35,11 +37,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.composables.icons.lucide.R as L
 import com.hwezah.grabber.design.Ink
-import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Tap
 import com.hwezah.grabber.design.Type
+import com.hwezah.grabber.design.grain
 
 /**
  * A slim strip along the top when a newer build is out: it downloads on its own (spinner, "Downloading update…"),
@@ -49,27 +50,21 @@ import com.hwezah.grabber.design.Type
 fun UpdateBar(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val s = Updater.status
-    val shown = s !is Updater.Status.None && !Updater.dismissed
-    val rise = with(LocalDensity.current) { 18.dp.roundToPx() }
-    val spring = CubicBezierEasing(0.2f, 0.9f, 0.3f, 1.2f)
-    AnimatedVisibility(
-        shown, modifier,
-        enter = fadeIn(tween(300)) + slideInVertically(tween(300, easing = spring)) { rise } + scaleIn(tween(300, easing = spring), initialScale = 0.98f),
-        exit = fadeOut(tween(200)),
-    ) { Strip(s) { Updater.update(context) } }
-}
-
-@Composable
-private fun Strip(s: Updater.Status, onAction: () -> Unit) {
+    if (s is Updater.Status.None || Updater.dismissed) return
+    // A short rise with a little spring at the end.
+    val rise = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { rise.animateTo(1f, tween(300, easing = CubicBezierEasing(0.2f, 0.9f, 0.3f, 1.2f))) }
     val good = if (Ink.isDark) Color(0xFF46D369) else Color(0xFF1E8E3E)
+    val failed = Color(0xFF781317)
     val build = (Updater.fetched?.code ?: (s as? Updater.Status.Ready)?.code ?: Updater.last?.code)?.let { "build ${it - 100}" }
     val about = listOfNotNull(build, Updater.summary.takeIf { it.isNotBlank() }).joinToString(" — ")
-    val (bold, muted) = when (s) {
+    val (headline, detail) = when (s) {
         is Updater.Status.Ready, is Updater.Status.Downloading -> "Downloading update…" to about
         is Updater.Status.Downloaded -> "Update ready" to about
         Updater.Status.Installing -> "Installing…" to "confirm Android's prompt"
         Updater.Status.NeedsPermission -> "Allow installs" to "let Grabber install updates, then tap Install"
-        is Updater.Status.Failed -> s.message to ""
+        // From Settings › Check: "You have the latest build", or GitHub out of reach.
+        is Updater.Status.Failed -> (if (Updater.last != null || Updater.fetched != null) "Update failed" else "Updates") to s.message
         Updater.Status.None -> "" to ""
     }
     val action = when (s) {
@@ -77,40 +72,49 @@ private fun Strip(s: Updater.Status, onAction: () -> Unit) {
         is Updater.Status.Failed -> if (Updater.last != null || Updater.fetched != null) "Retry" else null
         else -> null
     }
-    // Frosted page colour, flat: no border, shadow or gradient.
-    val surface = if (Ink.isDark) Color(0xD10A0A0A) else Color(0xD6F6F2EE)
     Row(
-        Modifier.fillMaxWidth().background(surface).statusBarsPadding().padding(start = 16.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier.fillMaxWidth()
+            .graphicsLayer {
+                val v = rise.value
+                alpha = v.coerceIn(0f, 1f)
+                translationY = (1f - v) * 18.dp.toPx()
+                scaleX = 0.98f + 0.02f * v
+                scaleY = 0.98f + 0.02f * v
+            }
+            // The tab bar's near-black (paper in the light theme), flat with grain, reaching up behind the status bar.
+            .background(if (Ink.isDark) Color(0xFF0E0E0E) else Ink.surface2).grain()
+            .statusBarsPadding()
+            .padding(start = 16.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // The status mark: a spinner while busy, a green dot when ready, an accent dot when something needs you.
         Box(Modifier.size(14.dp), contentAlignment = Alignment.Center) {
             when (s) {
-                is Updater.Status.Ready, is Updater.Status.Downloading, Updater.Status.Installing ->
-                    CircularProgressIndicator(Modifier.size(14.dp), color = Ink.text, strokeWidth = 2.dp, trackColor = Color.Transparent)
-                else -> Box(Modifier.size(8.dp).clip(CircleShape).background(if (s is Updater.Status.Downloaded) good else Ink.red))
+                is Updater.Status.Downloaded -> Box(Modifier.size(8.dp).background(good, CircleShape))
+                is Updater.Status.Failed, Updater.Status.NeedsPermission -> Box(Modifier.size(8.dp).background(failed, CircleShape))
+                else -> CircularProgressIndicator(Modifier.size(13.dp), color = Ink.muted, strokeWidth = 1.6.dp, trackColor = Color.Transparent, strokeCap = StrokeCap.Round)
             }
         }
-        Text(
-            buildAnnotatedString {
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Ink.text)) { append(bold) }
-                if (muted.isNotEmpty()) withStyle(SpanStyle(fontSize = 13.sp, color = Ink.muted)) { append(" · $muted") }
-            },
-            Modifier.weight(1f), style = Type.body.copy(fontSize = 13.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis,
-        )
-        if (action != null) Tap(onAction, shape = RoundedCornerShape(50)) { pressed ->
-            Box(
-                Modifier.height(34.dp).clip(RoundedCornerShape(50))
-                    .background(lerp(Ink.red, Color.Black, if (pressed) 0.28f else 0.12f)).padding(horizontal = 13.dp),
-                contentAlignment = Alignment.Center,
-            ) { Text(action, style = Type.body.copy(fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Color.White)) }
+        val line = buildAnnotatedString {
+            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = Ink.text)) { append(headline) }
+            if (detail.isNotEmpty()) withStyle(SpanStyle(color = Ink.muted, fontSize = 13.sp)) { append("  ·  $detail") }
         }
-        if (s !is Updater.Status.Installing) Tap({ Updater.dismissed = true }, Modifier.size(34.dp), CircleShape) { pressed ->
+        Text(line, Modifier.weight(1f), style = Type.label.copy(fontSize = 13.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (action != null) Tap({ Updater.update(context) }, shape = CircleShape) { pressed ->
             Box(
-                Modifier.size(34.dp).clip(CircleShape).background(if (pressed) Ink.text.copy(alpha = 0.08f) else Color.Transparent),
+                Modifier.height(34.dp).clip(CircleShape).background(lerp(Ink.red, Color.Black, if (pressed) 0.28f else 0.12f), CircleShape).grain().padding(horizontal = 13.dp),
                 contentAlignment = Alignment.Center,
-            ) { Lc(L.drawable.lucide_ic_x, tint = Ink.text, size = 18.dp) }
+            ) { Text(action, style = Type.label.copy(fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Color.White), maxLines = 1) }
+        }
+        // Hides it until Grabber is next opened; a download under way carries on.
+        if (s !is Updater.Status.Installing) Tap({ Updater.dismissed = true }, Modifier.size(34.dp).semantics { contentDescription = "Hide the update" }, CircleShape) { pressed ->
+            Box(Modifier.size(34.dp).background(if (pressed) Ink.text.copy(alpha = 0.08f) else Color.Transparent, CircleShape), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.size(12.dp)) {
+                    val w = 1.4.dp.toPx()
+                    drawLine(Ink.muted, Offset(0f, 0f), Offset(size.width, size.height), w, StrokeCap.Round)
+                    drawLine(Ink.muted, Offset(size.width, 0f), Offset(0f, size.height), w, StrokeCap.Round)
+                }
+            }
         }
     }
 }
