@@ -61,11 +61,11 @@ object Ink {
     val warn = Color(0xFFFFB340)
 
     /** Primary: deep red by default; the user can pick another in Settings ([ACCENTS]). */
-    var red by mutableStateOf(Color(0xFF7A0A0E))
+    var red by mutableStateOf(Color(0xFF781317))
 
     /** The choices offered in Settings: name to colour. */
     val ACCENTS = listOf(
-        "Deep Red" to Color(0xFF7A0A0E),
+        "Deep Red" to Color(0xFF781317),
         "Red" to Color(0xFFB81D24),
         "Deep Orange" to Color(0xFFD84315),
         "Amber" to Color(0xFFC77700),

@@ -55,6 +55,7 @@ import com.hwezah.grabber.design.grain
 enum class Tab(val label: String, @DrawableRes val icon: Int) {
     Downloads("Downloads", L.drawable.lucide_ic_download),
     Browser("Browser", L.drawable.lucide_ic_globe),
+    Files("Files", L.drawable.lucide_ic_folder),
     Clipboard("Clipboard", L.drawable.lucide_ic_clipboard_list),
     Settings("Settings", L.drawable.lucide_ic_settings),
 }
@@ -111,6 +112,7 @@ fun App() {
                     AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                         when (t) {
                             Tab.Downloads -> DownloadsPage()
+                            Tab.Files -> FilesPage()
                             Tab.Clipboard -> ClipboardPage()
                             Tab.Settings -> SettingsPage()
                             Tab.Browser -> BrowserPage()
