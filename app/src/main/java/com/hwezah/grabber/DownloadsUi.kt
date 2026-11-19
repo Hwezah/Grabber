@@ -75,7 +75,7 @@ import com.hwezah.grabber.design.frost
 import com.hwezah.grabber.engine.Category
 import kotlinx.coroutines.launch
 
-private val FILTERS = listOf("Active") + Category.entries.map { it.folder }
+private val FILTERS = listOf("All", "Active") + Category.entries.map { it.folder }
 
 private fun iconOf(c: Category) = when (c) {
     Category.Video -> L.drawable.lucide_ic_film
@@ -98,7 +98,7 @@ private fun tintOf(c: Category) = when (c) {
 fun DownloadsPage() {
     val items by Downloads.items.collectAsState()
     val live by Downloads.live.collectAsState()
-    var filter by rememberSaveable { mutableStateOf("") }
+    var filter by rememberSaveable { mutableStateOf("All") }
     var adding by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var picked by remember { mutableStateOf<Long?>(null) }
@@ -117,7 +117,7 @@ fun DownloadsPage() {
     }
     val shown = items.filter { i ->
         when (filter) {
-            "" -> true
+            "All" -> true
             "Active" -> i.state != State.Done
             else -> i.category.folder == filter
         }
@@ -131,11 +131,10 @@ fun DownloadsPage() {
                 }
             }
             Row(Modifier.padding(horizontal = EDGE).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                // No chip picked shows everything; tapping the picked one again unpicks it.
                 // Upright phone: Video and Audio dropped from the row, for room.
                 val portrait = androidx.compose.ui.platform.LocalConfiguration.current.let { it.screenHeightDp > it.screenWidthDp && it.screenWidthDp < 600 }
                 val filters = if (portrait) FILTERS - listOf("Video", "Audio") else FILTERS
-                filters.forEachIndexed { i, c -> if (i > 0) Pipe(com.hwezah.grabber.design.pipeColor(i - 1)); Chip(c, c == filter, { filter = if (filter == c) "" else c }) }
+                filters.forEachIndexed { i, c -> if (i > 0) Pipe(com.hwezah.grabber.design.pipeColor(i - 1)); Chip(c, c == filter, { filter = c }) }
             }
             if (items.isNotEmpty()) Text(
                 "Swipe left to remove · right to pause or open",
