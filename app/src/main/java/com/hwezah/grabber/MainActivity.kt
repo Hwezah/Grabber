@@ -6,12 +6,23 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import com.hwezah.grabber.design.Ink
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Prefs.init(this)
+        Updater.app = applicationContext
+        // Looks for a newer build every 5 minutes while Grabber is on screen.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) { kotlinx.coroutines.delay(5 * 60_000L); Updater.check() }
+            }
+        }
         intent?.getStringExtra(OPEN_URL)?.let { Browser.open(it) }
         Downloads.init(this)
         Clips.init(this)

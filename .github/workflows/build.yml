@@ -63,6 +63,7 @@ jobs:
         shell: bash
         run: |
           notes="Latest build from \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}, built $(date -u '+%Y-%m-%d %H:%M UTC'), versionCode $((100 + GITHUB_RUN_NUMBER)). Most phones: download **Grabber-arm64-v8a.apk**. Not sure? Take **Grabber-universal.apk**."
+          notes="$notes"$'\n\n'"What's new: $(git log -1 --pretty=%s)"
           if gh release view grabber-latest > /dev/null 2>&1; then
             gh api -X PATCH "repos/$GH_REPO/git/refs/tags/grabber-latest" -f sha="$GITHUB_SHA" -F force=true > /dev/null
             for name in $(gh release view grabber-latest --json assets -q '.assets[].name'); do

@@ -33,7 +33,16 @@ object Updater {
         data object Installing : Status
         data object NeedsPermission : Status
         data class Failed(val message: String) : Status
+        /** Fetched and waiting: Install opens Android's prompt. */
+        data class Downloaded(val code: Int, val file: File) : Status
     }
+
+    /** The app, so a found update can start downloading on its own. */
+    @Volatile var app: Context? = null
+    /** One line about the build, from its release notes ("What's new: …"). */
+    var summary by mutableStateOf("")
+    /** The newest build fetched, kept for Install and for Retry after a cancelled install. */
+    @Volatile var fetched: Status.Downloaded? = null
 
     private const val RELEASE = "https://api.github.com/repos/Hwezah/Grabber/releases/tags/grabber-latest"
     var status by mutableStateOf<Status>(Status.None)
@@ -45,7 +54,7 @@ object Updater {
     fun check(force: Boolean = false) {
         val now = System.currentTimeMillis()
         if (!force && now - lastCheck < 60_000) return
-        if (status is Status.Downloading || status is Status.Installing) return
+        if (status is Status.Downloading || status is Status.Installing || status is Status.Downloaded) return
         lastCheck = now
         scope.launch {
             runCatching {
@@ -59,24 +68,43 @@ object Updater {
                 val assets = json.getJSONArray("assets")
                 val byName = (0 until assets.length()).map { assets.getJSONObject(it) }.associateBy { it.getString("name") }
                 val pick = Build.SUPPORTED_ABIS.firstNotNullOfOrNull { byName["Grabber-$it.apk"] } ?: byName["Grabber-universal.apk"] ?: return@runCatching
-                status = Status.Ready(code, pick.getString("browser_download_url"), pick.optLong("size"))
+                summary = Regex("""What's new: (.+)""").find(json.optString("body"))?.groupValues?.get(1)?.trim().orEmpty()
+                fetched?.takeIf { it.code == code && it.file.exists() }?.let { status = it; dismissed = false; return@runCatching }
+                val ready = Status.Ready(code, pick.getString("browser_download_url"), pick.optLong("size"))
+                status = ready
                 dismissed = false
+                // Fetched in the background straight away; the bar says "Update ready" when it's done.
+                app?.let { fetch(it, ready) }
             }.onFailure { if (force) status = Status.Failed(it.message ?: "Couldn't reach GitHub") }
         }
     }
 
+    /** Install, Retry: installs what's fetched, or fetches it first. */
     fun update(context: Context) {
-        val ready = status as? Status.Ready ?: return
+        val done = fetched?.takeIf { it.file.exists() }
+        if (done != null) return installNow(context, done)
+        (status as? Status.Ready ?: last)?.let { fetch(context, it) }
+    }
+
+    private fun installNow(context: Context, done: Status.Downloaded) {
         val app = context.applicationContext
         if (Build.VERSION.SDK_INT >= 26 && !app.packageManager.canRequestPackageInstalls()) {
             status = Status.NeedsPermission
             runCatching {
                 context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + app.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-            // Back to Ready so the next tap goes ahead once allowed.
-            scope.launch { kotlinx.coroutines.delay(800); status = ready }
+            // Back to ready so the next tap goes ahead once allowed.
+            scope.launch { kotlinx.coroutines.delay(800); status = done }
             return
         }
+        status = Status.Installing
+        scope.launch {
+            runCatching { install(app, done.file) }.onFailure { status = Status.Failed("Couldn't install: ${it.message}") }
+        }
+    }
+
+    private fun fetch(context: Context, ready: Status.Ready) {
+        val app = context.applicationContext
         last = ready
         status = Status.Downloading(0)
         // In the download service: kept alive with the app in the background, like any download.
@@ -90,7 +118,7 @@ object Updater {
     private var segments = mutableListOf<com.hwezah.grabber.engine.Segment>()
     private var segmentsFor: String? = null
 
-    /** Called by the download service: fetch the APK (resuming across failures), then install it. */
+    /** Called by the download service: fetch the APK (resuming across failures); Install is then a tap away. */
     suspend fun fetchAndInstall(context: Context) {
         val ready = last ?: return
         try {
@@ -126,14 +154,13 @@ object Updater {
                     kotlinx.coroutines.delay(2000L * tries)
                 }
             }
-            status = Status.Installing
-            install(context.applicationContext, file)
             segments = mutableListOf()
             segmentsFor = null
+            Status.Downloaded(ready.code, file).let { fetched = it; status = it; dismissed = false }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Throwable) {
-            status = Status.Failed("Update interrupted (${e.message ?: "network"}). Tap Retry to carry on.")
+            status = Status.Failed("Couldn't download the update")
         }
     }
 
