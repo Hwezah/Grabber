@@ -277,8 +277,8 @@ fun FilesPage() {
     fun fixed(e: Entry) = e.folder && Folders.isFixed(if (herePath.isEmpty()) e.name else "$herePath/${e.name}")
 
     // Opening Files tidies loose videos into Shows, Movies and YouTube first, and says so.
-    LaunchedEffect(Unit) {
-        val n = withContext(Dispatchers.IO) { runCatching { Folders.shelveAll(context) }.getOrDefault(0) }
+    LaunchedEffect(tree) {
+        val n = withContext(Dispatchers.IO) { Folders.housekeep(context) }
         val why = Folders.lastProblem
         when {
             n > 0 -> say("Sorted $n video${if (n == 1) "" else "s"} into their folders")
@@ -350,6 +350,8 @@ fun FilesPage() {
                 Box(Modifier.padding(8.dp), contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_folder_plus, tint = Ink.text, size = 24.dp) }
             }
         }
+        // Saving into Grabber!/Video makes Video/Video…: say so, with the picker one tap away.
+        if (Folders.wrongRoot(tree)) Column(Modifier.padding(horizontal = CARD).padding(bottom = 8.dp)) { FolderRow() }
         // Where you are: tap a folder on the way to go back to it.
         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (ids.size > 1) {

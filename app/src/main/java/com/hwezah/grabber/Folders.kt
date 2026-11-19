@@ -13,7 +13,8 @@ object Folders {
         val top = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return null
         if (!top.canWrite()) return null
         // From Grabber's browser: Browser/Video, Browser/Audio… Anything else unusual joins Browser/Other, so the top stays clean.
-        val browser = browser || category == Category.Other
+        // Only Video and Audio live at the top; everything else joins Browser/Documents, Images or Other.
+        val browser = browser || category !in setOf(Category.Video, Category.Audio)
         val root = if (browser) synchronized(this) { top.findFile("Browser")?.takeIf { it.isDirectory } ?: top.createDirectory("Browser") } ?: return null else top
         // One at a time: two downloads making the same folder at once would get "Other" and "Other (1)".
         // The browser keeps five: Video, Audio, Documents, Images, and Other for the rest.
@@ -124,6 +125,8 @@ object Folders {
 
     fun ensureLayout(context: Context) {
         val tree = Prefs.folder ?: return
+        // Inside Grabber!/Video these would make Video/Video…: wait for the right folder.
+        if (wrongRoot(tree)) return
         val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return
         if (!root.canWrite()) return
         FIXED.forEach { p ->
@@ -135,6 +138,7 @@ object Folders {
     /** Films that an earlier build put in Movies/<Title (Year)>/ come back up into Movies/, and the empty folders go. */
     fun flattenMovies(context: Context) {
         val tree = Prefs.folder ?: return
+        if (wrongRoot(tree)) return
         val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return
         val movies = root.findFile("Video")?.findFile("Movies")?.takeIf { it.isDirectory } ?: return
         fun idOf(d: String?) = d?.let { runCatching { DocumentsContract.getDocumentId(Uri.parse(it)) }.getOrNull() }
@@ -153,48 +157,116 @@ object Folders {
         }
     }
 
-    /**
-     * Leftovers from earlier builds at the top: Movies and Shows go into Video/, Other and "Other (1)" into Browser/Other.
-     * Files keep their names (numbered on a clash), the downloads list follows, and the emptied folders go.
-     */
-    fun tidyRoot(context: Context) {
-        val tree = Prefs.folder ?: return
-        val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return
-        if (!root.canWrite()) return
+    /** Names a save folder must not be: picking Grabber!/Video as the root makes Video/Video, Movies/Movies… */
+    private val INNER = setOf("Video", "Movies", "Shows", "YouTube", "Audio", "Browser", "Documents", "Images", "Other", "Archives", "Torrents")
+
+    /** Whether the chosen folder is one of Grabber's own inner folders instead of Download/Grabber! itself. */
+    fun wrongRoot(tree: String?): Boolean {
+        val id = tree?.let { runCatching { DocumentsContract.getTreeDocumentId(Uri.parse(it)) }.getOrNull() } ?: return false
+        return id.substringAfter(':').substringAfterLast('/') in INNER
+    }
+
+    /** Where the folder picker should open: the real Grabber! folder above a wrong pick, else the current one. */
+    fun suggestedRoot(tree: String?): Uri? {
+        val t = tree?.let { Uri.parse(it) } ?: return null
+        var id = runCatching { DocumentsContract.getTreeDocumentId(t) }.getOrNull() ?: return null
+        while (id.substringAfter(':').substringAfterLast('/') in INNER && id.contains('/')) id = id.substringBeforeLast('/')
+        return runCatching { DocumentsContract.buildDocumentUri(t.authority, id) }.getOrNull()
+    }
+
+    /** Everything in [from] into [to]; folders of the same name merge; a clashing name is numbered. The list follows. */
+    private fun pour(context: Context, tree: String, from: DocumentFile, to: DocumentFile): Int {
         fun idOf(d: String?) = d?.let { runCatching { DocumentsContract.getDocumentId(Uri.parse(it)) }.getOrNull() }
-        // Everything in [from] into [to]; folders of the same name merge.
-        fun pour(from: DocumentFile, to: DocumentFile) {
-            from.listFiles().forEach { f ->
-                val name = f.name ?: return@forEach
-                if (f.isDirectory) {
-                    val same = to.findFile(name)?.takeIf { it.isDirectory }
-                    if (same != null) { pour(f, same); if (f.listFiles().isEmpty()) f.delete(); return@forEach }
-                }
-                runCatching {
-                    val prefix = idOf(f.uri.toString()) ?: return@runCatching
-                    val free = freeName(to, name, f.isDirectory)
-                    val src = if (free != name) DocumentsContract.renameDocument(context.contentResolver, f.uri, free) ?: f.uri else f.uri
-                    val moved = DocumentsContract.moveDocument(context.contentResolver, src, from.uri, to.uri) ?: return@runCatching
-                    val now = DocumentsContract.getDocumentId(moved)
-                    // A file, or everything inside a moved folder, keeps its place in the list.
-                    Downloads.items.value.forEach { item ->
-                        val id = idOf(item.doc) ?: return@forEach
-                        if (id == prefix || id.startsWith("$prefix/")) {
-                            val doc = DocumentsContract.buildDocumentUriUsingTree(Uri.parse(tree), now + id.removePrefix(prefix))
-                            Downloads.edit(item.id) { it.copy(doc = doc.toString()) }
-                        }
+        var moved = 0
+        from.listFiles().forEach { f ->
+            val name = f.name ?: return@forEach
+            if (f.isDirectory) {
+                val same = to.listFiles().firstOrNull { it.isDirectory && it.name.equals(name, ignoreCase = true) }
+                if (same != null) { moved += pour(context, tree, f, same); if (f.listFiles().isEmpty()) f.delete(); return@forEach }
+            }
+            runCatching {
+                val prefix = idOf(f.uri.toString()) ?: return@runCatching
+                val free = freeName(to, name, f.isDirectory)
+                val src = if (free != name) DocumentsContract.renameDocument(context.contentResolver, f.uri, free) ?: f.uri else f.uri
+                val now = DocumentsContract.getDocumentId(DocumentsContract.moveDocument(context.contentResolver, src, from.uri, to.uri) ?: return@runCatching)
+                moved++
+                // A file, or everything inside a moved folder, keeps its place in the list.
+                Downloads.items.value.forEach { item ->
+                    val id = idOf(item.doc) ?: return@forEach
+                    if (id == prefix || id.startsWith("$prefix/")) {
+                        val doc = DocumentsContract.buildDocumentUriUsingTree(Uri.parse(tree), now + id.removePrefix(prefix))
+                        Downloads.edit(item.id) { it.copy(doc = doc.toString()) }
                     }
                 }
             }
         }
-        val targets = mapOf("Movies" to "Video/Movies", "Shows" to "Video/Shows")
-        root.listFiles().filter { it.isDirectory }.forEach { d ->
-            val name = d.name ?: return@forEach
-            val path = targets[name] ?: if (name == "Other" || Regex("""^Other \(\d+\)$""").matches(name)) "Browser/Other" else return@forEach
-            var to: DocumentFile? = root
-            path.split('/').forEach { part -> to = to?.let { dir(it, part) } }
-            to?.let { pour(d, it) }
-            if (d.listFiles().isEmpty()) d.delete()
+        return moved
+    }
+
+    private fun at(root: DocumentFile, path: String): DocumentFile? {
+        var d: DocumentFile? = root
+        if (path.isNotEmpty()) path.split('/').forEach { part -> d = d?.let { dir(it, part) } }
+        return d
+    }
+
+    /**
+     * Puts the tree in the shared layout (the same as WatchHub's), from Download/Grabber! itself:
+     * a folder named after a fixed one at the wrong level (Video/Video, Movies/Movies, Grabber!/Grabber!) is merged
+     * into the real one; old top-level Movies, Shows and YouTube go into Video/; old top-level Documents, Images,
+     * Other, Archives and Torrents into Browser/; "Season 01" becomes "Season 1"; browser files loose in the top
+     * Video/Audio go to Browser/Video, Browser/Audio. Emptied leftovers go; fixed folders stay.
+     */
+    fun tidyRoot(context: Context) {
+        val tree = Prefs.folder ?: return
+        if (wrongRoot(tree)) return
+        val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return
+        if (!root.canWrite()) return
+        val home = mapOf("Video" to "Video", "Movies" to "Video/Movies", "Shows" to "Video/Shows", "YouTube" to "Video/YouTube", "Audio" to "Audio", "Browser" to "Browser")
+        val legacyTop = mapOf("Documents" to "Browser/Documents", "Images" to "Browser/Images", "Other" to "Browser/Other", "Archives" to "Browser/Other", "Torrents" to "Browser/Other")
+        val rootName = root.name
+        fun walk(d: DocumentFile, path: String): Int {
+            var moved = 0
+            d.listFiles().filter { it.isDirectory }.forEach { sub ->
+                val name = sub.name ?: return@forEach
+                val subPath = if (path.isEmpty()) name else "$path/$name"
+                when {
+                    isFixed(subPath) -> if (subPath != "Video/Shows") moved += walk(sub, subPath) else sub.listFiles().filter { it.isDirectory }.forEach { show ->
+                        // Inside a show: "Season 01" → "Season 1", merged if both exist.
+                        show.listFiles().filter { it.isDirectory }.forEach { season ->
+                            val m = Regex("""^Season 0+(\d+)$""", RegexOption.IGNORE_CASE).find(season.name.orEmpty()) ?: return@forEach
+                            val want = "Season ${m.groupValues[1]}"
+                            val there = show.listFiles().firstOrNull { it.isDirectory && it.name == want }
+                            if (there != null) { moved += pour(context, tree, season, there); if (season.listFiles().isEmpty()) season.delete() }
+                            else runCatching { DocumentsContract.renameDocument(context.contentResolver, season.uri, want) }
+                        }
+                    }
+                    name == "Grabber!" || name == rootName -> { moved += pour(context, tree, sub, root); if (sub.listFiles().isEmpty()) sub.delete() }
+                    name in home -> at(root, home.getValue(name))?.let { moved += pour(context, tree, sub, it); if (sub.listFiles().isEmpty()) sub.delete() }
+                    path.isEmpty() && (name in legacyTop || Regex("""^Other \(\d+\)$""").matches(name)) ->
+                        at(root, legacyTop[name] ?: "Browser/Other")?.let { moved += pour(context, tree, sub, it); if (sub.listFiles().isEmpty()) sub.delete() }
+                }
+            }
+            return moved
+        }
+        // Merging can bring up another nested level; a few rounds settle it.
+        for (round in 0 until 3) if (walk(root, "") == 0) break
+        // Browser downloads sitting in the top Video or Audio.
+        fun idOf(d: String?) = d?.let { runCatching { DocumentsContract.getDocumentId(Uri.parse(it)) }.getOrNull() }
+        val rootId = runCatching { DocumentsContract.getTreeDocumentId(Uri.parse(tree)) }.getOrNull() ?: return
+        listOf("Video", "Audio").forEach { kind ->
+            val top = root.findFile(kind)?.takeIf { it.isDirectory } ?: return@forEach
+            val ids = Downloads.items.value.filter { it.browser }.mapNotNull { idOf(it.doc) }.toHashSet()
+            top.listFiles().filter { it.isFile && idOf(it.uri.toString()) in ids && idOf(it.uri.toString())?.substringBeforeLast('/') == "$rootId/$kind" }.forEach { f ->
+                val to = at(root, "Browser/$kind") ?: return@forEach
+                runCatching {
+                    val name = f.name ?: return@runCatching
+                    val old = idOf(f.uri.toString())
+                    val free = freeName(to, name)
+                    val src = if (free != name) DocumentsContract.renameDocument(context.contentResolver, f.uri, free) ?: f.uri else f.uri
+                    val now = DocumentsContract.moveDocument(context.contentResolver, src, top.uri, to.uri) ?: return@runCatching
+                    Downloads.items.value.filter { idOf(it.doc) == old }.forEach { item -> Downloads.edit(item.id) { it.copy(doc = now.toString()) } }
+                }
+            }
         }
     }
 
@@ -204,6 +276,7 @@ object Folders {
      */
     fun mergeDuplicates(context: Context) {
         val tree = Prefs.folder ?: return
+        if (wrongRoot(tree)) return
         val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return
         val dirs = root.listFiles().filter { it.isDirectory }
         Category.entries.map { it.folder }.forEach { real ->
@@ -224,12 +297,22 @@ object Folders {
         }
     }
 
+    /** All the tidying, in order; returns how many videos were sorted. */
+    fun housekeep(context: Context): Int {
+        runCatching { mergeDuplicates(context) }
+        runCatching { ensureLayout(context) }
+        runCatching { tidyRoot(context) }
+        runCatching { flattenMovies(context) }
+        return runCatching { shelveAll(context) }.getOrDefault(0)
+    }
+
     /**
      * Sorts every finished video still sitting straight in Video/ (from the list, by its title, and any other file
      * there, by its name), and points the downloads list at the new places. Returns how many moved.
      */
     fun shelveAll(context: Context): Int {
         val tree = Prefs.folder ?: return 0
+        if (wrongRoot(tree)) return 0
         val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return 0
         val video = root.findFile(Category.Video.folder)?.takeIf { it.isDirectory } ?: return 0
         lastProblem = null

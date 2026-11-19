@@ -355,14 +355,22 @@ fun FolderRow() {
                 context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             }
             Prefs.useFolder(uri.toString())
+            if (Folders.wrongRoot(uri.toString())) android.widget.Toast.makeText(context, "Pick Grabber! itself, not a folder inside it", android.widget.Toast.LENGTH_LONG).show()
+            else kotlin.concurrent.thread { Folders.housekeep(context.applicationContext) }
         }
     }
+    val wrong = Folders.wrongRoot(Prefs.folder)
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text("Download folder", style = Type.label.copy(fontWeight = FontWeight.SemiBold))
-            Text(Folders.label(Prefs.folder) + " · one subfolder per type", style = Type.meta)
+            Text(
+                if (wrong) Folders.label(Prefs.folder) + " is inside Grabber!: pick Grabber! itself so folders don't repeat"
+                else Folders.label(Prefs.folder) + " · Video, Audio and Browser inside",
+                style = Type.meta.copy(color = if (wrong) Ink.danger else Type.meta.color),
+            )
         }
-        Button(if (Prefs.folder == null) "Choose" else "Change", { pick.launch(null) }, icon = L.drawable.lucide_ic_folder_open, accent = if (Prefs.folder == null) Ink.red else null, compact = true)
+        // Opens at Grabber! when the current pick is a folder inside it.
+        Button(if (Prefs.folder == null) "Choose" else if (wrong) "Fix" else "Change", { pick.launch(Folders.suggestedRoot(Prefs.folder)) }, icon = L.drawable.lucide_ic_folder_open, accent = if (Prefs.folder == null || wrong) Ink.red else null, compact = true)
     }
 }
 
