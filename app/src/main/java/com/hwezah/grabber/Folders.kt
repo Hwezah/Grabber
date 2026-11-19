@@ -15,7 +15,9 @@ object Folders {
         // From Grabber's browser: Browser/Video, Browser/Audio…
         val root = if (browser) synchronized(this) { top.findFile("Browser")?.takeIf { it.isDirectory } ?: top.createDirectory("Browser") } ?: return null else top
         // One at a time: two downloads making the same folder at once would get "Other" and "Other (1)".
-        val dir = synchronized(this) { root.findFile(category.folder)?.takeIf { it.isDirectory } ?: root.createDirectory(category.folder) } ?: return null
+        // The browser keeps five: Video, Audio, Documents, Images, and Other for the rest.
+        val folder = if (browser && category !in setOf(Category.Video, Category.Audio, Category.Documents, Category.Images)) "Other" else category.folder
+        val dir = synchronized(this) { root.findFile(folder)?.takeIf { it.isDirectory } ?: root.createDirectory(folder) } ?: return null
         val base = name.substringBeforeLast('.', name)
         val ext = name.substringAfterLast('.', "").let { if (it.isEmpty()) "" else ".$it" }
         // A name is taken by a finished file or by one still downloading (".part").
@@ -45,7 +47,8 @@ object Folders {
         val m = Regex("""^(.+?)[\s._·\-]*[Ss](\d{1,2})[\s._-]*[Ee]\d{1,3}""").find(base)
             ?: Regex("""^(.+?)[\s._·\-]*[Ss]eason[\s._]*(\d{1,2})""", RegexOption.IGNORE_CASE).find(base)
             ?: return null
-        val show = m.groupValues[1]
+        // "1923 · S01E04": the show is the title before " · ".
+        val show = (if (" · " in base) base.substringBefore(" · ") else m.groupValues[1])
             .replace("_ ", " - ").replace('_', ' ').replace('.', ' ')
             .replace(Regex("""\s+"""), " ").trim().trimEnd('·', '-', ' ').trim()
         if (show.isEmpty()) return null
@@ -60,7 +63,19 @@ object Folders {
         return if (title.isBlank()) y.groupValues[1] else "$title (${y.groupValues[1]})"
     }
 
-    private fun safe(n: String) = n.replace(Regex("""[\\/:*?"<>|]"""), "_").trim().trimEnd('.').ifBlank { "Untitled" }
+    /** Safe for a file or folder name: each run of \\ / : * ? " < > | becomes _, trimmed, no trailing dots. */
+    fun safe(n: String) = n.replace(Regex("""[\\/:*?"<>|]+"""), "_").trim().trimEnd('.').trim().ifBlank { "Download" }
+
+    /** [name], or "name (2).ext", "name (3).ext"… whichever isn't in [dir] yet (ignoring case). A folder keeps its whole name. */
+    fun freeName(dir: DocumentFile, name: String, folder: Boolean = false): String {
+        val taken = dir.listFiles().mapNotNull { it.name?.lowercase() }.toHashSet()
+        if (name.lowercase() !in taken) return name
+        val ext = if (folder) "" else name.substringAfterLast('.', "").let { if (it.isEmpty() || it.length > 5) "" else ".$it" }
+        val base = name.removeSuffix(ext)
+        var n = 2
+        while ("$base ($n)$ext".lowercase() in taken) n++
+        return "$base ($n)$ext"
+    }
 
     /** A child folder named [name], made if missing. */
     private fun dir(parent: DocumentFile, name: String): DocumentFile? =
@@ -87,14 +102,53 @@ object Folders {
             if (id.substringBeforeLast('/') != videoId) return doc
             val target = when {
                 ep != null -> dir(video, "Shows")?.let { dir(it, safe(ep.first)) }?.let { dir(it, "Season ${ep.second}") }
-                movie != null -> dir(video, "Movies")?.let { dir(it, safe(movie)) }
+                movie != null -> dir(video, "Movies")
                 else -> dir(video, "YouTube")
             } ?: run { lastProblem = "couldn't make the folder"; return doc }
-            if (target.findFile(name) != null) { lastProblem = "$name is already there"; return doc }
-            DocumentsContract.moveDocument(context.contentResolver, doc, video.uri, target.uri) ?: run { lastProblem = "Android refused to move $name"; doc }
+            // A clash gets a number: "Film (2).mkv".
+            val free = freeName(target, name)
+            val src = if (free != name) DocumentsContract.renameDocument(context.contentResolver, doc, free) ?: doc else doc
+            DocumentsContract.moveDocument(context.contentResolver, src, video.uri, target.uri) ?: run { lastProblem = "Android refused to move $name"; doc }
         } catch (e: Exception) {
             lastProblem = e.message ?: e.javaClass.simpleName
             doc
+        }
+    }
+
+    /** The fixed folders, matched by their full path, made up front. */
+    private val FIXED = listOf("Video", "Video/Movies", "Video/Shows", "Video/YouTube", "Audio", "Browser", "Browser/Video", "Browser/Audio", "Browser/Documents", "Browser/Images", "Browser/Other")
+
+    /** Whether [path] (from the top, e.g. "Video/Shows") is one of the fixed folders. */
+    fun isFixed(path: String) = path in FIXED
+
+    fun ensureLayout(context: Context) {
+        val tree = Prefs.folder ?: return
+        val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return
+        if (!root.canWrite()) return
+        FIXED.forEach { p ->
+            var d: DocumentFile? = root
+            p.split('/').forEach { part -> d = d?.let { dir(it, part) } }
+        }
+    }
+
+    /** Films that an earlier build put in Movies/<Title (Year)>/ come back up into Movies/, and the empty folders go. */
+    fun flattenMovies(context: Context) {
+        val tree = Prefs.folder ?: return
+        val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return
+        val movies = root.findFile("Video")?.findFile("Movies")?.takeIf { it.isDirectory } ?: return
+        fun idOf(d: String?) = d?.let { runCatching { DocumentsContract.getDocumentId(Uri.parse(it)) }.getOrNull() }
+        movies.listFiles().filter { it.isDirectory }.forEach { sub ->
+            sub.listFiles().filter { it.isFile }.forEach { f ->
+                val name = f.name ?: return@forEach
+                val old = idOf(f.uri.toString())
+                runCatching {
+                    val free = freeName(movies, name)
+                    val src = if (free != name) DocumentsContract.renameDocument(context.contentResolver, f.uri, free) ?: f.uri else f.uri
+                    val now = DocumentsContract.moveDocument(context.contentResolver, src, sub.uri, movies.uri) ?: return@runCatching
+                    Downloads.items.value.filter { idOf(it.doc) == old }.forEach { item -> Downloads.edit(item.id) { it.copy(doc = now.toString()) } }
+                }
+            }
+            if (sub.listFiles().isEmpty()) sub.delete()
         }
     }
 

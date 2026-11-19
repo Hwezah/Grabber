@@ -21,7 +21,11 @@ class MainActivity : ComponentActivity() {
         // Accidental "Other (1)" folders folded back into "Other".
         kotlin.concurrent.thread(name = "grabber-merge") { runCatching { Folders.mergeDuplicates(applicationContext) } }
         // Finished videos still loose in Video/: sorted into Shows, Movies and YouTube, every start.
-        kotlin.concurrent.thread(name = "grabber-shelve") { runCatching { Folders.shelveAll(applicationContext) } }
+        kotlin.concurrent.thread(name = "grabber-shelve") {
+            runCatching { Folders.ensureLayout(applicationContext) }
+            runCatching { Folders.flattenMovies(applicationContext) }
+            runCatching { Folders.shelveAll(applicationContext) }
+        }
         setContent {
             // Status and navigation bar icons follow the theme: light icons on the dark page, dark on paper.
             LaunchedEffect(Prefs.dark) {
