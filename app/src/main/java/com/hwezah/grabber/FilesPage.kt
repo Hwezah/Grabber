@@ -211,6 +211,16 @@ fun FilesPage() {
         names = listOf(Folders.label(Prefs.folder).substringAfterLast('/').ifBlank { "Downloads" })
     }
     val here = ids.last()
+    // Opening Files tidies loose videos into Shows, Movies and YouTube first, and says so.
+    LaunchedEffect(Unit) {
+        val n = withContext(Dispatchers.IO) { runCatching { Folders.shelveAll(context) }.getOrDefault(0) }
+        val why = Folders.lastProblem
+        when {
+            n > 0 -> android.widget.Toast.makeText(context, "Sorted $n video${if (n == 1) "" else "s"} into their folders", android.widget.Toast.LENGTH_SHORT).show()
+            why != null -> android.widget.Toast.makeText(context, "Couldn't sort a video: $why", android.widget.Toast.LENGTH_LONG).show()
+        }
+        if (n > 0) reload++
+    }
     LaunchedEffect(here, reload, doneKey) {
         entries = withContext(Dispatchers.IO) { Browse.list(context, tree, here) }
     }
