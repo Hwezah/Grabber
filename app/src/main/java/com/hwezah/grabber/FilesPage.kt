@@ -351,7 +351,7 @@ fun FilesPage() {
             }
         }
         // Saving into Grabber!/Video makes Video/Video…: say so, with the picker one tap away.
-        if (Folders.wrongRoot(tree)) Column(Modifier.padding(horizontal = CARD).padding(bottom = 8.dp)) { FolderRow() }
+        if (Folders.wrongRoot(tree.toString())) Column(Modifier.padding(horizontal = CARD).padding(bottom = 8.dp)) { FolderRow() }
         // Where you are: tap a folder on the way to go back to it.
         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (ids.size > 1) {
