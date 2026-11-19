@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -53,6 +54,7 @@ import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Note
 import com.hwezah.grabber.design.Tap
 import com.hwezah.grabber.design.Type
+import androidx.compose.foundation.lazy.itemsIndexed
 import com.hwezah.grabber.design.grain
 import com.hwezah.grabber.design.solo
 import com.hwezah.grabber.engine.Category
@@ -95,6 +97,52 @@ private object Browse {
         return all.filter { it.folder }.sortedBy { it.name.lowercase() } + all.filterNot { it.folder }.sortedByDescending { it.modified }
     }
 
+    /** Folders inside [id] only, for the move/copy picker. */
+    fun folders(context: Context, tree: Uri, id: String): List<Entry> = raw(context, tree, id).filter { it.folder }.sortedBy { it.name.lowercase() }
+
+    fun mkdir(context: Context, tree: Uri, parent: String, name: String): Boolean =
+        runCatching { DocumentsContract.createDocument(context.contentResolver, uri(tree, parent), DocumentsContract.Document.MIME_TYPE_DIR, name) != null }.getOrDefault(false)
+
+    /** The downloads list follows a file or folder that moved or was renamed from [oldId] to [now]. */
+    private fun follow(tree: Uri, oldId: String, now: Uri) {
+        val newId = runCatching { DocumentsContract.getDocumentId(now) }.getOrNull() ?: return
+        Downloads.items.value.forEach { item ->
+            val id = item.doc?.let { runCatching { DocumentsContract.getDocumentId(Uri.parse(it)) }.getOrNull() } ?: return@forEach
+            val moved = when {
+                id == oldId -> newId
+                id.startsWith("$oldId/") -> newId + id.removePrefix(oldId)
+                else -> return@forEach
+            }
+            Downloads.edit(item.id) { it.copy(doc = uri(tree, moved).toString()) }
+        }
+    }
+
+    fun rename(context: Context, tree: Uri, e: Entry, name: String): Boolean = runCatching {
+        val now = DocumentsContract.renameDocument(context.contentResolver, uri(tree, e.id), name) ?: return false
+        follow(tree, e.id, now)
+        true
+    }.getOrDefault(false)
+
+    fun move(context: Context, tree: Uri, e: Entry, from: String, to: String): Boolean = runCatching {
+        val now = DocumentsContract.moveDocument(context.contentResolver, uri(tree, e.id), uri(tree, from), uri(tree, to)) ?: return false
+        follow(tree, e.id, now)
+        true
+    }.getOrDefault(false)
+
+    /** Copies a file, or a folder and everything in it, into [to]. */
+    fun copy(context: Context, tree: Uri, e: Entry, to: String): Boolean = runCatching {
+        val cr = context.contentResolver
+        if (e.folder) {
+            val made = DocumentsContract.createDocument(cr, uri(tree, to), DocumentsContract.Document.MIME_TYPE_DIR, e.name) ?: return false
+            val madeId = DocumentsContract.getDocumentId(made)
+            raw(context, tree, e.id).all { copy(context, tree, it, madeId) }
+        } else {
+            val made = DocumentsContract.createDocument(cr, uri(tree, to), "application/octet-stream", e.name) ?: return false
+            cr.openInputStream(uri(tree, e.id))?.use { i -> cr.openOutputStream(made)?.use { o -> i.copyTo(o, 512 * 1024) } }
+            true
+        }
+    }.getOrDefault(false)
+
     /** Deletes [e]; a folder at the top is emptied instead, so the layout stays. */
     fun delete(context: Context, tree: Uri, e: Entry, keepFolder: Boolean) {
         if (e.folder && keepFolder) raw(context, tree, e.id).forEach { runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri(tree, it.id)) } }
@@ -129,6 +177,22 @@ fun FilesPage() {
     var entries by remember { mutableStateOf<List<Entry>?>(null) }
     var reload by remember { mutableIntStateOf(0) }
     var asked by remember { mutableStateOf<Entry?>(null) }
+    /** The ⋮ sheet for this entry. */
+    var acting by remember { mutableStateOf<Entry?>(null) }
+    var renaming by remember { mutableStateOf<Entry?>(null) }
+    /** Picking where to move (false) or copy (true) this entry. */
+    var placing by remember { mutableStateOf<Pair<Entry, Boolean>?>(null) }
+    var making by remember { mutableStateOf(false) }
+    val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    fun work(done: String, failed: String, job: () -> Boolean) {
+        kotlin.concurrent.thread(name = "grabber-files") {
+            val ok = job()
+            main.post {
+                reload++
+                android.widget.Toast.makeText(context, if (ok) done else failed, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     // A download finishing or being removed refreshes the folder.
     val items by Downloads.items.collectAsState()
     val doneKey = items.count { it.state == State.Done } to items.size
@@ -176,6 +240,9 @@ fun FilesPage() {
                     }
                 }
             }
+            Tap({ making = true }, Modifier.size(40.dp), CircleShape) {
+                Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_folder_plus, tint = Ink.text, size = 22.dp) }
+            }
         }
         val list = entries
         if (list != null && list.isEmpty()) {
@@ -196,11 +263,69 @@ fun FilesPage() {
                         names = names + e.name
                         entries = null
                     } else open(context, Browse.uri(tree, e.id), e)
-                }, onLong = { asked = e })
+                }, onMore = { acting = e })
             }
         }
     }
 
+    val top = ids.size == 1
+    acting?.let { e ->
+        val fixed = e.folder && top
+        BottomSheet(e.name, { acting = null }, icon = if (e.folder) L.drawable.lucide_ic_folder else L.drawable.lucide_ic_file) {
+            Column(Modifier.padding(horizontal = CARD), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!e.folder) com.hwezah.grabber.design.StretchRow {
+                    Button("Open With", { acting = null; open(context, Browse.uri(tree, e.id), e) }, icon = L.drawable.lucide_ic_external_link, compact = true)
+                    Button("Share", {
+                        acting = null
+                        val send = Intent(Intent.ACTION_SEND).setType(e.mime ?: "*/*").putExtra(Intent.EXTRA_STREAM, Browse.uri(tree, e.id)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        runCatching { context.startActivity(Intent.createChooser(send, e.name)) }
+                    }, icon = L.drawable.lucide_ic_share_2, compact = true)
+                }
+                com.hwezah.grabber.design.StretchRow {
+                    if (!fixed) Button("Move To", { acting = null; placing = e to false }, icon = L.drawable.lucide_ic_folder_input, compact = true)
+                    Button("Copy To", { acting = null; placing = e to true }, icon = L.drawable.lucide_ic_copy, compact = true)
+                }
+                if (!fixed) Button("Rename", { acting = null; renaming = e }, Modifier.solo(), icon = L.drawable.lucide_ic_pencil, compact = true)
+                Button(if (fixed) "Empty Folder" else "Delete", { acting = null; asked = e }, Modifier.solo(), icon = L.drawable.lucide_ic_trash_2, accent = Ink.danger, compact = true)
+            }
+        }
+    }
+    renaming?.let { e ->
+        var name by remember(e) { mutableStateOf(e.name) }
+        BottomSheet("Rename", { renaming = null }, icon = L.drawable.lucide_ic_pencil) {
+            Column(Modifier.padding(horizontal = CARD)) {
+                Field(name, { name = it }, "Name")
+                Spacer(Modifier.padding(top = 12.dp))
+                Button("Save", {
+                    val n = name.trim()
+                    renaming = null
+                    if (n.isNotEmpty() && n != e.name) work("Renamed", "Couldn't rename it") { Browse.rename(context, tree, e, n) }
+                }, Modifier.solo(), accent = Ink.red)
+            }
+        }
+    }
+    if (making) {
+        var name by remember { mutableStateOf("") }
+        BottomSheet("New Folder", { making = false }, icon = L.drawable.lucide_ic_folder_plus) {
+            Column(Modifier.padding(horizontal = CARD)) {
+                Field(name, { name = it }, "Folder name")
+                Spacer(Modifier.padding(top = 12.dp))
+                Button("Create", {
+                    val n = name.trim()
+                    making = false
+                    if (n.isNotEmpty()) work("Folder made", "Couldn't make the folder") { Browse.mkdir(context, tree, here, n) }
+                }, Modifier.solo(), accent = Ink.red)
+            }
+        }
+    }
+    placing?.let { (e, copying) ->
+        FolderPicker(tree, root, names.first(), e, copying, onDismiss = { placing = null }) { target ->
+            placing = null
+            val from = here
+            if (copying) work("Copied", "Couldn't copy it") { Browse.copy(context, tree, e, target) }
+            else if (target != from) work("Moved", "Couldn't move it") { Browse.move(context, tree, e, from, target) }
+        }
+    }
     asked?.let { e ->
         val keep = e.folder && ids.size == 1
         BottomSheet(
@@ -251,10 +376,10 @@ private fun open(context: Context, uri: Uri, e: Entry) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FileCard(e: Entry, onOpen: () -> Unit, onLong: () -> Unit) {
+private fun FileCard(e: Entry, onOpen: () -> Unit, onMore: () -> Unit) {
     val shape = RoundedCornerShape(18.dp)
     val kind = if (e.folder) null else kindOf(e)
-    Tap(onOpen, Modifier.fillMaxWidth(), shape, onLongClick = onLong) {
+    Tap(onOpen, Modifier.fillMaxWidth(), shape, onLongClick = onMore) {
         Row(
             Modifier.clip(shape).background(Ink.card).grain().padding(start = 16.dp, end = 14.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -279,15 +404,68 @@ private fun FileCard(e: Entry, onOpen: () -> Unit, onLong: () -> Unit) {
                     Modifier.padding(top = 2.dp), style = Type.meta.copy(fontSize = 12.sp), maxLines = 1,
                 )
             }
-            Spacer(Modifier.width(8.dp))
-            Lc(
-                when {
-                    e.folder -> L.drawable.lucide_ic_chevron_right
-                    kind == Category.Video -> L.drawable.lucide_ic_play
-                    else -> L.drawable.lucide_ic_external_link
-                },
-                tint = Ink.muted, size = 20.dp,
-            )
+            // Options: open with, share, move, copy, rename, delete. A long press opens the same.
+            Tap(onMore, Modifier.size(40.dp), CircleShape) {
+                Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_ellipsis_vertical, tint = Ink.muted, size = 20.dp) }
+            }
         }
     }
 }
+
+/** Where to move or copy [e]: browse the folders, make a new one, then "Move here" or "Copy here". */
+@Composable
+private fun FolderPicker(tree: Uri, root: String, rootName: String, e: Entry, copying: Boolean, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    val context = LocalContext.current
+    var ids by remember { mutableStateOf(listOf(root)) }
+    var names by remember { mutableStateOf(listOf(rootName)) }
+    var folders by remember { mutableStateOf<List<Entry>>(emptyList()) }
+    var reload by remember { mutableIntStateOf(0) }
+    var newName by remember { mutableStateOf<String?>(null) }
+    val here = ids.last()
+    LaunchedEffect(here, reload) { folders = withContext(Dispatchers.IO) { Browse.folders(context, tree, here) } }
+    // A folder can't go inside itself.
+    val inside = e.folder && (here == e.id || here.startsWith(e.id + "/"))
+    BottomSheet(if (copying) "Copy ${e.name}" else "Move ${e.name}", onDismiss, icon = if (copying) L.drawable.lucide_ic_copy else L.drawable.lucide_ic_folder_input) {
+        Column(Modifier.padding(horizontal = CARD)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (ids.size > 1) Tap({ ids = ids.dropLast(1); names = names.dropLast(1) }, Modifier.size(40.dp), CircleShape) {
+                    Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_arrow_left, tint = Ink.text, size = 22.dp) }
+                }
+                Text(names.joinToString(" › "), Modifier.weight(1f).padding(start = 4.dp), style = Type.label.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Tap({ newName = "" }, Modifier.size(40.dp), CircleShape) {
+                    Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_folder_plus, tint = Ink.text, size = 22.dp) }
+                }
+            }
+            newName?.let { n ->
+                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Field(n, { newName = it }, "New folder name", Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    Button("Make", {
+                        val name = n.trim()
+                        newName = null
+                        if (name.isNotEmpty()) kotlin.concurrent.thread {
+                            Browse.mkdir(context, tree, here, name)
+                            android.os.Handler(android.os.Looper.getMainLooper()).post { reload++ }
+                        }
+                    }, compact = true)
+                }
+            }
+            androidx.compose.foundation.lazy.LazyColumn(Modifier.padding(top = 6.dp).androidx_heightCap()) {
+                items(folders.filterNot { it.id == e.id }, key = { it.id }) { f ->
+                    Tap({ ids = ids + f.id; names = names + f.name }, Modifier.fillMaxWidth(), RoundedCornerShape(10.dp)) {
+                        Row(Modifier.padding(vertical = 10.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Lc(L.drawable.lucide_ic_folder, tint = Ink.red, size = 22.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Text(f.name, Modifier.weight(1f), style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Lc(L.drawable.lucide_ic_chevron_right, tint = Ink.muted, size = 18.dp)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.padding(top = 10.dp))
+            Button(if (copying) "Copy Here" else "Move Here", { if (!inside) onPick(here) }, Modifier.solo(), accent = if (inside) null else Ink.red)
+        }
+    }
+}
+
+private fun Modifier.androidx_heightCap() = this.then(Modifier.heightIn(max = 320.dp))

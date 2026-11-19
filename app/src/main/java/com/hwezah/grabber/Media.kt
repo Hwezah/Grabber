@@ -152,7 +152,7 @@ object Media {
         val part = Folders.create(context, tree, cat, out.name, part = true) ?: error("Can't write to the download folder")
         context.contentResolver.openOutputStream(part)?.use { o -> out.inputStream().use { it.copyTo(o, 256 * 1024) } }
         val size = out.length()
-        val (doc, name) = Folders.finish(context, part.toString(), out.name)
+        val (doc, name) = Folders.finish(context, part.toString(), out.name, youtube = cat == com.hwezah.grabber.engine.Category.Video && item.kind == Kind.Media && looksLikeSite(item.url))
         work.deleteRecursively()
         return Triple(doc, name, size)
     }

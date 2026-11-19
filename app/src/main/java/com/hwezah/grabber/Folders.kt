@@ -26,14 +26,14 @@ object Folders {
     }
 
     /** While downloading a file is "name.ext.part"; done, it gets its real name. Returns (document, name). */
-    fun finish(context: Context, doc: String, fallback: String): Pair<String, String> {
+    fun finish(context: Context, doc: String, fallback: String, youtube: Boolean = false): Pair<String, String> {
         val uri = Uri.parse(doc)
         val cur = runCatching { DocumentFile.fromSingleUri(context, uri)?.name }.getOrNull() ?: return doc to fallback
         if (!cur.endsWith(".part")) return doc to cur
         val renamed = runCatching { DocumentsContract.renameDocument(context.contentResolver, uri, cur.removeSuffix(".part")) }.getOrNull() ?: uri
         val name = runCatching { DocumentFile.fromSingleUri(context, renamed)?.name }.getOrNull() ?: cur.removeSuffix(".part")
         // An episode goes on into Video/Shows/<Show>/Season N.
-        val shelved = Prefs.folder?.let { shelve(context, it, renamed, name) } ?: renamed
+        val shelved = Prefs.folder?.let { shelve(context, it, renamed, name, youtube) } ?: renamed
         return shelved.toString() to name
     }
 
@@ -56,8 +56,26 @@ object Folders {
      * Moves an episode sitting in the Video folder into Video/Shows/<Show>/Season N. Returns its new address, or
      * [doc] unchanged when it isn't an episode, isn't in Video, or can't be moved.
      */
-    fun shelve(context: Context, tree: String, doc: Uri, name: String): Uri {
-        val (show, season) = episode(name) ?: return doc
+    fun shelve(context: Context, tree: String, doc: Uri, name: String, youtube: Boolean = false): Uri {
+        val ep = episode(name)
+        // Not an episode: a video site's download goes to YouTube, a film (a year in its name) to Movies.
+        if (ep == null) {
+            val sub = when {
+                youtube -> "YouTube"
+                Regex("""(?:^|[\s._(\[])(?:19|20)\d{2}(?:[\s._)\]]|$)""").containsMatchIn(name.substringBeforeLast('.', name)) -> "Movies"
+                else -> return doc
+            }
+            return runCatching {
+                val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return doc
+                val video = root.findFile(Category.Video.folder)?.takeIf { it.isDirectory } ?: return doc
+                val id = DocumentsContract.getDocumentId(doc)
+                if (id.substringBeforeLast('/') != DocumentsContract.getDocumentId(video.uri)) return doc
+                val target = dir(video, sub) ?: return doc
+                if (target.findFile(name) != null) return doc
+                DocumentsContract.moveDocument(context.contentResolver, doc, video.uri, target.uri) ?: doc
+            }.getOrDefault(doc)
+        }
+        val (show, season) = ep
         return runCatching {
             val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return doc
             val video = root.findFile(Category.Video.folder)?.takeIf { it.isDirectory } ?: return doc
@@ -104,7 +122,6 @@ object Folders {
         val video = root.findFile(Category.Video.folder)?.takeIf { it.isDirectory } ?: return
         video.listFiles().filter { it.isFile && it.name?.endsWith(".part") == false }.forEach { f ->
             val name = f.name ?: return@forEach
-            if (episode(name) == null) return@forEach
             val old = runCatching { DocumentsContract.getDocumentId(f.uri) }.getOrNull() ?: return@forEach
             val moved = shelve(context, tree, f.uri, name)
             if (moved == f.uri) return@forEach
