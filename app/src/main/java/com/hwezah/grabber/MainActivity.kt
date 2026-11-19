@@ -18,6 +18,11 @@ class MainActivity : ComponentActivity() {
         Ink.use(Prefs.dark)
         // Downloads left waiting when the app was closed carry on.
         Downloads.kick()
+        // Episodes saved before shows had folders: sorted once, in the background.
+        val sp = getSharedPreferences("grabber", MODE_PRIVATE)
+        if (!sp.getBoolean("showsShelved", false)) kotlin.concurrent.thread(name = "grabber-shelve") {
+            runCatching { Folders.shelveAll(applicationContext) }.onSuccess { sp.edit().putBoolean("showsShelved", true).apply() }
+        }
         setContent {
             // Status and navigation bar icons follow the theme: light icons on the dark page, dark on paper.
             LaunchedEffect(Prefs.dark) {
