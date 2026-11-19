@@ -9,15 +9,22 @@ import android.view.accessibility.AccessibilityEvent
 /**
  * Watches for "Copy" being tapped (or a "Copied" message appearing) in any app, then opens the capture
  * popup, which reads the clipboard. Android won't hand the clipboard to a background app directly.
- * It only reads the words on the button tapped; it doesn't read screens.
+ * It reads the words on the button tapped and, in browsers only, the address bar, so a download a browser
+ * starts can be offered to Grabber (see [BrowserCatch]).
  */
 class CopyWatcher : AccessibilityService() {
     private val main = Handler(Looper.getMainLooper())
     private var lastFire = 0L
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        Prefs.init(this)
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val pkg = event.packageName?.toString() ?: return
         if (pkg == packageName) return
+        if (pkg in BrowserCatch.BROWSERS) browser(pkg, event)
         val words = (event.text.joinToString(" ") + " " + (event.contentDescription ?: "")).lowercase().trim()
         if (words.isEmpty() || words.length > 80) return
         val hit = when (event.eventType) {
@@ -37,6 +44,28 @@ class CopyWatcher : AccessibilityService() {
                 )
             }
         }, 350)
+    }
+
+    /** A browser: keeps its address in mind, and catches a download it starts. */
+    private fun browser(pkg: String, event: AccessibilityEvent) {
+        if (!Prefs.catchBrowser) return
+        if (event.eventType != AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) {
+            runCatching { BrowserCatch.notePage(pkg, rootInActiveWindow) }
+            return
+        }
+        val n = event.parcelableData as? android.app.Notification ?: return
+        val file = BrowserCatch.onNotification(pkg, n) ?: return
+        // The browser is usually still on screen: its address bar has the page the download came from.
+        runCatching { BrowserCatch.notePage(pkg, rootInActiveWindow) }
+        val key = BrowserCatch.key(pkg, file)
+        BrowserCatch.pause(key)
+        runCatching {
+            startActivity(
+                Intent(this, CaptureActivity::class.java).setAction(CaptureActivity.TAKE)
+                    .putExtra("file", file).putExtra("pkg", pkg).putExtra("page", BrowserCatch.page(pkg))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS),
+            )
+        }
     }
 
     override fun onInterrupt() {}

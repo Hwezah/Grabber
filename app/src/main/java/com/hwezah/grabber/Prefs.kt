@@ -41,6 +41,10 @@ object Prefs {
         private set
     var userAgent by mutableStateOf("")
         private set
+    /** Catch downloads other browsers start (needs the copy watcher on). */
+    var catchBrowser by mutableStateOf(true)
+        private set
+    fun useCatchBrowser(v: Boolean) { catchBrowser = v; sp.edit().putBoolean("catchBrowser", v).apply() }
     var savePlainText by mutableStateOf(true)
         private set
     var offerOnOpen by mutableStateOf(true)
@@ -103,6 +107,7 @@ object Prefs {
         notifyDone = sp.getBoolean("notifyDone", true)
         userAgent = sp.getString("userAgent", "") ?: ""
         savePlainText = sp.getBoolean("savePlainText", true)
+        catchBrowser = sp.getBoolean("catchBrowser", true)
         offerOnOpen = sp.getBoolean("offerOnOpen", true)
         historyLimit = sp.getInt("historyLimit", 500)
         sequentialDefault = sp.getBoolean("sequentialDefault", false)

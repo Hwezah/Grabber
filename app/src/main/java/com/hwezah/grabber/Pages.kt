@@ -81,6 +81,8 @@ fun SettingsPage() {
             Overline("Catching links")
             Group {
                 CatchRows()
+                SettingRow("Catch browser downloads", "Chrome, Samsung Internet, Edge and others: a download they start pauses and Grabber offers to take it. Needs auto-catch on") { Toggle(Prefs.catchBrowser, Prefs::useCatchBrowser) }
+                SettingRow("Firefox", "Settings › Downloads › External download manager sends every Firefox download straight to Grabber") {}
                 SettingRow("Save copied plain text", "Keep copied text without links in Clipboard too") { Toggle(Prefs.savePlainText, Prefs::useSavePlainText) }
                 SettingRow("Offer copied links on open", "Opening Grabber with a new link copied shows the download sheet") { Toggle(Prefs.offerOnOpen, Prefs::useOfferOnOpen) }
                 ChipRow("Clipboard history keeps", listOf(100, 500, 1000).map { it to "$it" }, Prefs.historyLimit, Prefs::useHistoryLimit)

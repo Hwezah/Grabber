@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="watcher_description">Grabber notices when you tap Copy in any app and offers to download the link you copied. It only reads the words on the button you tap, never your screen.</string>
+    <string name="watcher_description">Grabber notices when you tap Copy in any app and offers to download the link you copied. It reads the words on the button you tap and, in browsers, the address bar, so a download the browser starts can be taken by Grabber. Nothing else on your screen is read.</string>
     <string name="tile_label">Grab clipboard</string>
 </resources>

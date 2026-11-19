@@ -12,6 +12,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Prefs.init(this)
+        intent?.getStringExtra(OPEN_URL)?.let { Browser.open(it) }
         Downloads.init(this)
         Clips.init(this)
         Places.init(this)
@@ -37,6 +38,16 @@ class MainActivity : ComponentActivity() {
             }
             App()
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra(OPEN_URL)?.let { Browser.open(it) }
+    }
+
+    companion object {
+        /** A page to open in Grabber's browser (a download taken from another browser). */
+        const val OPEN_URL = "openUrl"
     }
 
     override fun onResume() {

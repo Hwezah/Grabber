@@ -29,6 +29,8 @@ class CaptureActivity : ComponentActivity() {
     /** A batch's per-link headers (Referer, User-Agent, cookies), same order as its lines. */
     private var linkHeaders by mutableStateOf<List<Map<String, String>>>(emptyList())
     private var looked = false
+    /** A download another browser started: (file, page, browser package). */
+    private var taken by mutableStateOf<Triple<String, String?, String>?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,7 +41,12 @@ class CaptureActivity : ComponentActivity() {
         streams(intent).takeIf { it.isNotEmpty() }?.let { files = it } ?: given(intent)?.let { show(it) }
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Ink.red)) {
-                if (files.isNotEmpty()) SaveFilesSheet(files) { finish() }
+                val t = taken
+                if (t != null) TakeSheet(t.first, t.second, BrowserCatch.browserName(this, t.third), onGrabber = { grab(t) }, onKeep = {
+                    BrowserCatch.resume(BrowserCatch.key(t.third, t.first))
+                    finish()
+                })
+                else if (files.isNotEmpty()) SaveFilesSheet(files) { finish() }
                 else text?.let { CaptureSheet(it, title = title, headers = headers, titles = titles, linkHeaders = linkHeaders) { finish() } }
             }
         }
@@ -52,8 +59,29 @@ class CaptureActivity : ComponentActivity() {
         streams(intent).takeIf { it.isNotEmpty() }?.let { files = it } ?: given(intent)?.let { show(it) }
     }
 
+    /** Takes a browser's download: its copy stops; a file link goes straight to the sheet, a page opens in Grabber's browser. */
+    private fun grab(t: Triple<String, String?, String>) {
+        BrowserCatch.cancel(BrowserCatch.key(t.third, t.first))
+        taken = null
+        val page = t.second
+        when {
+            page != null && BrowserCatch.looksLikeFile(page) -> { title = t.first; show(page) }
+            page != null -> { openInGrabberBrowser(this, page); finish() }
+            else -> {
+                Toast.makeText(this, "Open the page in Grabber's browser and tap the download there", Toast.LENGTH_LONG).show()
+                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                finish()
+            }
+        }
+    }
+
     /** Text handed to us directly: shared, or selected with "Grabber" in the text menu. */
     private fun given(i: Intent): String? = when (i.action) {
+        TAKE -> {
+            looked = true
+            taken = i.getStringExtra("file")?.let { f -> Triple(f, i.getStringExtra("page"), i.getStringExtra("pkg").orEmpty()) }
+            null
+        }
         Intent.ACTION_VIEW -> i.dataString?.also { extras(i) }
         // The subject names what was shared: a page's title, or "The Penguin · season 1" for a batch of links.
         Intent.ACTION_SEND -> i.getStringExtra(Intent.EXTRA_TEXT)?.also {
@@ -122,5 +150,7 @@ class CaptureActivity : ComponentActivity() {
 
     companion object {
         const val FROM_TILE = "fromTile"
+        /** From the copy watcher: a browser started a download. */
+        const val TAKE = "com.hwezah.grabber.TAKE"
     }
 }
