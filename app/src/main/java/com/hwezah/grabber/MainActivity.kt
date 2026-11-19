@@ -22,8 +22,8 @@ class MainActivity : ComponentActivity() {
         kotlin.concurrent.thread(name = "grabber-merge") { runCatching { Folders.mergeDuplicates(applicationContext) } }
         // Episodes saved before shows had folders: sorted once, in the background.
         val sp = getSharedPreferences("grabber", MODE_PRIVATE)
-        if (!sp.getBoolean("shelved2", false)) kotlin.concurrent.thread(name = "grabber-shelve") {
-            runCatching { Folders.shelveAll(applicationContext) }.onSuccess { sp.edit().putBoolean("shelved2", true).apply() }
+        if (!sp.getBoolean("shelved3", false)) kotlin.concurrent.thread(name = "grabber-shelve") {
+            runCatching { Folders.shelveAll(applicationContext) }.onSuccess { sp.edit().putBoolean("shelved3", true).apply() }
         }
         setContent {
             // Status and navigation bar icons follow the theme: light icons on the dark page, dark on paper.

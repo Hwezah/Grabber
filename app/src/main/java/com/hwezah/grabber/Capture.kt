@@ -17,7 +17,11 @@ object Capture {
     var pendingHeaders by mutableStateOf<Map<String, String>>(emptyMap())
 
     /** Offers [text] in the in-app sheet, with its [title] and [headers] if known. */
-    fun offer(text: String, title: String?, headers: Map<String, String> = emptyMap()) {
+    /** The sheet open now was opened by Grabber's browser: its downloads go under Browser/. */
+    var fromBrowser = false
+
+    fun offer(text: String, title: String?, headers: Map<String, String> = emptyMap(), browser: Boolean = false) {
+        fromBrowser = browser
         pendingTitle = title
         pendingHeaders = headers
         pending = text

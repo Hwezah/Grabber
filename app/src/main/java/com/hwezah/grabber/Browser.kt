@@ -328,12 +328,12 @@ object Browser {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url
                 // Links Grabber handles itself: magnets, and pages that are files.
-                if (u.scheme == "magnet") { Capture.offer(u.toString(), t.title); return true }
+                if (u.scheme == "magnet") { Capture.offer(u.toString(), t.title, browser = true); return true }
                 // A link straight to a file (video, audio, archive, app, document, torrent): Grabber takes it.
                 val k = kindOf(u.toString())
                 if (k != null && !k.startsWith("Stream")) {
                     val name = u.lastPathSegment?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
-                    Capture.offer(u.toString(), name, headersFor(Sniffed(u.toString(), k, t.url, t.title)))
+                    Capture.offer(u.toString(), name, headersFor(Sniffed(u.toString(), k, t.url, t.title)), browser = true)
                     return true
                 }
                 if (u.scheme != "http" && u.scheme != "https") return true
@@ -403,7 +403,7 @@ object Browser {
         w.setDownloadListener { url, ua, disposition, mime, _ ->
             val name = URLUtil.guessFileName(url, disposition, mime)
             val s = Sniffed(url, "File", t.url, name)
-            Capture.offer(url, name, headersFor(s) + ("User-Agent" to ua))
+            Capture.offer(url, name, headersFor(s) + ("User-Agent" to ua), browser = true)
         }
         // Nothing loaded until something is searched or typed: a blank start. A rebuilt tab reloads its page.
         t.web = w

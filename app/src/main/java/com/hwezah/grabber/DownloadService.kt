@@ -155,7 +155,7 @@ class DownloadService : Service() {
                 val info = item.fixedName?.let { probed.copy(name = Names.clean(it)) }
                     ?: if (nameless && item.hint.isNotBlank()) probed.copy(name = Names.clean(item.hint) + ext) else probed
                 val category = Names.category(info.name, info.mime)
-                val doc = Folders.create(this, tree, category, info.name, part = true) ?: throw IllegalStateException("Can't write to the download folder; choose it again in Settings")
+                val doc = Folders.create(this, tree, category, info.name, part = true, browser = item.browser) ?: throw IllegalStateException("Can't write to the download folder; choose it again in Settings")
                 Downloads.edit(id) {
                     it.copy(url = info.finalUrl, name = (Uri.parse(doc.toString()).lastPathSegment?.substringAfterLast('/') ?: info.name).removeSuffix(".part"),
                         mime = info.mime, category = category, size = info.size, resumable = info.resumable, doc = doc.toString(), segments = "", done = 0)
@@ -311,7 +311,7 @@ class DownloadService : Service() {
             val tree = Prefs.folder ?: throw IllegalStateException("Choose a download folder in Settings")
             val base = (item.fixedName ?: nameFor(item.url, null, item.hint)).replace(Regex("""\.(m3u8|m3u|ts|mp4)$""", RegexOption.IGNORE_CASE), "").ifBlank { "video" }
             val name = Names.clean(base) + ".ts"
-            val doc = Folders.create(this, tree, Category.Video, name, part = true) ?: throw IllegalStateException("Can't write to the download folder")
+            val doc = Folders.create(this, tree, Category.Video, name, part = true, browser = item.browser) ?: throw IllegalStateException("Can't write to the download folder")
             Downloads.edit(id) { it.copy(doc = doc.toString(), name = (doc.lastPathSegment?.substringAfterLast('/') ?: name).removeSuffix(".part"), category = Category.Video) }
             item = Downloads.get(id) ?: return
         }

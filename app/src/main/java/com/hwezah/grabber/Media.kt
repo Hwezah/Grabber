@@ -149,7 +149,7 @@ object Media {
         val tree = Prefs.folder ?: error("Choose a download folder in Settings")
         val cat = if (f.startsWith("a:")) Category.Audio else Category.Video
         // Copied in as a .part, named properly once it's all there.
-        val part = Folders.create(context, tree, cat, out.name, part = true) ?: error("Can't write to the download folder")
+        val part = Folders.create(context, tree, cat, out.name, part = true, browser = item.browser) ?: error("Can't write to the download folder")
         context.contentResolver.openOutputStream(part)?.use { o -> out.inputStream().use { it.copyTo(o, 256 * 1024) } }
         val size = out.length()
         val (doc, name) = Folders.finish(context, part.toString(), out.name, youtube = cat == com.hwezah.grabber.engine.Category.Video && item.kind == Kind.Media && looksLikeSite(item.url))

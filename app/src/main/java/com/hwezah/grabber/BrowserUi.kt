@@ -208,7 +208,7 @@ fun BrowserPage() {
                 }
                 if (site) {
                     Spacer(Modifier.height(8.dp))
-                    Button("Grab this page's video", { menu = false; Capture.offer(Browser.url, Browser.title) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
+                    Button("Grab this page's video", { menu = false; Capture.offer(Browser.url, Browser.title, browser = true) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
                 }
             }
         }
@@ -261,7 +261,7 @@ fun BrowserPage() {
                 if (site) {
                     Button("Grab this page's video", {
                         picking = false
-                        Capture.offer(Browser.url, Browser.title)
+                        Capture.offer(Browser.url, Browser.title, browser = true)
                     }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
                     Spacer(Modifier.height(10.dp))
                 }
@@ -270,7 +270,7 @@ fun BrowserPage() {
                     Browser.found.forEach { s ->
                         Tap({
                             picking = false
-                            Capture.offer(s.url, s.title.ifBlank { null }, Browser.headersFor(s))
+                            Capture.offer(s.url, s.title.ifBlank { null }, Browser.headersFor(s), browser = true)
                         }, Modifier.fillMaxWidth(), RoundedCornerShape(8.dp)) {
                             Row(Modifier.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {

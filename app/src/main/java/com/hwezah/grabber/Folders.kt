@@ -9,9 +9,11 @@ import com.hwezah.grabber.engine.Category
 /** The download folder the user chose (Storage Access Framework), with one subfolder per category. */
 object Folders {
     /** A new empty file in [category]'s subfolder, renamed "name (2).ext" if the name is taken. Null without a folder. */
-    fun create(context: Context, tree: String, category: Category, name: String, part: Boolean = false): Uri? {
-        val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return null
-        if (!root.canWrite()) return null
+    fun create(context: Context, tree: String, category: Category, name: String, part: Boolean = false, browser: Boolean = false): Uri? {
+        val top = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return null
+        if (!top.canWrite()) return null
+        // From Grabber's browser: Browser/Video, Browser/Audio…
+        val root = if (browser) synchronized(this) { top.findFile("Browser")?.takeIf { it.isDirectory } ?: top.createDirectory("Browser") } ?: return null else top
         // One at a time: two downloads making the same folder at once would get "Other" and "Other (1)".
         val dir = synchronized(this) { root.findFile(category.folder)?.takeIf { it.isDirectory } ?: root.createDirectory(category.folder) } ?: return null
         val base = name.substringBeforeLast('.', name)
@@ -60,17 +62,23 @@ object Folders {
         val ep = episode(name)
         // Not an episode: a video site's download goes to YouTube, a film (a year in its name) to Movies.
         if (ep == null) {
+            val year = Regex("""(?:^|[\s._(\[])((?:19|20)\d{2})(?:[\s._)\]]|$)""").find(name.substringBeforeLast('.', name))
             val sub = when {
                 youtube -> "YouTube"
-                Regex("""(?:^|[\s._(\[])(?:19|20)\d{2}(?:[\s._)\]]|$)""").containsMatchIn(name.substringBeforeLast('.', name)) -> "Movies"
+                year != null -> "Movies"
                 else -> return doc
+            }
+            // A film gets its own folder: Movies/<Title (Year)>/.
+            val film = year?.let { y ->
+                val title = name.substring(0, y.range.first).replace('_', ' ').replace('.', ' ').replace(Regex("""\s+"""), " ").trim().trimEnd('(', '[', '-', '·', ' ')
+                (if (title.isBlank()) y.groupValues[1] else "$title (${y.groupValues[1]})").replace(Regex("""[\\/:*?"<>|]"""), "_")
             }
             return runCatching {
                 val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return doc
                 val video = root.findFile(Category.Video.folder)?.takeIf { it.isDirectory } ?: return doc
                 val id = DocumentsContract.getDocumentId(doc)
                 if (id.substringBeforeLast('/') != DocumentsContract.getDocumentId(video.uri)) return doc
-                val target = dir(video, sub) ?: return doc
+                val target = dir(video, sub)?.let { if (sub == "Movies" && film != null) dir(it, film) else it } ?: return doc
                 if (target.findFile(name) != null) return doc
                 DocumentsContract.moveDocument(context.contentResolver, doc, video.uri, target.uri) ?: doc
             }.getOrDefault(doc)

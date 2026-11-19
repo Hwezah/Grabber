@@ -57,6 +57,8 @@ data class Item(
     val source: String = "",
     /** Media (yt-dlp): "v:1080" for video up to 1080p, "a:mp3" / "a:m4a" / "a:opus" for audio. */
     val format: String = "",
+    /** Found in Grabber's browser: saved under Browser/<type> instead of the main folders. */
+    val browser: Boolean = false,
 ) {
     val progress get() = if (size > 0) (done.toFloat() / size).coerceIn(0f, 1f) else 0f
 }
@@ -120,6 +122,7 @@ object Downloads {
                 val title = titles.getOrNull(i)?.takeIf { it.isNotBlank() } ?: name?.takeIf { urls.size == 1 && it.isNotBlank() }
                 Item(id = base + i, url = u, source = u, hint = hint, headers = headers, fixedName = title,
                     kind = kind, files = files, sequential = sequential, format = format,
+                    browser = Capture.fromBrowser && Capture.pending != null,
                     state = if (start) State.Queued else State.Paused,
                     category = when {
                         kind == Kind.Torrent -> Category.Torrents
@@ -258,6 +261,7 @@ object Downloads {
                 put("state", i.state.name); i.error?.let { put("error", it) }
                 put("segments", i.segments); put("done", i.done); put("created", i.created); put("finished", i.finished)
                 i.fixedName?.let { put("fixedName", it) }
+                if (i.browser) put("browser", true)
                 put("source", i.source); put("hint", i.hint); put("kind", i.kind.name); put("files", i.files); put("sequential", i.sequential); put("format", i.format)
             })
         }
@@ -280,6 +284,7 @@ object Downloads {
                 segments = o.optString("segments"), done = o.optLong("done"),
                 created = o.optLong("created"), finished = o.optLong("finished"),
                 fixedName = o.optString("fixedName").ifEmpty { null },
+                browser = o.optBoolean("browser"),
                 kind = runCatching { Kind.valueOf(o.optString("kind")) }.getOrDefault(Kind.Http),
                 source = o.optString("source"), hint = o.optString("hint"),
                 files = o.optString("files"), sequential = o.optBoolean("sequential"), format = o.optString("format"),
