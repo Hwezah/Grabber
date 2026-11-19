@@ -18,10 +18,11 @@ class MainActivity : ComponentActivity() {
         Ink.use(Prefs.dark)
         // Downloads left waiting when the app was closed carry on.
         Downloads.kick()
-        // Accidental "Other (1)" folders folded back into "Other".
-        kotlin.concurrent.thread(name = "grabber-merge") { runCatching { Folders.mergeDuplicates(applicationContext) } }
-        // Finished videos still loose in Video/: sorted into Shows, Movies and YouTube, every start.
+        // Accidental "Video (1)" folders folded back; old top-level Movies, Shows and Other moved in;
+        // finished videos still loose in Video/ sorted into Shows, Movies and YouTube, every start.
         kotlin.concurrent.thread(name = "grabber-shelve") {
+            runCatching { Folders.mergeDuplicates(applicationContext) }
+            runCatching { Folders.tidyRoot(applicationContext) }
             runCatching { Folders.ensureLayout(applicationContext) }
             runCatching { Folders.flattenMovies(applicationContext) }
             runCatching { Folders.shelveAll(applicationContext) }

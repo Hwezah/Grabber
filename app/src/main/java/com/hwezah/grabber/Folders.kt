@@ -12,7 +12,8 @@ object Folders {
     fun create(context: Context, tree: String, category: Category, name: String, part: Boolean = false, browser: Boolean = false): Uri? {
         val top = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return null
         if (!top.canWrite()) return null
-        // From Grabber's browser: Browser/Video, Browser/Audio…
+        // From Grabber's browser: Browser/Video, Browser/Audio… Anything else unusual joins Browser/Other, so the top stays clean.
+        val browser = browser || category == Category.Other
         val root = if (browser) synchronized(this) { top.findFile("Browser")?.takeIf { it.isDirectory } ?: top.createDirectory("Browser") } ?: return null else top
         // One at a time: two downloads making the same folder at once would get "Other" and "Other (1)".
         // The browser keeps five: Video, Audio, Documents, Images, and Other for the rest.
@@ -149,6 +150,51 @@ object Folders {
                 }
             }
             if (sub.listFiles().isEmpty()) sub.delete()
+        }
+    }
+
+    /**
+     * Leftovers from earlier builds at the top: Movies and Shows go into Video/, Other and "Other (1)" into Browser/Other.
+     * Files keep their names (numbered on a clash), the downloads list follows, and the emptied folders go.
+     */
+    fun tidyRoot(context: Context) {
+        val tree = Prefs.folder ?: return
+        val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return
+        if (!root.canWrite()) return
+        fun idOf(d: String?) = d?.let { runCatching { DocumentsContract.getDocumentId(Uri.parse(it)) }.getOrNull() }
+        // Everything in [from] into [to]; folders of the same name merge.
+        fun pour(from: DocumentFile, to: DocumentFile) {
+            from.listFiles().forEach { f ->
+                val name = f.name ?: return@forEach
+                if (f.isDirectory) {
+                    val same = to.findFile(name)?.takeIf { it.isDirectory }
+                    if (same != null) { pour(f, same); if (f.listFiles().isEmpty()) f.delete(); return@forEach }
+                }
+                runCatching {
+                    val prefix = idOf(f.uri.toString()) ?: return@runCatching
+                    val free = freeName(to, name, f.isDirectory)
+                    val src = if (free != name) DocumentsContract.renameDocument(context.contentResolver, f.uri, free) ?: f.uri else f.uri
+                    val moved = DocumentsContract.moveDocument(context.contentResolver, src, from.uri, to.uri) ?: return@runCatching
+                    val now = DocumentsContract.getDocumentId(moved)
+                    // A file, or everything inside a moved folder, keeps its place in the list.
+                    Downloads.items.value.forEach { item ->
+                        val id = idOf(item.doc) ?: return@forEach
+                        if (id == prefix || id.startsWith("$prefix/")) {
+                            val doc = DocumentsContract.buildDocumentUriUsingTree(Uri.parse(tree), now + id.removePrefix(prefix))
+                            Downloads.edit(item.id) { it.copy(doc = doc.toString()) }
+                        }
+                    }
+                }
+            }
+        }
+        val targets = mapOf("Movies" to "Video/Movies", "Shows" to "Video/Shows")
+        root.listFiles().filter { it.isDirectory }.forEach { d ->
+            val name = d.name ?: return@forEach
+            val path = targets[name] ?: if (name == "Other" || Regex("""^Other \(\d+\)$""").matches(name)) "Browser/Other" else return@forEach
+            var to: DocumentFile? = root
+            path.split('/').forEach { part -> to = to?.let { dir(it, part) } }
+            to?.let { pour(d, it) }
+            if (d.listFiles().isEmpty()) d.delete()
         }
     }
 

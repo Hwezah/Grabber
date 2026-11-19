@@ -75,7 +75,7 @@ import com.hwezah.grabber.design.frost
 import com.hwezah.grabber.engine.Category
 import kotlinx.coroutines.launch
 
-private val FILTERS = listOf("All", "Active", "Done") + Category.entries.map { it.folder }
+private val FILTERS = listOf("All", "Active") + Category.entries.map { it.folder }
 
 private fun iconOf(c: Category) = when (c) {
     Category.Video -> L.drawable.lucide_ic_film
@@ -119,7 +119,6 @@ fun DownloadsPage() {
         when (filter) {
             "All" -> true
             "Active" -> i.state != State.Done
-            "Done" -> i.state == State.Done
             else -> i.category.folder == filter
         }
     }
