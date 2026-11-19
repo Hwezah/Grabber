@@ -12,7 +12,8 @@ object Folders {
     fun create(context: Context, tree: String, category: Category, name: String, part: Boolean = false): Uri? {
         val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return null
         if (!root.canWrite()) return null
-        val dir = root.findFile(category.folder)?.takeIf { it.isDirectory } ?: root.createDirectory(category.folder) ?: return null
+        // One at a time: two downloads making the same folder at once would get "Other" and "Other (1)".
+        val dir = synchronized(this) { root.findFile(category.folder)?.takeIf { it.isDirectory } ?: root.createDirectory(category.folder) } ?: return null
         val base = name.substringBeforeLast('.', name)
         val ext = name.substringAfterLast('.', "").let { if (it.isEmpty()) "" else ".$it" }
         // A name is taken by a finished file or by one still downloading (".part").
@@ -68,6 +69,32 @@ object Folders {
             if (target.findFile(name) != null) return doc
             DocumentsContract.moveDocument(context.contentResolver, doc, video.uri, target.uri) ?: doc
         }.getOrDefault(doc)
+    }
+
+    /**
+     * Folders made twice by accident ("Other (1)", "Video (2)"): their files go back into the real one, the copy goes.
+     * Only for Grabber's own type folders.
+     */
+    fun mergeDuplicates(context: Context) {
+        val tree = Prefs.folder ?: return
+        val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return
+        val dirs = root.listFiles().filter { it.isDirectory }
+        Category.entries.map { it.folder }.forEach { real ->
+            val copies = dirs.filter { d -> d.name?.let { Regex("""^${Regex.escape(real)} \(\d+\)$""").matches(it) } == true }
+            if (copies.isEmpty()) return@forEach
+            val main = synchronized(this) { root.findFile(real)?.takeIf { it.isDirectory } ?: root.createDirectory(real) } ?: return@forEach
+            copies.forEach { copy ->
+                copy.listFiles().forEach { f ->
+                    val name = f.name ?: return@forEach
+                    if (main.findFile(name) != null) return@forEach
+                    val old = runCatching { DocumentsContract.getDocumentId(f.uri) }.getOrNull()
+                    val moved = runCatching { DocumentsContract.moveDocument(context.contentResolver, f.uri, copy.uri, main.uri) }.getOrNull() ?: return@forEach
+                    Downloads.items.value.filter { it.doc?.let { d -> runCatching { DocumentsContract.getDocumentId(Uri.parse(d)) }.getOrNull() } == old }
+                        .forEach { item -> Downloads.edit(item.id) { it.copy(doc = moved.toString()) } }
+                }
+                if (copy.listFiles().isEmpty()) copy.delete()
+            }
+        }
     }
 
     /** Sorts episodes already in Video/ into their show folders, and points the downloads list at their new places. */

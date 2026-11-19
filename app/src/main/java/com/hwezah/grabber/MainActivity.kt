@@ -18,6 +18,8 @@ class MainActivity : ComponentActivity() {
         Ink.use(Prefs.dark)
         // Downloads left waiting when the app was closed carry on.
         Downloads.kick()
+        // Accidental "Other (1)" folders folded back into "Other".
+        kotlin.concurrent.thread(name = "grabber-merge") { runCatching { Folders.mergeDuplicates(applicationContext) } }
         // Episodes saved before shows had folders: sorted once, in the background.
         val sp = getSharedPreferences("grabber", MODE_PRIVATE)
         if (!sp.getBoolean("showsShelved", false)) kotlin.concurrent.thread(name = "grabber-shelve") {
