@@ -44,6 +44,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -128,8 +130,13 @@ fun DownloadsPage() {
         Column(Modifier.fillMaxSize()) {
             Heading("Downloads") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (items.isNotEmpty()) Button("", { menu = true }, icon = L.drawable.lucide_ic_sliders_horizontal, compact = true)
-                    Button("Add", { adding = true }, icon = L.drawable.lucide_ic_plus, accent = Ink.red, compact = true)
+                    // Bare icons, no backgrounds.
+                    if (items.isNotEmpty()) Tap({ menu = true }, Modifier.size(44.dp).semantics { contentDescription = "Download options" }, CircleShape) {
+                        Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_sliders_horizontal, tint = Ink.text, size = 26.dp) }
+                    }
+                    Tap({ adding = true }, Modifier.size(44.dp).semantics { contentDescription = "Add" }, CircleShape) {
+                        Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_plus, tint = Ink.red, size = 28.dp) }
+                    }
                 }
             }
             Row(Modifier.padding(horizontal = EDGE).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
