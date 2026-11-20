@@ -135,7 +135,7 @@ fun DownloadsPage() {
                         Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_sliders_horizontal, tint = Ink.text, size = 26.dp) }
                     }
                     Tap({ adding = true }, Modifier.size(44.dp).semantics { contentDescription = "Add" }, CircleShape) {
-                        Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_plus, tint = Ink.red, size = 28.dp) }
+                        Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_plus, tint = Ink.red, size = 32.dp) }
                     }
                 }
             }

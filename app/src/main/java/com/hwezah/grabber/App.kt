@@ -107,7 +107,7 @@ fun App() {
                 }
             }
         }
-        Box(Modifier.fillMaxSize().background(Ink.bg).frost(androidx.compose.ui.graphics.RectangleShape, alpha = 0.03f).nestedScroll(scrollWatch)) {
+        Box(Modifier.fillMaxSize().background(Ink.bg).frost(androidx.compose.ui.graphics.RectangleShape, alpha = 0f, grain = 0.6f).nestedScroll(scrollWatch)) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
@@ -173,7 +173,7 @@ private fun TabBar(tab: Tab, onTab: (Tab) -> Unit) {
 @Composable
 private fun PillBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth(0.9f).navigationBarsPadding().padding(bottom = 12.dp).frost(RoundedCornerShape(20.dp), Ink.bg.copy(alpha = 0.88f), alpha = 0.02f)
+        modifier.fillMaxWidth(0.9f).navigationBarsPadding().padding(bottom = 12.dp).frost(RoundedCornerShape(20.dp), Ink.bg, alpha = 0.02f)
             // A very faint edge, so the bar stands off the page it now matches.
             .border(1.dp, Ink.text.copy(alpha = 0.07f), RoundedCornerShape(20.dp)).padding(6.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
