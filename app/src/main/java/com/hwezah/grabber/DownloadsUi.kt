@@ -138,10 +138,9 @@ fun DownloadsPage() {
                 val filters = if (portrait) FILTERS - listOf("Video", "Audio") else FILTERS
                 filters.forEachIndexed { i, c -> if (i > 0) Pipe(com.hwezah.grabber.design.pipeColor(i - 1)); Chip(c, c == filter, { filter = c }) }
             }
-            if (items.isNotEmpty()) Text(
+            if (items.isNotEmpty()) com.hwezah.grabber.design.Note(
                 "Swipe left to remove · right to pause or open",
-                Modifier.fillMaxWidth().padding(start = EDGE * 2, end = EDGE * 2, top = 8.dp),
-                style = Type.meta.copy(color = Ink.faint, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                Modifier.padding(start = EDGE * 2, end = EDGE * 2, top = 8.dp), small = true,
             )
             if (shown.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = EDGE * 3), contentAlignment = Alignment.Center) {
@@ -214,22 +213,28 @@ private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: 
     // Progress fills the whole card from the left, easing rather than jumping.
     val target = if (!finished && item.size > 0) (done.toFloat() / item.size).let { if (it.isNaN()) 0f else it.coerceIn(0f, 1f) } else 0f
     val p by androidx.compose.animation.core.animateFloatAsState(target, label = "fill")
-    // Paused or failed: upright stripes, 14dp each, card and fill colours in turn.
+    // Paused or failed: upright strips, one per part of the file, each filled as far as that part has come (as 1DM shows its threads).
     val striped = item.state == State.Paused || item.state == State.Failed
+    val strips = remember(striped, item.segments, item.size, done) {
+        if (striped) com.hwezah.grabber.engine.Segments.strips(item.segments, item.size, done) else emptyList()
+    }
     val face = Ink.card
     val fill = Ink.cardFill
     Tap(onClick, Modifier.fillMaxWidth(), shape) {
         Column(
             Modifier.clip(shape).background(face)
                 .drawWithCache {
-                    val stripes = androidx.compose.ui.graphics.Brush.linearGradient(
-                        0f to face, 0.5f to face, 0.5f to fill, 1f to fill,
-                        start = androidx.compose.ui.geometry.Offset.Zero, end = androidx.compose.ui.geometry.Offset(28.dp.toPx(), 0f),
-                        tileMode = androidx.compose.ui.graphics.TileMode.Repeated,
-                    )
+                    val hair = 1.dp.toPx()
                     onDrawBehind {
-                        if (striped) drawRect(stripes)
-                        else if (p > 0f) drawRect(fill, size = size.copy(width = size.width * p))
+                        if (strips.isNotEmpty()) {
+                            val w = size.width / strips.size
+                            strips.forEachIndexed { i, f ->
+                                val x = i * w
+                                if (f > 0f) drawRect(fill, topLeft = androidx.compose.ui.geometry.Offset(x, 0f), size = size.copy(width = w * f))
+                                // A hairline at each strip's left edge, so empty ones still read as strips.
+                                if (i > 0) drawRect(fill, topLeft = androidx.compose.ui.geometry.Offset(x, 0f), size = size.copy(width = hair))
+                            }
+                        } else if (p > 0f) drawRect(fill, size = size.copy(width = size.width * p))
                     }
                 }
                 .grain()

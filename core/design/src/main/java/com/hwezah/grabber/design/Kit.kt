@@ -201,8 +201,14 @@ fun Toggle(checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = M
 
 /** Quiet text that says why something is empty; centred on a portrait phone. */
 @Composable
-fun Note(text: String, modifier: Modifier = Modifier) =
-    Text(text, modifier, style = Type.body.copy(color = Ink.faint, textAlign = TextAlign.Center))
+fun Note(text: String, modifier: Modifier = Modifier, small: Boolean = false) {
+    val c = androidx.compose.ui.platform.LocalConfiguration.current
+    val portrait = c.screenHeightDp > c.screenWidthDp && c.screenWidthDp < 600
+    Text(
+        text, modifier.fillMaxWidth(),
+        style = (if (small) Type.meta else Type.body).copy(color = Ink.faint, textAlign = if (portrait) TextAlign.Center else TextAlign.Start),
+    )
+}
 
 /** A page heading under the status bar. */
 @Composable

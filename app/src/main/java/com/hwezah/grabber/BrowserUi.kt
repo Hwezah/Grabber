@@ -293,7 +293,7 @@ fun BrowserPage() {
                         }
                     }
                 }
-                if (Browser.blocked > 0) Text("${Browser.blocked} ads and trackers blocked on this page", Modifier.padding(top = 8.dp), style = Type.meta.copy(color = Ink.faint))
+                if (Browser.blocked > 0) com.hwezah.grabber.design.Note("${Browser.blocked} ads and trackers blocked on this page", Modifier.padding(top = 8.dp), small = true)
             }
         }
     }
