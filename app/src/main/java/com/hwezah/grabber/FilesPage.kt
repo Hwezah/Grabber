@@ -260,7 +260,7 @@ fun FilesPage() {
         android.widget.Toast.makeText(context, text, if (long) android.widget.Toast.LENGTH_LONG else android.widget.Toast.LENGTH_SHORT).show()
 
     if (tree == null) {
-        Column(Modifier.fillMaxSize().background(Ink.bg)) {
+        Column(Modifier.fillMaxSize()) {
             Heading("Files")
             Note("Choose a download folder in Settings first.", Modifier.fillMaxWidth().padding(horizontal = CARD, vertical = 24.dp))
         }
@@ -344,7 +344,7 @@ fun FilesPage() {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Ink.bg)) {
+    Column(Modifier.fillMaxSize()) {
         Heading("Files") {
             Tap({ making = true }, Modifier.semantics { contentDescription = "New Folder" }, CircleShape) {
                 Box(Modifier.padding(8.dp), contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_folder_plus, tint = Ink.text, size = 24.dp) }

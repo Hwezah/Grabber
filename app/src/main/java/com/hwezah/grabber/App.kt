@@ -107,7 +107,7 @@ fun App() {
                 }
             }
         }
-        Box(Modifier.fillMaxSize().background(Ink.bg).nestedScroll(scrollWatch)) {
+        Box(Modifier.fillMaxSize().background(Ink.bg).frost(androidx.compose.ui.graphics.RectangleShape, alpha = 0.03f).nestedScroll(scrollWatch)) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
