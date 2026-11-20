@@ -15,6 +15,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -172,7 +173,9 @@ private fun TabBar(tab: Tab, onTab: (Tab) -> Unit) {
 @Composable
 private fun PillBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth(0.9f).navigationBarsPadding().padding(bottom = 12.dp).frost(RoundedCornerShape(20.dp), Ink.bg.copy(alpha = 0.88f), alpha = 0.02f).padding(6.dp),
+        modifier.fillMaxWidth(0.9f).navigationBarsPadding().padding(bottom = 12.dp).frost(RoundedCornerShape(20.dp), Ink.bg.copy(alpha = 0.88f), alpha = 0.02f)
+            // A very faint edge, so the bar stands off the page it now matches.
+            .border(1.dp, Ink.text.copy(alpha = 0.07f), RoundedCornerShape(20.dp)).padding(6.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
