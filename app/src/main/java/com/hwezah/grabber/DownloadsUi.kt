@@ -44,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -182,7 +183,7 @@ fun DownloadsPage() {
                                 else -> L.drawable.lucide_ic_play
                             },
                             leftColor = Ink.red, rightColor = if (active) Ink.orange else Ink.green,
-                            shape = RoundedCornerShape(18.dp), modifier = Modifier.animateItem(),
+                            shape = RoundedCornerShape(14.dp), modifier = Modifier.animateItem(),
                         ) { DownloadRow(item, live[item.id], { Downloads.delete(item.id, false); removed = item }) { picked = item.id } }
                     }
                 }
@@ -191,7 +192,7 @@ fun DownloadsPage() {
         removed?.let { r ->
             Row(
                 Modifier.align(Alignment.BottomCenter).padding(start = EDGE, end = EDGE, bottom = BottomRoom).fillMaxWidth()
-                    .clip(RoundedCornerShape(13.dp)).background(Ink.sheet).padding(start = CARD, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                    .clip(RoundedCornerShape(10.dp)).background(Ink.sheet).padding(start = CARD, end = 8.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(if (r.state == State.Done) "Removed from the list (file kept)" else "Removed; its unfinished file goes too", Modifier.weight(1f), style = Type.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -207,17 +208,40 @@ fun DownloadsPage() {
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(14.dp)
+    val done = live?.bytes ?: item.done
+    val finished = item.state == State.Done
+    // Progress fills the whole card from the left, easing rather than jumping.
+    val target = if (!finished && item.size > 0) (done.toFloat() / item.size).let { if (it.isNaN()) 0f else it.coerceIn(0f, 1f) } else 0f
+    val p by androidx.compose.animation.core.animateFloatAsState(target, label = "fill")
+    // Paused or failed: upright stripes, 14dp each, card and fill colours in turn.
+    val striped = item.state == State.Paused || item.state == State.Failed
+    val face = Ink.card
+    val fill = Ink.cardFill
     Tap(onClick, Modifier.fillMaxWidth(), shape) {
-        val done = live?.bytes ?: item.done
-        Column(Modifier.clip(shape).background(Ink.card).grain().padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)) {
+        Column(
+            Modifier.clip(shape).background(face)
+                .drawWithCache {
+                    val stripes = androidx.compose.ui.graphics.Brush.linearGradient(
+                        0f to face, 0.5f to face, 0.5f to fill, 1f to fill,
+                        start = androidx.compose.ui.geometry.Offset.Zero, end = androidx.compose.ui.geometry.Offset(28.dp.toPx(), 0f),
+                        tileMode = androidx.compose.ui.graphics.TileMode.Repeated,
+                    )
+                    onDrawBehind {
+                        if (striped) drawRect(stripes)
+                        else if (p > 0f) drawRect(fill, size = size.copy(width = size.width * p))
+                    }
+                }
+                .grain()
+                .padding(start = 16.dp, end = if (finished) 6.dp else 10.dp, top = 10.dp, bottom = 10.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // A bare icon in the accent, no disc behind it.
                 Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
                     Lc(iconOf(item.category), tint = Ink.red, size = 26.dp)
                 }
                 Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
                         item.name, Modifier.basicMarquee(),
                         style = Type.label.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), maxLines = 1,
@@ -229,38 +253,29 @@ private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: 
                             Fmt.bytes(done) + if (item.size > 0) " of ${Fmt.bytes(item.size)}" else "",
                             if (item.size > 0) Fmt.eta(item.size - done, live.speed) else "",
                         ).filter { it.isNotEmpty() }.joinToString(" · ")
-                        State.Queued -> "Waiting"
+                        State.Queued -> "Queued — starts when one finishes"
                         State.Paused -> "Paused · " + if (pctOnly) "${done / 10}%" else Fmt.bytes(done) + if (item.size > 0) " of ${Fmt.bytes(item.size)}" else ""
                         State.Done -> Fmt.bytes(item.size.coerceAtLeast(item.done))
-                        State.Failed -> "Failed: " + (item.error ?: "unknown error")
+                        State.Failed -> item.error ?: "Failed"
                     }
-                    Text(line, style = Type.meta.copy(fontSize = 12.sp, color = if (item.state == State.Failed) Ink.danger else if (Ink.isDark) Color(0xFFB3B3B3) else Ink.muted), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(line, Modifier.basicMarquee(), style = Type.meta.copy(fontSize = 12.sp, color = if (item.state == State.Failed) Ink.red else Ink.muted), maxLines = 1)
                 }
-                // Bare icons, no disc, at the foot of the text.
-                Row(Modifier.align(Alignment.Bottom), verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     when (item.state) {
-                        State.Running, State.Queued -> Tap({ Downloads.pause(item.id) }, Modifier.size(34.dp), CircleShape) {
+                        State.Running, State.Queued -> Tap({ Downloads.pause(item.id) }, Modifier.size(36.dp), CircleShape) {
                             Box(contentAlignment = Alignment.Center) { PauseBars() }
                         }
-                        State.Paused, State.Failed -> Tap({ Downloads.resume(item.id) }, Modifier.size(34.dp), CircleShape) {
-                            Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_play, tint = Ink.text, size = 18.dp) }
+                        State.Paused -> Tap({ Downloads.resume(item.id) }, Modifier.size(36.dp), CircleShape) {
+                            Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_play, tint = Ink.text, size = 20.dp) }
+                        }
+                        State.Failed -> Tap({ Downloads.resume(item.id) }, Modifier.size(36.dp), CircleShape) {
+                            Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_rotate_cw, tint = Ink.green, size = 20.dp) }
                         }
                         State.Done -> {}
                     }
-                    Tap(onRemove, Modifier.size(34.dp), CircleShape) {
-                        Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_x, tint = Ink.text, size = 20.dp) }
+                    Tap(onRemove, Modifier.size(36.dp), CircleShape) {
+                        Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_x, tint = Ink.muted, size = 22.dp) }
                     }
-                }
-            }
-            // The bar: the card's full width under the row, 2dp.
-            if (item.state != State.Done) {
-                val p = if (item.size > 0) (done.toFloat() / item.size).coerceIn(0f, 1f) else 0f
-                Box(Modifier.padding(top = 10.dp, end = 6.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(if (Ink.isDark) Color.White.copy(alpha = 0.25f) else Ink.text.copy(alpha = 0.1f))) {
-                    Box(Modifier.fillMaxWidth(p).height(2.dp).clip(CircleShape).background(
-                        // Running: clear. Paused or waiting: quieter.
-                        if (item.state == State.Running) (if (Ink.isDark) Color.White.copy(alpha = 0.55f) else Ink.green)
-                        else (if (Ink.isDark) Color.White.copy(alpha = 0.3f) else Ink.green),
-                    ))
                 }
             }
         }
@@ -390,7 +405,7 @@ private fun AddSheet(onDismiss: () -> Unit) {
                 FolderRow()
                 Spacer(Modifier.height(8.dp))
             }
-            val shape = RoundedCornerShape(12.dp)
+            val shape = RoundedCornerShape(9.dp)
             Box(Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 160.dp).frost(shape).padding(horizontal = CARD, vertical = 12.dp)) {
                 if (text.isEmpty()) Text("Paste links, or any text with links in it", style = Type.label.copy(color = Ink.faint))
                 BasicTextField(
@@ -414,7 +429,7 @@ private fun AddSheet(onDismiss: () -> Unit) {
             Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
                 found.forEach { f ->
                     val on = f.text !in off
-                    Tap({ if (on) off += f.text else off -= f.text }, Modifier.fillMaxWidth(), RoundedCornerShape(8.dp)) {
+                    Tap({ if (on) off += f.text else off -= f.text }, Modifier.fillMaxWidth(), RoundedCornerShape(6.dp)) {
                         Row(Modifier.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(22.dp).clip(CircleShape).background(if (on) Ink.green else Ink.text.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
                                 if (on) Lc(L.drawable.lucide_ic_check, tint = Color.White, size = 14.dp)

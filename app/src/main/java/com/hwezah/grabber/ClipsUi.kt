@@ -103,7 +103,7 @@ fun ClipboardPage() {
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(shown, key = { it.id }) { clip ->
-                        val shape = RoundedCornerShape(18.dp)
+                        val shape = RoundedCornerShape(14.dp)
                         SwipeRow(
                             onLeft = { Clips.delete(clip.id); deleted = clip },
                             onRight = { Clips.pin(clip.id) },
@@ -134,7 +134,7 @@ fun ClipboardPage() {
         deleted?.let { d ->
             Row(
                 Modifier.align(Alignment.BottomCenter).padding(start = EDGE, end = EDGE, bottom = BottomRoom).fillMaxWidth()
-                    .clip(RoundedCornerShape(13.dp)).background(Ink.sheet).padding(start = CARD, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                    .clip(RoundedCornerShape(10.dp)).background(Ink.sheet).padding(start = CARD, end = 8.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Clip deleted", Modifier.weight(1f), style = Type.label)

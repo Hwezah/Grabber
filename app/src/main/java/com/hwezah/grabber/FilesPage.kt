@@ -364,7 +364,7 @@ fun FilesPage() {
                 names.forEachIndexed { i, n ->
                     if (i > 0) Text("›", style = Type.label.copy(fontSize = 20.sp, color = Ink.faint))
                     val last = i == names.lastIndex
-                    Tap({ if (!last) go(i) }, Modifier.weight(1f, fill = false), RoundedCornerShape(8.dp)) {
+                    Tap({ if (!last) go(i) }, Modifier.weight(1f, fill = false), RoundedCornerShape(6.dp)) {
                         Text(
                             n, Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
                             style = Type.label.copy(fontSize = 16.sp, color = if (last) Ink.text else Ink.muted, fontWeight = if (last) FontWeight.SemiBold else FontWeight.Medium),
@@ -376,7 +376,7 @@ fun FilesPage() {
         }
         // Picked up to move or copy: open the folder it goes in, then Move Here.
         carry?.let { c ->
-            Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 10.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ink.card).grain().padding(14.dp)) {
+            Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 10.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Ink.card).grain().padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Lc(if (c.copy) L.drawable.lucide_ic_copy else L.drawable.lucide_ic_folder_input, tint = Ink.red, size = 22.dp)
                     Spacer(Modifier.width(10.dp))
@@ -395,7 +395,7 @@ fun FilesPage() {
         }
         // A move or copy under way.
         FileJob.label?.let { label ->
-            Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 10.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ink.card).grain().padding(14.dp)) {
+            Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 10.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Ink.card).grain().padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Lc(if (FileJob.copying) L.drawable.lucide_ic_copy else L.drawable.lucide_ic_folder_input, tint = Ink.red, size = 22.dp)
                     Spacer(Modifier.width(10.dp))
@@ -549,7 +549,7 @@ fun FilesPage() {
 /** A row in an action sheet: icon, label, and a quiet hint under it. */
 @Composable
 private fun ActionRow(icon: Int, label: String, hint: String?, danger: Boolean = false, onClick: () -> Unit) {
-    Tap(onClick, Modifier.fillMaxWidth(), RoundedCornerShape(12.dp)) {
+    Tap(onClick, Modifier.fillMaxWidth(), RoundedCornerShape(9.dp)) {
         Row(Modifier.padding(vertical = 12.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Lc(icon, tint = if (danger) Ink.danger else Ink.red, size = 22.dp)
             Spacer(Modifier.width(14.dp))
@@ -579,7 +579,7 @@ private fun openFile(context: Context, uri: Uri, e: Entry) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FileCard(e: Entry, resting: Boolean, quiet: Boolean, onOpen: () -> Unit, onMore: () -> Unit, actions: List<Pair<String, () -> Unit>>) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(14.dp)
     val x = ext(e.name)
     Tap(
         onOpen,

@@ -172,15 +172,15 @@ private fun TabBar(tab: Tab, onTab: (Tab) -> Unit) {
 @Composable
 private fun PillBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth(0.9f).navigationBarsPadding().padding(bottom = 12.dp).frost(RoundedCornerShape(18.dp), if (Ink.isDark) Color(0xFF1E1E1E) else Ink.bg, alpha = if (Ink.isDark) 0.05f else 0.035f).padding(6.dp),
+        modifier.fillMaxWidth(0.9f).navigationBarsPadding().padding(bottom = 12.dp).frost(RoundedCornerShape(20.dp), if (Ink.isDark) Color(0xFF1E1E1E) else Ink.bg, alpha = if (Ink.isDark) 0.05f else 0.035f).padding(6.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Tab.entries.forEach { t ->
             val on = t == tab
-            Tap({ onTab(t) }, Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+            Tap({ onTab(t) }, Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
                 Box(
-                    Modifier.clip(RoundedCornerShape(12.dp)).background(if (on) Ink.text.copy(alpha = 0.16f) else Color.Transparent)
+                    Modifier.clip(RoundedCornerShape(14.dp)).background(if (on) Ink.text.copy(alpha = 0.16f) else Color.Transparent)
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center,
                 ) { Lc(t.icon, tint = if (on) (if (Prefs.accentTabIcon) Ink.red else Ink.text) else Ink.muted, size = 24.dp) }

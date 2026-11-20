@@ -54,7 +54,10 @@ object Ink {
     /** Sheets and popups: a plain grey. */
     val sheet get() = if (isDark) Color(0xFF181818) else Color(0xFFFFFFFF)
     /** Download and source list cards: 45% of the way from the page to [surface]. */
-    val card get() = if (isDark) Color(0xFF101010) else Color(0xFFFBF8F5)
+    /** Cards: three quarters of the way from the page to the surface (#141414 dark, #FAF8F7 light). */
+    val card get() = if (isDark) Color(0xFF141414) else Color(0xFFFAF8F7)
+    /** A card's progress fill: halfway between the card and the page. */
+    val cardFill get() = if (isDark) Color(0xFF0F0F0F) else Color(0xFFF2EFEB)
     /** Settings sections and similar groups: 75% of the way from the page to [surface]. */
     val section get() = if (isDark) Color(0xFF121212) else Color(0xFFFDFBF9)
     val good = Color(0xFF46D369)

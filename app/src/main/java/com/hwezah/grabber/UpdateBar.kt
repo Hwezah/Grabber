@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -100,9 +101,9 @@ fun UpdateBar(modifier: Modifier = Modifier) {
             if (detail.isNotEmpty()) withStyle(SpanStyle(color = Ink.muted, fontSize = 13.sp)) { append("  ·  $detail") }
         }
         Text(line, Modifier.weight(1f), style = Type.label.copy(fontSize = 13.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (action != null) Tap({ Updater.update(context) }, shape = CircleShape) { pressed ->
+        if (action != null) Tap({ Updater.update(context) }, shape = RoundedCornerShape(10.dp)) { pressed ->
             Box(
-                Modifier.height(34.dp).clip(CircleShape).background(lerp(Ink.red, Color.Black, if (pressed) 0.28f else 0.12f), CircleShape).grain().padding(horizontal = 13.dp),
+                Modifier.height(34.dp).clip(RoundedCornerShape(10.dp)).background(lerp(Ink.red, Color.Black, if (pressed) 0.28f else 0.12f), RoundedCornerShape(10.dp)).grain().padding(horizontal = 13.dp),
                 contentAlignment = Alignment.Center,
             ) { Text(action, style = Type.label.copy(fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Color.White), maxLines = 1) }
         }

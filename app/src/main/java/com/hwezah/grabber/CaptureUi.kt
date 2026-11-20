@@ -73,7 +73,7 @@ fun LinkPicker(found: List<Found>, off: SnapshotStateList<String>) {
         found.forEach { f ->
             val magnet = f is Found.Magnet
             val on = f.text !in off
-            Tap({ if (on) off += f.text else off -= f.text }, Modifier.fillMaxWidth(), RoundedCornerShape(8.dp)) {
+            Tap({ if (on) off += f.text else off -= f.text }, Modifier.fillMaxWidth(), RoundedCornerShape(6.dp)) {
                 Row(Modifier.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         Modifier.size(22.dp).clip(CircleShape).background(if (on) (if (magnet) Ink.orange else Ink.green) else Ink.text.copy(alpha = 0.08f)),
@@ -370,7 +370,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
 /** A text box on frosted glass. */
 @Composable
 fun Field(value: String, onValue: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, onGo: (() -> Unit)? = null) {
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(8.dp)
     Box(modifier.fillMaxWidth().frost(shape).padding(horizontal = CARD, vertical = 12.dp)) {
         if (value.isEmpty()) Text(placeholder, style = Type.label.copy(color = Ink.faint), maxLines = 1)
         BasicTextField(
@@ -413,7 +413,7 @@ private fun OneMagnet(magnet: String, onDismiss: () -> Unit) {
             Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
                 m.files.forEach { f ->
                     val on = f.index !in off
-                    Tap({ if (on) off += f.index else off -= f.index }, Modifier.fillMaxWidth(), RoundedCornerShape(8.dp)) {
+                    Tap({ if (on) off += f.index else off -= f.index }, Modifier.fillMaxWidth(), RoundedCornerShape(6.dp)) {
                         Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(22.dp).clip(CircleShape).background(if (on) Ink.orange else Ink.text.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
                                 if (on) Lc(L.drawable.lucide_ic_check, tint = Color.White, size = 14.dp)

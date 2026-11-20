@@ -85,7 +85,7 @@ fun Lc(@DrawableRes icon: Int, modifier: Modifier = Modifier, tint: Color = Ink.
 fun Tap(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(8.dp),
+    shape: Shape = RoundedCornerShape(5.dp),
     onLongClick: (() -> Unit)? = null,
     content: @Composable BoxScope.(pressed: Boolean) -> Unit,
 ) {
@@ -120,7 +120,7 @@ fun Button(
     // Flat colour with grain, no gradient, no border.
     // Accent: mixed 12% toward black (28% pressed). Green: #1E9E52 mixed 46% toward black (56% pressed).
     val green = accent == Ink.green || accent == Ink.greenButton
-    Tap(onClick, modifier, RoundedCornerShape(16.dp)) { pressed ->
+    Tap(onClick, modifier, RoundedCornerShape(5.dp)) { pressed ->
         val fill = when {
             accent == null -> null
             green -> androidx.compose.ui.graphics.lerp(Color(0xFF1E9E52), Color.Black, if (pressed) 0.56f else 0.46f)
@@ -132,7 +132,7 @@ fun Button(
             else -> Ink.on(accent)
         }
         val base = if (fill != null) Modifier.background(fill).grain()
-        else Modifier.frost(RoundedCornerShape(16.dp), alpha = if (LocalQuiet.current) (if (pressed) 0.1f else 0.05f) else if (pressed) 0.18f else 0.09f, grain = if (LocalQuiet.current) 0.7f else 1f)
+        else Modifier.frost(RoundedCornerShape(5.dp), alpha = if (LocalQuiet.current) (if (pressed) 0.1f else 0.05f) else if (pressed) 0.18f else 0.09f, grain = if (LocalQuiet.current) 0.7f else 1f)
         Row(
             base.height(if (LocalInSheet.current) (if (compact) 38.dp else 44.dp) else if (compact) 42.dp else 50.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -153,7 +153,7 @@ fun Button(
  */
 @Composable
 fun Chip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, @DrawableRes icon: Int? = null, accent: Color = Ink.red) {
-    Tap(onClick, modifier, RoundedCornerShape(8.dp)) { pressed ->
+    Tap(onClick, modifier, RoundedCornerShape(4.dp)) { pressed ->
         val fg = if (on) accent else if (pressed) Ink.text else Ink.muted
         Row(
             Modifier.height(36.dp).padding(horizontal = 6.dp),
@@ -276,7 +276,7 @@ fun BottomSheet(
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
-    val shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
+    val shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
     Box(
         Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f))
             .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),

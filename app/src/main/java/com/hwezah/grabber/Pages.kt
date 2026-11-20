@@ -230,7 +230,7 @@ fun TempRow() {
 
 @Composable
 fun Group(content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ink.section).grain(0.7f).padding(horizontal = CARD, vertical = 6.dp)) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(Ink.section).grain(0.7f).padding(horizontal = CARD, vertical = 6.dp)) {
         androidx.compose.runtime.CompositionLocalProvider(com.hwezah.grabber.design.LocalQuiet provides true) { content() }
     }
 }
