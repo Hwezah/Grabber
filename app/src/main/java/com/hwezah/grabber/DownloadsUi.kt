@@ -265,7 +265,7 @@ private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: 
                             Fmt.bytes(done) + if (item.size > 0) " of ${Fmt.bytes(item.size)}" else "",
                             if (item.size > 0) Fmt.eta(item.size - done, live.speed) else "",
                         ).filter { it.isNotEmpty() }.joinToString(" · ")
-                        State.Queued -> "Queued — starts when one finishes"
+                        State.Queued -> item.error ?: "Queued — starts when one finishes"
                         State.Paused -> "Paused · " + if (pctOnly) "${done / 10}%" else Fmt.bytes(done) + if (item.size > 0) " of ${Fmt.bytes(item.size)}" else ""
                         State.Done -> Fmt.bytes(item.size.coerceAtLeast(item.done))
                         State.Failed -> item.error ?: "Failed"
@@ -328,6 +328,12 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                 Spacer(Modifier.height(10.dp))
                 Button("Start over", { Downloads.startOver(item.id); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_rotate_cw, accent = Ink.orange)
             }
+            if (item.state != State.Done && item.state != State.Running) {
+                Spacer(Modifier.height(10.dp))
+                // Starts it now from its saved parts, ahead of the queue and past any wait.
+                Button("Force start", { Downloads.forceStart(item.id); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_play, accent = Ink.green)
+            }
+            Properties(item)
             if (item.state != State.Done && item.kind == Kind.Http) {
                 RefreshLink(item)
                 // The same file again from its page: Grabber carries on from where it stopped.
@@ -531,6 +537,30 @@ private fun RefreshLink(item: Item) {
                 }.onFailure { note = "That link doesn't work either: ${it.message}" }
             }
         }, accent = Ink.green, compact = true)
+    }
+}
+
+/** What Grabber knows about a download: the link's host only (never the full link, which can carry tokens). */
+@Composable
+private fun Properties(item: Item) {
+    var open by remember { mutableStateOf(false) }
+    Spacer(Modifier.height(10.dp))
+    if (!open) { Button("Properties", { open = true }, Modifier.solo(), icon = L.drawable.lucide_ic_info); return }
+    val parts = com.hwezah.grabber.engine.Segments.decode(item.segments)
+    listOf(
+        "Site" to (runCatching { Uri.parse(item.url).host }.getOrNull() ?: "?"),
+        "Size" to if (item.size > 0) Fmt.bytes(item.size) else "Unknown",
+        "Downloaded" to Fmt.bytes(item.done.coerceAtLeast(0)),
+        "Playable from the start" to Fmt.bytes(Rescue.playable(item)),
+        "Parts" to if (parts.isEmpty()) "One" else "${parts.size} (${parts.count { it.pos > it.end }} done)",
+        "Can resume" to if (item.resumable) "Yes" else "Not that the server said",
+        "Page it came from" to if (Rescue.pageOf(item) != null) (runCatching { Uri.parse(Rescue.pageOf(item)).host }.getOrNull() ?: "Yes") else "None",
+        "Headers kept" to if (item.headers.isNotEmpty()) "Yes (${item.headers.keys.joinToString(", ")})" else "No",
+    ).forEach { (k, v) ->
+        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+            Text(k, Modifier.weight(1f), style = Type.meta)
+            Text(v, Modifier.weight(1.4f), style = Type.meta.copy(color = Ink.text), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 

@@ -138,6 +138,16 @@ object Downloads {
     }
 
     /** A file saved straight away (shared to Grabber): listed as done. */
+    /** Downloads the user forced: they start even when the parallel limit is reached. */
+    val forced: MutableSet<Long> = java.util.Collections.synchronizedSet(HashSet())
+
+    /** Starts now, past the parallel limit, from its saved parts. */
+    fun forceStart(id: Long) {
+        forced += id
+        edit(id) { if (it.state == State.Done) it else it.copy(state = State.Queued, error = null) }
+        kick()
+    }
+
     fun addFinished(url: String, name: String, mime: String?, category: Category, doc: String, size: Long) {
         val now = System.currentTimeMillis()
         _items.update { list ->

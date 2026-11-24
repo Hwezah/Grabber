@@ -46,6 +46,17 @@ class DownloadService : Service() {
     private var wake: PowerManager.WakeLock? = null
     private var wifi: android.net.wifi.WifiManager.WifiLock? = null
     private val last = HashMap<Long, Long>()
+    /** Each running download's bytes, and when they last changed. */
+    private val moved = HashMap<Long, Pair<Long, Long>>()
+
+    /** A "finished" file that's tiny or starts like a web page or JSON. */
+    private fun errorPage(doc: String, total: Long): Boolean {
+        if (total in 1 until 2048) return true
+        val head = runCatching {
+            contentResolver.openInputStream(Uri.parse(doc))?.use { s -> ByteArray(64).let { b -> val n = s.read(b); if (n > 0) String(b, 0, n) else "" } }
+        }.getOrNull().orEmpty().trimStart()
+        return head.startsWith("<") || head.startsWith("{") || head.startsWith("[")
+    }
     @Volatile private var updating = false
     private val retries = java.util.concurrent.ConcurrentHashMap<Long, Int>()
     private val deadTries = java.util.concurrent.ConcurrentHashMap<Long, Int>()
@@ -119,7 +130,8 @@ class DownloadService : Service() {
             running.keys.toList().forEach { id -> running.remove(id)?.job?.cancel(); Downloads.edit(id) { it.copy(state = State.Queued) } }
         }
         items.asReversed().filter { it.state == State.Queued && it.id !in running }.forEach { item ->
-            if (running.size >= Prefs.parallel || blockedByWifi) return@forEach
+            if ((running.size >= Prefs.parallel && item.id !in Downloads.forced) || blockedByWifi) return@forEach
+            Downloads.forced -= item.id
             Downloads.edit(item.id) { it.copy(state = State.Running, error = null) }
             // Lazy, so it is in the map before it runs.
             val job = scope.launch(Dispatchers.IO, start = kotlinx.coroutines.CoroutineStart.LAZY) { work(item.id) }
@@ -189,6 +201,9 @@ class DownloadService : Service() {
                     synchronized(this) { running[id]?.bytes = dl::downloaded }
                     dl.run()
                     val total = dl.downloaded()
+                    // An error page instead of the file (HTML or JSON): the link has expired, it isn't done.
+                    if ((item.category == Category.Video || item.category == Category.Audio || item.category == Category.Archives) && errorPage(item.doc!!, total))
+                        throw com.hwezah.grabber.engine.HttpException(410, "The server sent a web page instead of the file")
                     retries.remove(id)
                     val (doc, name) = Folders.finish(this, item.doc!!, item.name)
                     Downloads.edit(id) { d -> d.copy(state = State.Done, doc = doc, name = name, done = total, size = if (d.size > 0) d.size else total, segments = "", finished = System.currentTimeMillis()) }
@@ -206,6 +221,8 @@ class DownloadService : Service() {
                 (noResume || e is com.hwezah.grabber.engine.HttpException || e.message?.contains("stopped allowing parts") == true)
             if (refetchable && refetched.add(id)) {
                 val fresh = runCatching { Http.probe(failed!!.source, failed.headers) }.getOrNull()
+                    // A different size is a different file: the kept bytes aren't its, so it doesn't take over.
+                    ?.takeIf { f -> f.size <= 0 || failed.size <= 0 || f.size == failed.size }
                 if (fresh != null) {
                     Downloads.edit(id) {
                         val segs = if (fresh.resumable && fresh.size > 0 && !it.resumable) {
@@ -352,6 +369,19 @@ class DownloadService : Service() {
         val snap = synchronized(this) { running.mapValues { it.value.bytes?.invoke() ?: 0L } }
         val live = snap.mapValues { (id, bytes) -> Live(bytes, rates[id]?.takeIf { it >= 0 } ?: (bytes - (last[id] ?: bytes)).coerceAtLeast(0), texts[id]) }
         last.clear(); last.putAll(snap)
+        // Stall watch: a link whose bytes haven't moved for 90 s starts again from its saved parts.
+        val now = System.currentTimeMillis()
+        snap.forEach { (id, bytes) ->
+            val seen = moved[id]
+            if (seen == null || seen.first != bytes) { moved[id] = bytes to now; return@forEach }
+            val item = Downloads.get(id) ?: return@forEach
+            if (item.kind == Kind.Http && item.state == State.Running && now - seen.second > 90_000L) {
+                moved.remove(id)
+                synchronized(this) { running.remove(id)?.job?.cancel() }
+                Downloads.edit(id) { it.copy(state = State.Queued, error = "Starting again…") }
+            }
+        }
+        moved.keys.retainAll(snap.keys)
         Downloads.live.value = live
         if (snap.isEmpty()) {
             (Updater.status as? Updater.Status.Downloading)?.let {

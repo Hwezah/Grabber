@@ -117,9 +117,14 @@ object Rescue {
                     runCatching { android.provider.DocumentsContract.deleteDocument(app.contentResolver, out) }
                     throw e
                 }
+                out
             }
             saving = saving - item.id
-            result.onSuccess { say("Saved ${Fmt.bytes(n)} as $name. The download is kept to finish later.") }
+            result.onSuccess { out ->
+                // Listed as finished, beside the download that carries on.
+                main.post { Downloads.addFinished(item.url, name, item.mime, item.category, out.toString(), n) }
+                say("Saved ${Fmt.bytes(n)} as $name. The download is kept to finish later.")
+            }
                 .onFailure { say("Couldn't save a copy: ${it.message}") }
         }
     }
