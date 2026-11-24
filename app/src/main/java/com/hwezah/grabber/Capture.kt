@@ -21,6 +21,12 @@ object Capture {
     var fromBrowser = false
 
     fun offer(text: String, title: String?, headers: Map<String, String> = emptyMap(), browser: Boolean = false) {
+        // Looking for a fresh link to a stopped download: a match carries it on instead of starting another.
+        if (browser && Rescue.target != null && Rescue.offer(text.trim(), headers) { show(text, title, headers, browser) }) return
+        show(text, title, headers, browser)
+    }
+
+    private fun show(text: String, title: String?, headers: Map<String, String>, browser: Boolean) {
         fromBrowser = browser
         pendingTitle = title
         pendingHeaders = headers

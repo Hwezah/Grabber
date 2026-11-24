@@ -328,7 +328,23 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                 Spacer(Modifier.height(10.dp))
                 Button("Start over", { Downloads.startOver(item.id); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_rotate_cw, accent = Ink.orange)
             }
-            if (item.state != State.Done && item.kind == Kind.Http) RefreshLink(item)
+            if (item.state != State.Done && item.kind == Kind.Http) {
+                RefreshLink(item)
+                // The same file again from its page: Grabber carries on from where it stopped.
+                if (Rescue.pageOf(item) != null) {
+                    Spacer(Modifier.height(8.dp))
+                    if (Rescue.target == item.id) Button("Stop looking for a fresh link", { Rescue.target = null }, Modifier.solo(), compact = true)
+                    else Button("Find it again on its page", { Rescue.findOnPage(item); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_globe)
+                }
+                // What's there already, as a file you can play now; the download stays to finish later.
+                val playable = Rescue.playable(item)
+                if (item.doc != null && playable > 0 && item.state != State.Running) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("Save a playable copy of the first ${Fmt.bytes(playable)}. The download stays, so it can still finish.", style = Type.meta)
+                    Spacer(Modifier.height(6.dp))
+                    Button(if (item.id in Rescue.saving) "Saving…" else "Save what's downloaded", { Rescue.saveCopy(context, item) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
+                }
+            }
             if (item.state == State.Done && item.doc != null && item.category == Category.Video) {
                 Spacer(Modifier.height(10.dp))
                 Text("Convert to audio", style = Type.meta)
