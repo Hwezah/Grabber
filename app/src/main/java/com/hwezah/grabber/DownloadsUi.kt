@@ -343,12 +343,12 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                     else Button("Find it again on its page", { Rescue.findOnPage(item); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_globe)
                 }
                 // What's there already, as a file you can play now; the download stays to finish later.
-                val playable = Rescue.playable(item)
-                if (item.doc != null && playable > 0 && item.state != State.Running) {
+                val got = com.hwezah.grabber.engine.Segments.sections(item.segments, item.done).sumOf { it.last - it.first + 1 }
+                if (item.doc != null && got > 0 && item.state != State.Running) {
                     Spacer(Modifier.height(10.dp))
-                    Text("Save a playable copy of the first ${Fmt.bytes(playable)}. The download stays, so it can still finish.", style = Type.meta)
+                    Text("Join every section downloaded so far (${Fmt.bytes(got)}) into a playable file; the download carries on", style = Type.meta)
                     Spacer(Modifier.height(6.dp))
-                    Button(if (item.id in Rescue.saving) "Saving…" else "Save what's downloaded", { Rescue.saveCopy(context, item) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
+                    Button(if (item.id in Rescue.saving) "Merging…" else "Force merge", { Rescue.saveCopy(context, item) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
                 }
             }
             if (item.state == State.Done && item.doc != null && item.category == Category.Video) {

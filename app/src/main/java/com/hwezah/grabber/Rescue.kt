@@ -89,26 +89,34 @@ object Rescue {
         val app = context.applicationContext
         val doc = item.doc ?: return
         val tree = Prefs.folder ?: return say("Choose a download folder first")
-        val n = playable(item)
-        if (n <= 0) return say("Nothing playable yet: the start of the file isn't in")
+        // Every section downloaded so far, in order; the gaps are left out (players skip over the joins).
+        val sections = Segments.sections(item.segments, item.done)
+        val n = sections.sumOf { it.last - it.first + 1 }
+        if (n <= 0) return say("Nothing to merge yet")
         if (item.id in saving) return
         saving = saving + item.id
-        say("Saving the first ${Fmt.bytes(n)} of ${item.name}…")
+        say("Merging…")
         scope.launch {
             val name = item.name.substringBeforeLast('.', item.name) + " (partial)" +
                 item.name.substringAfterLast('.', "").let { if (it.isEmpty()) "" else ".$it" }
             val result = runCatching {
                 val out = Folders.create(app, tree, item.category, name, browser = item.browser) ?: error("couldn't make the file")
                 try {
-                    app.contentResolver.openInputStream(Uri.parse(doc))!!.use { input ->
-                        app.contentResolver.openOutputStream(out, "w")!!.use { output ->
-                            val buf = ByteArray(1 shl 16)
-                            var left = n
-                            while (left > 0) {
-                                val r = input.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
-                                if (r < 0) break
-                                output.write(buf, 0, r)
-                                left -= r
+                    app.contentResolver.openFileDescriptor(Uri.parse(doc), "r")!!.use { pfd ->
+                        val input = java.io.FileInputStream(pfd.fileDescriptor).channel
+                        val length = input.size()
+                        app.contentResolver.openOutputStream(out, "w")!!.buffered(1 shl 16).use { output ->
+                            val buf = java.nio.ByteBuffer.allocate(1 shl 16)
+                            for (r in sections) {
+                                var pos = r.first
+                                val end = minOf(r.last + 1, length)
+                                while (pos < end) {
+                                    buf.clear(); buf.limit(minOf(buf.capacity().toLong(), end - pos).toInt())
+                                    val got = input.read(buf, pos)
+                                    if (got <= 0) break
+                                    output.write(buf.array(), 0, got)
+                                    pos += got
+                                }
                             }
                         }
                     }
@@ -123,9 +131,9 @@ object Rescue {
             result.onSuccess { out ->
                 // Listed as finished, beside the download that carries on.
                 main.post { Downloads.addFinished(item.url, name, item.mime, item.category, out.toString(), n) }
-                say("Saved ${Fmt.bytes(n)} as $name. The download is kept to finish later.")
+                say("Saved $name (${Fmt.bytes(n)}). The download carries on.")
             }
-                .onFailure { say("Couldn't save a copy: ${it.message}") }
+                .onFailure { say("Couldn't merge: ${it.message}") }
         }
     }
 }

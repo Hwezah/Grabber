@@ -22,6 +22,24 @@ object Segments {
         }
     }
 
+    /** Byte ranges sorted, with touching or overlapping ones joined and empty ones dropped. */
+    fun mergedSections(ranges: List<LongRange>): List<LongRange> {
+        val sorted = ranges.filter { !it.isEmpty() }.sortedBy { it.first }
+        val out = mutableListOf<LongRange>()
+        for (r in sorted) {
+            val prev = out.lastOrNull()
+            if (prev != null && r.first <= prev.last + 1) out[out.size - 1] = prev.first..maxOf(prev.last, r.last) else out += r
+        }
+        return out
+    }
+
+    /** Every section downloaded so far: each part's [start, pos), joined; one connection is 0 until [done]. */
+    fun sections(saved: String?, done: Long): List<LongRange> {
+        val parts = decode(saved)
+        if (parts.isEmpty()) return if (done > 0) listOf(0L until done) else emptyList()
+        return mergedSections(parts.filter { it.pos > it.start }.map { it.start until it.pos })
+    }
+
     /** How full each of [slots] equal slices of [total] bytes is, given the byte ranges [has] (1DM-style part strips). */
     fun partMap(total: Long, has: List<LongRange>, slots: Int): List<Float> {
         if (slots <= 0) return emptyList()
