@@ -408,8 +408,11 @@ fun StretchRow(modifier: Modifier = Modifier, gap: Dp = 8.dp, content: @Composab
 }
 
 /**
- * A row you can swipe: left runs [onLeft] (e.g. delete), right runs [onRight] (e.g. pin). Behind the row,
- * the side being revealed shows its colour and icon. Past a third of the width it goes; short of that it springs back.
+ * A row you can swipe, as WatchHub's. Right is the immediate action ([onRight]: play, pause, pin): past a third of the
+ * width it runs and springs back. Left is destructive, so the swipe never runs it: past half of [revealWidth] the row
+ * hangs open on [leftIcon], and [onLeft] runs only when that icon is tapped; a tap on the open row, or swiping back,
+ * closes it. Each backing is exactly the card ([shape], above its [inset]) and drawn only on its own side: a solid
+ * colour at the outer edge fading inward, a white icon on it.
  */
 @Composable
 fun SwipeRow(
@@ -421,57 +424,47 @@ fun SwipeRow(
     rightColor: Color,
     shape: Shape,
     modifier: Modifier = Modifier,
-    /**
-     * Given, a swipe left doesn't run [onLeft]: the row hangs open by [revealWidth], showing these choices beneath it
-     * to tap ([close] puts the row back). Swiping it back, or tapping the row, closes it too.
-     */
-    leftReveal: (@Composable (close: () -> Unit) -> Unit)? = null,
-    revealWidth: Dp = 196.dp,
+    revealWidth: Dp = 92.dp,
+    inset: Dp = 0.dp,
     content: @Composable () -> Unit,
 ) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val offset = remember { androidx.compose.animation.core.Animatable(0f) }
-    var width by remember { mutableStateOf(1f) }
+    var width by remember { mutableStateOf(0f) }
     val reveal = with(androidx.compose.ui.platform.LocalDensity.current) { revealWidth.toPx() }
     val close: () -> Unit = { scope.launch { offset.animateTo(0f, Motion.spatial()) } }
-    Box(modifier.onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }) {
+    Box(modifier.onSizeChanged { width = it.width.toFloat() }) {
         val x = offset.value
-        if (x < 0f && leftReveal != null) {
-            // The choices on a card-shaped sheet of their own at the row's right end: the card's height and shape, the
-            // raised surface, fading in with the drag.
-            Box(Modifier.matchParentSize(), contentAlignment = Alignment.CenterEnd) {
-                Box(
-                    Modifier.width(revealWidth).fillMaxHeight().graphicsLayer { alpha = (-x / reveal).coerceIn(0f, 1f) }.clip(shape).background(Ink.surface2),
-                    contentAlignment = Alignment.Center,
-                ) { leftReveal(close) }
-            }
-        } else if (x != 0f) {
-            val right = x > 0
-            Box(
-                // Exactly the card's size and shape; the colour deepens as the drag goes.
-                Modifier.matchParentSize().clip(shape).background((if (right) rightColor else leftColor).copy(alpha = 0.16f + 0.24f * (kotlin.math.abs(x) / (width / 3)).coerceIn(0f, 1f))),
-                contentAlignment = if (right) Alignment.CenterStart else Alignment.CenterEnd,
-            ) {
-                Lc(if (right) rightIcon else leftIcon, Modifier.padding(horizontal = 24.dp), tint = if (right) rightColor else leftColor, size = 24.dp)
+        if (x > 0f) Box(
+            Modifier.matchParentSize().padding(bottom = inset).clip(shape)
+                .background(androidx.compose.ui.graphics.Brush.horizontalGradient(0f to rightColor, 0.72f to Color.Transparent)),
+            contentAlignment = Alignment.CenterStart,
+        ) { Lc(rightIcon, Modifier.padding(start = 24.dp), tint = Color.White, size = 24.dp) }
+        if (x < 0f) Box(
+            Modifier.matchParentSize().padding(bottom = inset).clip(shape)
+                .background(androidx.compose.ui.graphics.Brush.horizontalGradient(0.28f to Color.Transparent, 1f to leftColor)),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            // The destructive choice: only a tap on it runs it.
+            Tap({ close(); onLeft() }, Modifier.padding(end = (revealWidth - 56.dp) / 2).size(56.dp), CircleShape) {
+                Box(contentAlignment = Alignment.Center) { Lc(leftIcon, tint = Color.White, size = 24.dp) }
             }
         }
         Box(
             Modifier.graphicsLayer { translationX = offset.value }
                 .draggable(
-                    androidx.compose.foundation.gestures.rememberDraggableState { d -> scope.launch { offset.snapTo(offset.value + d) } },
+                    androidx.compose.foundation.gestures.rememberDraggableState { d ->
+                        // Clamped by the width as measured now, not as it was when the drag began.
+                        scope.launch { offset.snapTo((offset.value + d).coerceIn(-reveal, width.coerceAtLeast(1f))) }
+                    },
                     androidx.compose.foundation.gestures.Orientation.Horizontal,
                     onDragStopped = {
                         val v = offset.value
                         scope.launch {
-                            if (v < 0 && leftReveal != null) {
-                                // Hangs open past half the choices' width; else back.
-                                offset.animateTo(if (-v > reveal / 2) -reveal else 0f, Motion.spatial())
-                            } else if (kotlin.math.abs(v) > width / 3) {
-                                offset.animateTo(if (v > 0) width else -width, tween(160))
-                                if (v > 0) onRight() else onLeft()
-                                offset.snapTo(0f)
-                            } else {
-                                offset.animateTo(0f, Motion.spatial())
+                            when {
+                                v >= width / 3 && width > 0f -> { onRight(); offset.animateTo(0f, Motion.spatial()) }
+                                v <= -reveal / 2 -> offset.animateTo(-reveal, Motion.spatial())
+                                else -> offset.animateTo(0f, Motion.spatial())
                             }
                         }
                     },
@@ -479,7 +472,7 @@ fun SwipeRow(
         ) {
             content()
             // Open: a tap on the row closes it rather than opening it.
-            if (offset.value != 0f && leftReveal != null) Box(
+            if (offset.value < 0f) Box(
                 Modifier.matchParentSize().clickable(remember { MutableInteractionSource() }, indication = null) { close() },
             )
         }

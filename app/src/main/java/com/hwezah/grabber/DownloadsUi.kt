@@ -147,7 +147,7 @@ fun DownloadsPage() {
                 filters.forEachIndexed { i, c -> if (i > 0) Pipe(com.hwezah.grabber.design.pipeColor(i - 1)); Chip(c, c == filter, { filter = c }) }
             }
             if (items.isNotEmpty()) com.hwezah.grabber.design.Note(
-                "Swipe left to delete · right to pause or open",
+                "Swipe right to play, pause or resume · left to delete",
                 Modifier.padding(start = EDGE * 2, end = EDGE * 2, top = 8.dp), small = true,
             )
             if (shown.isEmpty()) {
@@ -170,8 +170,10 @@ fun DownloadsPage() {
                 ) {
                     items(shown, key = { it.id }) { item ->
                         val active = item.state == State.Running || item.state == State.Queued
+                        val hasFile = item.state == State.Done && item.doc != null
                         SwipeRow(
-                            onLeft = { Downloads.delete(item.id, false); removed = item },
+                            // A finished file: deleted (held five seconds with Undo). Anything else: off the list.
+                            onLeft = { if (hasFile) Downloads.trash(item.id, permanent = true) else { Downloads.delete(item.id, false); removed = item } },
                             onRight = {
                                 when {
                                     active -> Downloads.pause(item.id)
@@ -183,23 +185,10 @@ fun DownloadsPage() {
                                     else -> Downloads.resume(item.id)
                                 }
                             },
-                            leftIcon = L.drawable.lucide_ic_trash_2,
-                            rightIcon = when {
-                                active -> com.hwezah.grabber.design.R.drawable.pause_bars
-                                item.state == State.Done -> L.drawable.lucide_ic_play
-                                else -> L.drawable.lucide_ic_play
-                            },
-                            leftColor = Ink.red, rightColor = if (active) Ink.orange else Ink.green,
+                            leftIcon = if (hasFile) com.hwezah.grabber.design.R.drawable.trash_x else L.drawable.lucide_ic_x,
+                            rightIcon = if (active) com.hwezah.grabber.design.R.drawable.pause_bars else L.drawable.lucide_ic_play,
+                            leftColor = Color(0xFF781317), rightColor = if (active) Ink.orange else Color(0xFF1E9E52),
                             shape = RoundedCornerShape(14.dp), modifier = Modifier.animateItem(),
-                            // With a file: swiped left, the row hangs open on its two deletes (each held with Undo).
-                            leftReveal = if (item.doc == null) null else ({ close ->
-                                // No backgrounds: each choice is its icon and word, a pipe between them.
-                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                    RevealChoice(L.drawable.lucide_ic_trash_2, "Bin", Modifier.weight(1f)) { close(); Downloads.trash(item.id, permanent = false) }
-                                    Box(Modifier.size(width = 1.5.dp, height = 26.dp).clip(RoundedCornerShape(1.dp)).background(Ink.text.copy(alpha = 0.22f)))
-                                    RevealChoice(com.hwezah.grabber.design.R.drawable.trash_x, "Delete", Modifier.weight(1f), Ink.red) { close(); Downloads.trash(item.id, permanent = true) }
-                                }
-                            }),
                         ) { DownloadRow(item, live[item.id], { Downloads.delete(item.id, false); removed = item }) { picked = item.id } }
                     }
                 }
@@ -300,18 +289,6 @@ private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: 
                     }
                 }
             }
-        }
-    }
-}
-
-/** A choice under a swiped row: its icon over a small word, no background. Runs only on a tap. */
-@Composable
-private fun RevealChoice(icon: Int, label: String, modifier: Modifier = Modifier, tint: Color = Ink.text, onClick: () -> Unit) {
-    Tap(onClick, modifier, RoundedCornerShape(8.dp)) {
-        Column(Modifier.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Lc(icon, tint = tint, size = 22.dp)
-            Spacer(Modifier.height(3.dp))
-            Text(label, style = Type.meta.copy(color = tint))
         }
     }
 }

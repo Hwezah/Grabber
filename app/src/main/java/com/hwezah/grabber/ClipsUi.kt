@@ -109,7 +109,7 @@ fun ClipboardPage() {
                             onLeft = { Clips.delete(clip.id); deleted = clip },
                             onRight = { Clips.pin(clip.id) },
                             leftIcon = L.drawable.lucide_ic_trash_2, rightIcon = if (clip.pinned) L.drawable.lucide_ic_pin_off else L.drawable.lucide_ic_pin,
-                            leftColor = Ink.red, rightColor = Ink.orange, shape = shape, modifier = Modifier.animateItem(),
+                            leftColor = androidx.compose.ui.graphics.Color(0xFF781317), rightColor = Ink.orange, shape = shape, modifier = Modifier.animateItem(),
                         ) {
                         Tap({ picked = clip }, Modifier.fillMaxWidth(), shape) {
                             Row(Modifier.clip(shape).background(Ink.card).grain().padding(horizontal = CARD, vertical = 12.dp), verticalAlignment = Alignment.Top) {
