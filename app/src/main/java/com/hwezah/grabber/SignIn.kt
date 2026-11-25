@@ -76,14 +76,27 @@ object SignIns {
         cm.flush()
     }
 
-    /** One cookies.txt with every sign-in, for yt-dlp; null when there are none. */
-    fun cookiesFile(c: Context): File? {
-        val parts = Site.entries.map { file(c, it) }.filter { it.exists() && it.length() > 0 }
-        if (parts.isEmpty()) return null
-        val out = File(c.filesDir, "work/cookies.txt").apply { parentFile?.mkdirs() }
-        out.writeText("# Netscape HTTP Cookie File\n" + parts.joinToString("\n") { f -> f.readLines().filterNot { it.startsWith("#") }.joinToString("\n") } + "\n")
-        return out
-    }
+    /**
+     * What Grabber's browser is signed into for [url]'s site, as a cookies.txt for yt-dlp; null when it holds nothing.
+     * Signing in once in the Browser is all it takes.
+     */
+    fun cookiesFile(c: Context, url: String): File? = runCatching {
+        val host = android.net.Uri.parse(url).host.orEmpty().lowercase().removePrefix("www.")
+        if (host.isEmpty()) return null
+        val domains = siteFor(url)?.domains ?: listOf(host.split('.').takeLast(2).joinToString("."))
+        val cm = CookieManager.getInstance()
+        val far = System.currentTimeMillis() / 1000 + 365L * 24 * 3600
+        val lines = domains.flatMap { d ->
+            val raw = cm.getCookie("https://www.$d") ?: cm.getCookie("https://$d") ?: return@flatMap emptyList()
+            raw.split(';').mapNotNull { kv ->
+                val k = kv.substringBefore('=').trim()
+                val v = kv.substringAfter('=', "").trim()
+                if (k.isEmpty()) null else ".$d\tTRUE\t/\tTRUE\t$far\t$k\t$v"
+            }
+        }
+        if (lines.isEmpty()) return null
+        File(c.filesDir, "work/cookies-${System.nanoTime()}.txt").apply { parentFile?.mkdirs(); writeText("# Netscape HTTP Cookie File\n" + lines.joinToString("\n") + "\n") }
+    }.getOrNull()
 
     /** The site a link belongs to, if it's one you can sign in to. */
     fun siteFor(url: String): Site? {

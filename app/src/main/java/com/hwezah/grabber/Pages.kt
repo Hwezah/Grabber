@@ -110,7 +110,9 @@ fun SettingsPage() {
             Overline("Video sites")
             Group {
                 YtDlpRow()
-                SignInRows()
+                SettingRow("Social video helper", if (Prefs.resolver.isBlank()) "Off: yt-dlp on this phone does it all" else Prefs.resolver.removePrefix("https://") + ". Fetches Instagram, TikTok and co. on its servers, so no login") {
+                    com.hwezah.grabber.design.Glyph(com.composables.icons.lucide.R.drawable.lucide_ic_sliders_horizontal, "Change the helper", { sheet = "resolver" })
+                }
                 ChipRow("Default quality", listOf("v:best" to "Best", "v:1080" to "1080p", "v:720" to "720p", "v:480" to "480p"), Prefs.videoQuality, Prefs::useVideoQuality)
                 ChipRow("Default audio format", listOf("mp3" to "MP3", "m4a" to "M4A", "opus" to "Opus"), Prefs.audioFormat, Prefs::useAudioFormat, Ink.orange)
             }
@@ -154,6 +156,21 @@ fun SettingsPage() {
                     StretchRow {
                         Button("Reset", { Prefs.useUserAgent(""); sheet = null }, compact = true)
                         Button("Save", { Prefs.useUserAgent(ua.trim()); sheet = null }, accent = Ink.green, compact = true)
+                    }
+                }
+            }
+        }
+        "resolver" -> {
+            var r by remember { mutableStateOf(Prefs.resolver) }
+            com.hwezah.grabber.design.BottomSheet("Social video helper", { sheet = null }, icon = com.composables.icons.lucide.R.drawable.lucide_ic_globe) {
+                Column(Modifier.padding(horizontal = CARD)) {
+                    Text("A Cobalt server that fetches social videos for Grabber. Only the post's address is sent. Leave empty to turn it off.", style = Type.body)
+                    Spacer(Modifier.height(10.dp))
+                    Field(r, { r = it }, Resolver.DEFAULT)
+                    Spacer(Modifier.height(12.dp))
+                    StretchRow {
+                        Button("Reset", { Prefs.useResolver(Resolver.DEFAULT); sheet = null }, compact = true)
+                        Button("Save", { Prefs.useResolver(r.trim()); sheet = null }, accent = Ink.green, compact = true)
                     }
                 }
             }
@@ -288,29 +305,6 @@ fun YtDlpRow() {
                 }
             }
         }, compact = true)
-    }
-}
-
-/** Sign-ins for sites that hide some videos from signed-out visitors. */
-@Composable
-fun SignInRows() {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    // Re-read when coming back from the sign-in page.
-    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    var tick by remember { mutableStateOf(0) }
-    androidx.compose.runtime.DisposableEffect(owner) {
-        val o = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) tick++ }
-        owner.lifecycle.addObserver(o)
-        onDispose { owner.lifecycle.removeObserver(o) }
-    }
-    Text("Sign-ins", Modifier.padding(top = 10.dp), style = Type.label.copy(fontWeight = FontWeight.SemiBold))
-    Text("For private, age-restricted or members-only videos. Cookies stay on this phone, used only for that site.", style = Type.meta)
-    Site.entries.forEach { s ->
-        val on = remember(tick) { SignIns.signedIn(context, s) }
-        SettingRow(s.label, if (on) "Signed in" else "Not signed in") {
-            if (on) Button("Sign out", { SignIns.signOut(context, s); tick++ }, compact = true)
-            else Button("Sign in", { SignIns.open(context, s) }, compact = true)
-        }
     }
 }
 

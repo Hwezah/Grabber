@@ -64,12 +64,18 @@ object Media {
 
     fun info(context: Context, url: String): MediaInfo {
         ensure(context)
-        val req = YoutubeDLRequest(url).addOption("--no-playlist").addOption("--no-update")
-        SignIns.cookiesFile(context)?.let { req.addOption("--cookies", it.absolutePath) }
+        fun ask(cookies: File?): VideoInfo {
+            val req = YoutubeDLRequest(url).addOption("--no-playlist").addOption("--no-update")
+            cookies?.let { req.addOption("--cookies", it.absolutePath) }
+            return try { YoutubeDL.getInstance().getInfo(req) } finally { cookies?.delete() }
+        }
+        // Public posts need no sign-in; only when the site asks for one is the browser's sign-in used, once.
         val v: VideoInfo = try {
-            YoutubeDL.getInstance().getInfo(req)
+            ask(null)
         } catch (e: Exception) {
-            throw IllegalStateException(cleanError(e.message), e)
+            val cookies = if (needsSignIn(cleanError(e.message))) SignIns.cookiesFile(context, url) else null
+            if (cookies == null) throw IllegalStateException(cleanError(e.message), e)
+            try { ask(cookies) } catch (e2: Exception) { throw IllegalStateException(cleanError(e2.message), e2) }
         }
         val heights = v.formats.orEmpty().filter { it.vcodec != null && it.vcodec != "none" && it.height > 0 }
             .map { it.height }.distinct().sortedDescending()
@@ -105,7 +111,6 @@ object Media {
             .addOption("-N", if (item.kind == Kind.Hls) Prefs.connections.coerceIn(4, 16) else 8)
             .addOption("-o", File(work, (base ?: "%(title).120B") + ".%(ext)s").absolutePath)
         item.headers.forEach { (k, v) -> req.addOption("--add-header", "$k:$v") }
-        SignIns.cookiesFile(context)?.let { req.addOption("--cookies", it.absolutePath) }
         // Many connections per file through aria2c, sized like Grabber's own downloads.
         if (aria2c && !item.url.startsWith("file://") && item.kind != Kind.Hls) {
             val n = Prefs.connections.coerceIn(4, 16)
@@ -130,8 +135,18 @@ object Media {
         suspendCancellableCoroutine<Unit> { cont ->
             val t = thread(name = pid) {
                 try {
-                    val r = YoutubeDL.getInstance().execute(req, pid) { pct, eta, line -> onProgress(Progress(pct, eta, line)) }
-                    if (r.exitCode != 0) throw IllegalStateException(r.err.lineSequence().lastOrNull { it.isNotBlank() } ?: "yt-dlp failed")
+                    fun go(): String? {
+                        val r = YoutubeDL.getInstance().execute(req, pid) { pct, eta, line -> onProgress(Progress(pct, eta, line)) }
+                        return if (r.exitCode != 0) r.err.lineSequence().lastOrNull { it.isNotBlank() } ?: "yt-dlp failed" else null
+                    }
+                    // Signed out first; the browser's sign-in only if the site asks for one.
+                    val failed = runCatching { go() }.fold({ it }, { it.message ?: "yt-dlp failed" })
+                    if (failed != null) {
+                        val cookies = if (needsSignIn(cleanError(failed))) SignIns.cookiesFile(context, item.url) else null
+                        if (cookies == null) throw IllegalStateException(failed)
+                        req.addOption("--cookies", cookies.absolutePath)
+                        try { go()?.let { throw IllegalStateException(it) } } finally { cookies.delete() }
+                    }
                     if (cont.isActive) cont.resume(Unit)
                 } catch (e: Throwable) {
                     if (cont.isActive) cont.resumeWithException(IllegalStateException(cleanError(e.message), e))

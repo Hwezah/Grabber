@@ -40,6 +40,8 @@ object Prefs {
     var notifyDone by mutableStateOf(true)
         private set
     var userAgent by mutableStateOf("")
+    /** The Cobalt helper for social videos; blank turns it off. */
+    var resolver by mutableStateOf(Resolver.DEFAULT)
         private set
     /** Catch downloads other browsers start (needs the copy watcher on). */
     var catchBrowser by mutableStateOf(true)
@@ -106,6 +108,7 @@ object Prefs {
         autoRetry = sp.getBoolean("autoRetry", true)
         notifyDone = sp.getBoolean("notifyDone", true)
         userAgent = sp.getString("userAgent", "") ?: ""
+        resolver = sp.getString("resolver", Resolver.DEFAULT) ?: Resolver.DEFAULT
         savePlainText = sp.getBoolean("savePlainText", true)
         catchBrowser = sp.getBoolean("catchBrowser", true)
         offerOnOpen = sp.getBoolean("offerOnOpen", true)
@@ -135,6 +138,7 @@ object Prefs {
     fun useWifiOnly(v: Boolean) { wifiOnly = v; sp.edit().putBoolean("wifiOnly", v).apply(); Downloads.kick() }
     fun useAutoRetry(v: Boolean) { autoRetry = v; sp.edit().putBoolean("autoRetry", v).apply() }
     fun useNotifyDone(v: Boolean) { notifyDone = v; sp.edit().putBoolean("notifyDone", v).apply() }
+    fun useResolver(v: String) { resolver = v; sp.edit().putString("resolver", v).apply() }
     fun useUserAgent(v: String) { userAgent = v; sp.edit().putString("userAgent", v).apply(); com.hwezah.grabber.engine.Http.userAgent = v }
     fun useSavePlainText(v: Boolean) { savePlainText = v; sp.edit().putBoolean("savePlainText", v).apply() }
     fun useOfferOnOpen(v: Boolean) { offerOnOpen = v; sp.edit().putBoolean("offerOnOpen", v).apply() }

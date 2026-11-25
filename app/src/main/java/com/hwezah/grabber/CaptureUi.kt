@@ -235,6 +235,17 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
                 // DASH (.mpd) too: yt-dlp lists its qualities and joins video with audio.
                 val dash = i != null && (i.mime?.contains("dash") == true || i.finalUrl.substringBefore('?').endsWith(".mpd", true))
                 if (i == null || i.mime == "text/html" || dash) {
+                    // Social videos: the helper fetches it on its servers, so no login or phone block; a direct file.
+                    if (Resolver.wanted(url)) {
+                        val cap = Prefs.videoQuality.removePrefix("v:").toIntOrNull()
+                        val r = Resolver.resolve(url, cap)
+                        val d = r?.let { runCatching { Http.probe(it.url, emptyMap()) }.getOrNull() }
+                        if (d != null && d.mime != "text/html") {
+                            info = d
+                            if (name.isEmpty()) name = Names.clean(title ?: r.filename?.substringBeforeLast('.') ?: d.name.substringBeforeLast('.')) + "." + (r.filename?.substringAfterLast('.', "")?.takeIf { it.length in 2..4 } ?: "mp4")
+                            return@withContext
+                        }
+                    }
                     val m = try {
                         Media.info(context, url)
                     } catch (e: Exception) {
@@ -299,10 +310,9 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
     val site = SignIns.siteFor(url)
     if (error != null && site != null && Media.needsSignIn(error)) {
         Spacer(Modifier.height(8.dp))
-        Button(
-            if (SignIns.signedIn(context, site)) "Sign in to ${site.label} again" else "Sign in to ${site.label}, then Check again",
-            { SignIns.open(context, site) }, Modifier.solo(), accent = Ink.red,
-        )
+        Text("Sign in to ${site.label} in the Browser once, then try again. A VPN can cause this too: Instagram blocks them.", style = Type.meta)
+        Spacer(Modifier.height(8.dp))
+        Button("Sign in to ${site.label} in the Browser", { openInGrabberBrowser(context, url); onDismiss() }, Modifier.solo(), accent = Ink.red)
     }
     media?.let { m ->
         val video = m.heights.filter { it in setOf(2160, 1440, 1080, 720, 480, 360, 240) }.ifEmpty { m.heights.take(4) }
