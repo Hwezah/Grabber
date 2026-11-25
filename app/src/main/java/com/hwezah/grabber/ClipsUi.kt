@@ -188,7 +188,8 @@ fun CatchRows() {
     }
     LaunchedEffect(resumes) { on = Capture.watcherOn(context) }
     SettingRow("Auto-catch copied links", if (on) "On: copy a link anywhere and Grabber pops up" else "Off: switch on Grabber in Accessibility") {
-        Button(if (on) "On" else "Turn on", { help = true }, accent = if (on) Ink.green else Ink.red, compact = true)
+        // Android holds this switch: flipping it shows how to change it in Accessibility.
+        com.hwezah.grabber.design.Toggle(on, { help = true })
     }
     SettingRow("Quick Settings tile", "Swipe down, edit tiles, add \"Grab clipboard\" for one-tap catching") {}
     SettingRow("Share → Grabber", "Share a link from any app to Grabber, or select text and pick Grabber") {}

@@ -31,6 +31,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -74,7 +76,10 @@ fun SettingsPage() {
                 SettingRow("Retry failed downloads", "Keeps trying, even for days, when the connection drops; carries on when the network is back") { Toggle(Prefs.autoRetry, Prefs::useAutoRetry) }
                 SettingRow("Notify when done", "A notification for each finished download, tap to open") { Toggle(Prefs.notifyDone, Prefs::useNotifyDone) }
                 SettingRow("Browser identity", if (Prefs.userAgent.isBlank()) "Chrome on Android (default). Change it if a site blocks downloads." else Prefs.userAgent) {
-                    Button("Edit", { sheet = "ua" }, compact = true)
+                    // The same bare sliders icon as the Downloads heading.
+                    com.hwezah.grabber.design.Tap({ sheet = "ua" }, Modifier.size(44.dp).semantics { contentDescription = "Edit browser identity" }, androidx.compose.foundation.shape.CircleShape) {
+                        Box(contentAlignment = Alignment.Center) { Lc(com.composables.icons.lucide.R.drawable.lucide_ic_sliders_horizontal, tint = Ink.text, size = 26.dp) }
+                    }
                 }
             }
             Spacer(Modifier.height(20.dp))
@@ -347,13 +352,14 @@ fun BatteryRow() {
         "Keep downloading in the background",
         if (free) "On: Android won't pause Grabber's downloads to save battery" else "Off: Android may stall downloads when the screen is off. Turn on for long downloads.",
     ) {
-        if (free) Button("On", {}, accent = Ink.green, compact = true)
-        else Button("Turn on", {
+        // A switch: Android holds the setting, so flipping it opens Android's own page for it.
+        Toggle(free, { on ->
             runCatching {
                 @android.annotation.SuppressLint("BatteryLife")
-                val i = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:" + context.packageName))
+                val i = if (on) android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:" + context.packageName))
+                else android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                 context.startActivity(i)
             }.onFailure { runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } }
-        }, accent = Ink.red, compact = true)
+        })
     }
 }
