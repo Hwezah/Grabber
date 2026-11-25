@@ -437,8 +437,8 @@ fun SwipeRow(
     Box(modifier.onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }) {
         val x = offset.value
         if (x < 0f && leftReveal != null) {
-            // The choices, waiting beneath the row's right end.
-            Box(Modifier.matchParentSize().clip(shape), contentAlignment = Alignment.CenterEnd) {
+            // The choices on a sheet of their own, exactly the row's size (as the play side's), at its right end.
+            Box(Modifier.matchParentSize().clip(shape).background(leftColor.copy(alpha = 0.22f)), contentAlignment = Alignment.CenterEnd) {
                 Box(Modifier.width(revealWidth).fillMaxHeight().graphicsLayer { alpha = (-x / reveal).coerceIn(0f, 1f) }, contentAlignment = Alignment.Center) { leftReveal(close) }
             }
         } else if (x != 0f) {
