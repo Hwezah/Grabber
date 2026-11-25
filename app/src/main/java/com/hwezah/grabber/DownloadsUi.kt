@@ -194,10 +194,10 @@ fun DownloadsPage() {
                             // With a file: swiped left, the row hangs open on its two deletes (each held with Undo).
                             leftReveal = if (item.doc == null) null else ({ close ->
                                 // No backgrounds: each choice is its icon and word, a pipe between them.
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                                    RevealChoice(L.drawable.lucide_ic_trash_2, "Bin") { close(); Downloads.trash(item.id, permanent = false) }
-                                    com.hwezah.grabber.design.Pipe(Ink.text.copy(alpha = 0.3f))
-                                    RevealChoice(com.hwezah.grabber.design.R.drawable.trash_x, "Delete", Ink.red) { close(); Downloads.trash(item.id, permanent = true) }
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    RevealChoice(L.drawable.lucide_ic_trash_2, "Bin", Modifier.weight(1f)) { close(); Downloads.trash(item.id, permanent = false) }
+                                    Box(Modifier.size(width = 1.5.dp, height = 26.dp).clip(RoundedCornerShape(1.dp)).background(Ink.text.copy(alpha = 0.22f)))
+                                    RevealChoice(com.hwezah.grabber.design.R.drawable.trash_x, "Delete", Modifier.weight(1f), Ink.red) { close(); Downloads.trash(item.id, permanent = true) }
                                 }
                             }),
                         ) { DownloadRow(item, live[item.id], { Downloads.delete(item.id, false); removed = item }) { picked = item.id } }
@@ -304,14 +304,14 @@ private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: 
     }
 }
 
-/** A choice under a swiped row: its icon and word, no background. */
+/** A choice under a swiped row: its icon over a small word, no background. Runs only on a tap. */
 @Composable
-private fun RevealChoice(icon: Int, label: String, tint: Color = Ink.text, onClick: () -> Unit) {
-    Tap(onClick, Modifier.height(44.dp), RoundedCornerShape(8.dp)) {
-        Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Lc(icon, tint = tint, size = 20.dp)
-            Spacer(Modifier.width(6.dp))
-            Text(label, style = Type.label.copy(fontWeight = FontWeight.SemiBold, color = tint))
+private fun RevealChoice(icon: Int, label: String, modifier: Modifier = Modifier, tint: Color = Ink.text, onClick: () -> Unit) {
+    Tap(onClick, modifier, RoundedCornerShape(8.dp)) {
+        Column(Modifier.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Lc(icon, tint = tint, size = 22.dp)
+            Spacer(Modifier.height(3.dp))
+            Text(label, style = Type.meta.copy(color = tint))
         }
     }
 }

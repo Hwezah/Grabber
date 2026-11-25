@@ -437,17 +437,22 @@ fun SwipeRow(
     Box(modifier.onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }) {
         val x = offset.value
         if (x < 0f && leftReveal != null) {
-            // The choices on a sheet of their own, exactly the row's size (as the play side's), at its right end.
-            Box(Modifier.matchParentSize().clip(shape).background(leftColor.copy(alpha = 0.22f)), contentAlignment = Alignment.CenterEnd) {
-                Box(Modifier.width(revealWidth).fillMaxHeight().graphicsLayer { alpha = (-x / reveal).coerceIn(0f, 1f) }, contentAlignment = Alignment.Center) { leftReveal(close) }
+            // The choices on a card-shaped sheet of their own at the row's right end: the card's height and shape, the
+            // raised surface, fading in with the drag.
+            Box(Modifier.matchParentSize(), contentAlignment = Alignment.CenterEnd) {
+                Box(
+                    Modifier.width(revealWidth).fillMaxHeight().graphicsLayer { alpha = (-x / reveal).coerceIn(0f, 1f) }.clip(shape).background(Ink.surface2),
+                    contentAlignment = Alignment.Center,
+                ) { leftReveal(close) }
             }
         } else if (x != 0f) {
             val right = x > 0
             Box(
-                Modifier.matchParentSize().clip(shape).background((if (right) rightColor else leftColor).copy(alpha = (kotlin.math.abs(x) / (width / 3)).coerceIn(0.25f, 1f))),
+                // Exactly the card's size and shape; the colour deepens as the drag goes.
+                Modifier.matchParentSize().clip(shape).background((if (right) rightColor else leftColor).copy(alpha = 0.16f + 0.24f * (kotlin.math.abs(x) / (width / 3)).coerceIn(0f, 1f))),
                 contentAlignment = if (right) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
-                Lc(if (right) rightIcon else leftIcon, Modifier.padding(horizontal = 24.dp), tint = Color.White, size = 22.dp)
+                Lc(if (right) rightIcon else leftIcon, Modifier.padding(horizontal = 24.dp), tint = if (right) rightColor else leftColor, size = 24.dp)
             }
         }
         Box(
