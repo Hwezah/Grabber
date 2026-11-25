@@ -1,6 +1,7 @@
 package com.hwezah.grabber
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -20,10 +21,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -74,6 +77,10 @@ fun UpdateBar(modifier: Modifier = Modifier) {
         is Updater.Status.Failed -> if (Updater.last != null || Updater.fetched != null) "Retry" else null
         else -> null
     }
+    // Download progress, eased between updates; shown as a thin strip along the bottom edge.
+    val pct = (s as? Updater.Status.Downloading)?.pct
+    val shown by animateFloatAsState((pct ?: 0) / 100f, tween(400), label = "update progress")
+    val track = Ink.text.copy(alpha = 0.08f)
     Row(
         modifier.fillMaxWidth()
             .graphicsLayer {
@@ -85,6 +92,15 @@ fun UpdateBar(modifier: Modifier = Modifier) {
             }
             // The tab bar's near-black (paper in the light theme), flat with grain, reaching up behind the status bar.
             .background(if (Ink.isDark) Color(0xFF0E0E0E) else Ink.surface2).grain()
+            .drawWithContent {
+                drawContent()
+                if (pct != null) {
+                    val h = 2.dp.toPx()
+                    val y = size.height - h / 2
+                    drawLine(track, Offset(0f, y), Offset(size.width, y), h)
+                    if (shown > 0f) drawLine(Ink.red, Offset(0f, y), Offset(size.width * shown, y), h)
+                }
+            }
             .statusBarsPadding()
             .padding(start = 16.dp, end = 10.dp, top = 8.dp, bottom = 8.dp)
             // Same height in every phase, with or without the buttons.
