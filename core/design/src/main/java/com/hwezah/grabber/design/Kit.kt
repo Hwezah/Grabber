@@ -138,10 +138,10 @@ fun Button(
         else Modifier.frost(RoundedCornerShape(10.dp), alpha = if (LocalQuiet.current) (if (pressed) 0.1f else 0.05f) else if (pressed) 0.18f else 0.09f, grain = if (LocalQuiet.current) 0.7f else 1f)
         Row(
             base.then(
-                // Compact stays 34dp only while it's thin: stretched across a row (140dp or more) it matches the others at 44dp.
+                // Compact stays 38dp only while it's thin: stretched across a row (140dp or more) it matches the others at 44dp.
                 if (!compact) Modifier.height(44.dp)
                 else Modifier.layout { m, c ->
-                    val h = (if (c.minWidth >= 140.dp.roundToPx()) 44.dp else 34.dp).roundToPx()
+                    val h = (if (c.minWidth >= 140.dp.roundToPx()) 44.dp else 38.dp).roundToPx()
                     val pl = m.measure(c.copy(minHeight = h, maxHeight = h))
                     layout(pl.width, pl.height) { pl.place(0, 0) }
                 },
