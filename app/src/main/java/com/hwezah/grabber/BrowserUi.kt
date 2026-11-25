@@ -161,13 +161,8 @@ fun BrowserPage() {
                     modifier = Modifier.fillMaxSize(),
                 )
                 // Nothing open yet: a bare, dark frosted page.
-                if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f)) {
-                    // The start page: your bookmarks, a tap away.
-                    if (Places.bookmarks.isNotEmpty()) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = EDGE + 4.dp, vertical = 12.dp)) {
-                        Text("BOOKMARKS", Modifier.padding(start = 4.dp, bottom = 6.dp), style = Type.overline)
-                        Places.bookmarks.toList().forEach { p -> PlaceRow(p, onOpen = { Browser.go(p.url) }, onRemove = null) }
-                    }
-                }
+                // Bookmarks live behind ⋮ › Bookmarks, not on the page.
+                if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0f, grain = 0.6f))
             }
         }
         if (menu) BottomSheet(
