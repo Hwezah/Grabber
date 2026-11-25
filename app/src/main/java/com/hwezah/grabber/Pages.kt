@@ -91,7 +91,7 @@ fun SettingsPage() {
                 SettingRow("Save copied plain text", "Keep copied text without links in Clipboard too") { Toggle(Prefs.savePlainText, Prefs::useSavePlainText) }
                 SettingRow("Offer copied links on open", "Opening Grabber with a new link copied shows the download sheet") { Toggle(Prefs.offerOnOpen, Prefs::useOfferOnOpen) }
                 ChipRow("Clipboard history keeps", listOf(100, 500, 1000).map { it to "$it" }, Prefs.historyLimit, Prefs::useHistoryLimit)
-                SettingRow("Clear clipboard history", "Pinned clips stay") { Button("Clear", { sheet = "clear" }, compact = true) }
+                SettingRow("Clear clipboard history", "Pinned clips stay") { com.hwezah.grabber.design.Glyph(com.composables.icons.lucide.R.drawable.lucide_ic_trash_2, "Clear clipboard history", { sheet = "clear" }) }
             }
             Spacer(Modifier.height(20.dp))
             Overline("Browser")
@@ -103,7 +103,7 @@ fun SettingsPage() {
                 SettingRow("Block redirects", "Stops pages jumping to ad and betting sites; a bar offers Open anyway") { Toggle(Prefs.blockRedirects, Prefs::useBlockRedirects) }
                 SettingRow("Spot videos and files", "Watches what pages load and offers it to download") { Toggle(Prefs.sniffMedia, Prefs::useSniffMedia) }
                 SettingRow("Clear browsing data", "Cookies, history and cache. Site sign-ins in the browser go too") {
-                    Button("Clear", { Browser.clearData() }, compact = true)
+                    com.hwezah.grabber.design.Glyph(com.composables.icons.lucide.R.drawable.lucide_ic_trash_2, "Clear browsing data", { Browser.clearData() })
                 }
             }
             Spacer(Modifier.height(20.dp))
@@ -135,9 +135,9 @@ fun SettingsPage() {
             Overline("About")
             Group {
                 SettingRow("Grabber ${BuildConfig.VERSION_NAME}", "Updates come from GitHub; a bar appears up top when one is ready.") {
-                    Button("Check", { Updater.dismissed = false; Updater.check(force = true) }, compact = true)
+                    com.hwezah.grabber.design.Glyph(com.composables.icons.lucide.R.drawable.lucide_ic_rotate_cw, "Check for updates", { Updater.dismissed = false; Updater.check(force = true) })
                 }
-                SettingRow("Open-source licences", "yt-dlp, FFmpeg, libtorrent, OkHttp, Google Sans Flex…") { Button("View", { sheet = "licences" }, compact = true) }
+                SettingRow("Open-source licences", "yt-dlp, FFmpeg, libtorrent, OkHttp, Google Sans Flex…") { com.hwezah.grabber.design.Glyph(com.composables.icons.lucide.R.drawable.lucide_ic_file_text, "View licences", { sheet = "licences" }) }
             }
             Spacer(Modifier.height(BottomRoom))
         }
@@ -224,12 +224,12 @@ fun TempRow() {
     }
     val busy = Downloads.items.value.any { it.state == State.Running || it.state == State.Queued }
     SettingRow("Temporary files", if (size < 0) "Measuring…" else "${Fmt.bytes(size)} of unfinished streams, videos and updates" + if (busy) " · pause downloads first" else "") {
-        Button("Clear", {
+        com.hwezah.grabber.design.Glyph(com.composables.icons.lucide.R.drawable.lucide_ic_trash_2, "Clear temporary files", {
             if (!busy) {
                 dirs.forEach { it.deleteRecursively() }
                 tick++
             }
-        }, compact = true)
+        })
     }
 }
 

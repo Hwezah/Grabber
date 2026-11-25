@@ -56,6 +56,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -144,6 +146,14 @@ fun Button(
             }
             if (label.isNotEmpty()) Text(label, style = Type.label.copy(fontWeight = FontWeight.SemiBold, color = fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+    }
+}
+
+/** A bare icon button (no background), 44dp to tap, named for TalkBack. */
+@Composable
+fun Glyph(@DrawableRes icon: Int, description: String, onClick: () -> Unit, tint: Color = Ink.text, size: androidx.compose.ui.unit.Dp = 24.dp) {
+    Tap(onClick, Modifier.size(44.dp).semantics { contentDescription = description }, CircleShape) { pressed ->
+        Box(Modifier.size(44.dp).graphicsLayer { alpha = if (pressed) 0.55f else 1f }, contentAlignment = Alignment.Center) { Lc(icon, tint = tint, size = size) }
     }
 }
 
