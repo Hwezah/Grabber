@@ -29,8 +29,12 @@ data class Sniffed(
     val detail: String = "",
 )
 
-/** One browser tab: its own page, history and finds. */
-class BTab(val id: Long) {
+/**
+ * One browser tab: its own page, history and finds. [incognito]: its pages aren't kept in history, and its cookies,
+ * sign-ins, storage and cache live apart from the other tabs' (where the phone's WebView allows) and are forgotten
+ * when the last such tab closes.
+ */
+class BTab(val id: Long, val incognito: Boolean = false) {
     @SuppressLint("StaticFieldLeak")
     var web: WebView? = null
     var url by mutableStateOf("")
@@ -48,6 +52,13 @@ class BTab(val id: Long) {
     var stopped by mutableStateOf<String?>(null)
     /** One address let through after "Open anyway". */
     var pass: String? = null
+    /** When the viewer last opened an address here (typed, a bookmark): the page's own redirects on its way in go through. */
+    @Volatile var openedAt = 0L
+    /** When this tab was last shown: the least recently used give their pages back first. */
+    var usedAt = System.currentTimeMillis()
+    /** A window a page opened, already loading: taken as this tab's page rather than loaded again. */
+    @SuppressLint("StaticFieldLeak")
+    var adopt: WebView? = null
 }
 
 /**
@@ -151,6 +162,8 @@ object Browser {
     }
 
     private fun blockedHost(host: String): Boolean {
+        // The big weekly list first (about 300,000 sites), then the built-in short list.
+        if (AdBlock.blocks(host)) return true
         var h = host.lowercase()
         while (true) {
             if (h in AD_HOSTS) return true
@@ -176,11 +189,13 @@ object Browser {
 
     private val expanded = java.util.Collections.synchronizedSet(HashSet<String>())
 
-    private fun sniff(t0: BTab, url: String, sent: Map<String, String> = emptyMap()) {
+    private fun sniff(t0: BTab, url: String, sent: Map<String, String> = emptyMap(), known: String? = null) {
         if (!Prefs.sniffMedia) return
-        val kind = kindOf(url) ?: return
-        // Pieces of a stream aren't worth listing; the stream itself is.
-        if (Regex("""(seg|chunk|frag|part)[-_]?\d+""", RegexOption.IGNORE_CASE).containsMatchIn(url) && kind != "Stream (HLS)") return
+        if (!url.startsWith("http", true)) return
+        val kind = known ?: kindOf(url) ?: return
+        // Pieces of a stream aren't worth listing; the stream itself is. "init-…mp4" is a stream's header, not a video.
+        val file = url.substringBefore('?').substringAfterLast('/').lowercase()
+        if (kind != "Stream (HLS)" && (Regex("""(seg|chunk|frag|part)[-_]?\d+""").containsMatchIn(file) || Regex("""^init[-_.]|[-_.]init[-_.]""").containsMatchIn(file) || file.endsWith(".m4s"))) return
         if (url in t0.children) return
         val page = t0.url
         val t = t0.title
@@ -190,7 +205,155 @@ object Browser {
         }
         // A stream: read what it holds, like 1DM: every quality with its size, or this one quality's details.
         if (kind == "Stream (HLS)" && expanded.add(url)) qualities(t0, s)
+        else if (kind == "Video" && expanded.add(url)) describeFile(t0, s)
     }
+
+    /** A video file's size; a small one is a preview clip (a thumbnail's hover video), not the film. */
+    private fun describeFile(t0: BTab, s: Sniffed) = kotlin.concurrent.thread(name = "grabber-size") {
+        val size = sizeOf(s.url, headersFor(s, t0))
+        if (size <= 0) return@thread
+        val detail = if (size < 3L * 1024 * 1024) "Preview clip · " + bytes(size) else bytes(size)
+        main.post {
+            val i = t0.found.indexOfFirst { it.url == s.url }
+            if (i >= 0) t0.found[i] = t0.found[i].copy(detail = detail)
+        }
+    }
+
+    /* ------------------------------------------------------------ finds without a telling address */
+
+    /** Addresses already asked what they are, so a player's repeated range requests are asked once. */
+    private val probed = java.util.Collections.synchronizedSet(HashSet<String>())
+
+    /** Pictures, fonts, scripts and styles: never media. */
+    private val NOT_MEDIA = Regex("""\.(jpe?g|png|gif|webp|avif|svg|ico|woff2?|ttf|otf|css|js|json|html?)(\?|#|$)""", RegexOption.IGNORE_CASE)
+
+    /** A Content-Type as one of the Browser's kinds; null when it isn't a video, audio or a stream's playlist. */
+    private fun kindOfType(type: String?): String? {
+        val t = type.orEmpty().lowercase()
+        return when {
+            "mpegurl" in t -> "Stream (HLS)"
+            "dash+xml" in t -> "Stream (DASH)"
+            "mp2t" in t || "iso.segment" in t -> null
+            t.startsWith("video/") -> "Video"
+            t.startsWith("audio/") -> "Audio"
+            else -> null
+        }
+    }
+
+    /** A range request for an address that doesn't say what it is: one byte of it asked for, its Content-Type says. */
+    private fun probe(t0: BTab, url: String, sent: Map<String, String>) = kotlin.concurrent.thread(name = "grabber-probe") {
+        runCatching {
+            val headers = headersFor(Sniffed(url, "", t0.url, t0.title, sent), t0)
+            val b = okhttp3.Request.Builder().url(url).header("Range", "bytes=0-0")
+            headers.forEach { (k, v) -> runCatching { b.header(k, v) } }
+            com.hwezah.grabber.engine.Http.client.newCall(b.build()).execute().use { r -> kindOfType(r.header("Content-Type"))?.let { sniff(t0, url, sent, it) } }
+        }
+    }
+
+    /** Told by the page itself (MEDIA_SPY): what its video or audio plays, and the playlists its player fetched. */
+    private class MediaSpy(val t0: BTab) {
+        @android.webkit.JavascriptInterface
+        fun found(url: String, type: String) {
+            if (url.length > 4000) return
+            val kind = kindOfType(type) ?: kindOf(url) ?: return
+            sniff(t0, url, known = kind)
+        }
+    }
+
+    /** In every page and frame from its start: a media element's real address as it plays, and HLS/DASH playlists fetched. */
+    private const val MEDIA_SPY = """(function(){
+  if (window.__grMedia || !window.GrabberMedia) return; window.__grMedia = 1;
+  var B = window.GrabberMedia;
+  function rep(u, t) { try { if (!u) return; u = String(u); if (u.indexOf('blob:') == 0 || u.indexOf('data:') == 0) return; B.found(new URL(u, location.href).href, String(t || '')); } catch (e) {} }
+  function playlist(ct) { ct = String(ct || '').toLowerCase(); return ct.indexOf('mpegurl') >= 0 || ct.indexOf('dash+xml') >= 0; }
+  function el(e) { var v = e.target; if (v && (v.tagName == 'VIDEO' || v.tagName == 'AUDIO')) rep(v.currentSrc || v.src, v.tagName == 'VIDEO' ? 'video/' : 'audio/'); }
+  document.addEventListener('loadedmetadata', el, true);
+  document.addEventListener('play', el, true);
+  try {
+    var o = XMLHttpRequest.prototype.open, s = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function(m, u) { this.__gru = u; return o.apply(this, arguments); };
+    XMLHttpRequest.prototype.send = function() { var x = this; x.addEventListener('load', function() { try { var ct = x.getResponseHeader('content-type'); if (playlist(ct)) rep(x.responseURL || x.__gru, ct); } catch (e) {} }); return s.apply(this, arguments); };
+  } catch (e) {}
+  try {
+    if (window.fetch) { var f = window.fetch; window.fetch = function() { return f.apply(this, arguments).then(function(r) { try { var ct = r.headers.get('content-type'); if (playlist(ct)) rep(r.url, ct); } catch (e) {} return r; }); }; }
+  } catch (e) {}
+})();"""
+
+    /** A site's service worker's requests never reach a tab's client: watched here, for the tab in front. */
+    private var workersWatched = false
+
+    private fun watchWorkers() {
+        if (workersWatched) return
+        workersWatched = true
+        runCatching {
+            val f = androidx.webkit.WebViewFeature::isFeatureSupported
+            if (!f(androidx.webkit.WebViewFeature.SERVICE_WORKER_BASIC_USAGE) || !f(androidx.webkit.WebViewFeature.SERVICE_WORKER_SHOULD_INTERCEPT_REQUEST)) return
+            androidx.webkit.ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(object : androidx.webkit.ServiceWorkerClientCompat() {
+                override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
+                    runCatching { sniff(tab, request.url.toString(), request.requestHeaders.orEmpty()) }
+                    return null
+                }
+            })
+        }
+    }
+
+    /* ------------------------------------------------------------ incognito */
+
+    /** The WebView profile incognito tabs share: its own cookies, storage and cache, deleted with the last such tab. */
+    private const val PRIVATE = "grabber-incognito"
+
+    /** Whether this phone's WebView keeps incognito tabs' cookies and storage apart. */
+    val trulyPrivate: Boolean by lazy { runCatching { androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE) }.getOrDefault(false) }
+
+    private fun cookiesOf(t: BTab): CookieManager =
+        if (t.incognito && trulyPrivate) runCatching { androidx.webkit.ProfileStore.getInstance().getOrCreateProfile(PRIVATE).cookieManager }.getOrNull() ?: CookieManager.getInstance()
+        else CookieManager.getInstance()
+
+    private fun forgetIncognito() {
+        if (!trulyPrivate) return
+        main.postDelayed({ runCatching { if (tabs.none { it.incognito }) androidx.webkit.ProfileStore.getInstance().deleteProfile(PRIVATE) } }, 1500)
+    }
+
+    /* ------------------------------------------------------------ live pages */
+
+    /** Pages destroyed or found dead: never handed back to a tab, which then gets a new one. */
+    private val dead: MutableSet<WebView> = java.util.Collections.newSetFromMap(java.util.WeakHashMap())
+
+    /** Pages kept alive at once: beyond it the least recently used give theirs back and load again when shown. */
+    private const val MAX_LIVE = 4
+
+    private fun kill(t: BTab) {
+        val w = t.web ?: return
+        t.web = null
+        dead += w
+        runCatching { (w.parent as? ViewGroup)?.removeView(w) }
+        runCatching { w.destroy() }
+        t.loading = false
+    }
+
+    private fun trimPages(keep: BTab) {
+        tabs.filter { it.web != null && it !== keep }.sortedByDescending { it.usedAt }.drop(MAX_LIVE - 1).forEach { kill(it) }
+    }
+
+    /** A page engine that stays hung through three reports in a row is ended, so its pages are rebuilt, not left black. */
+    private fun watchEngine(w: WebView) {
+        val f = androidx.webkit.WebViewFeature::isFeatureSupported
+        if (!f(androidx.webkit.WebViewFeature.WEB_VIEW_RENDERER_CLIENT_BASIC_USAGE)) return
+        runCatching {
+            androidx.webkit.WebViewCompat.setWebViewRenderProcessClient(w, object : androidx.webkit.WebViewRenderProcessClient() {
+                private var strikes = 0
+                override fun onRenderProcessUnresponsive(view: WebView, renderer: androidx.webkit.WebViewRenderProcess?) {
+                    if (fullScreen) return
+                    if (++strikes < 3) return
+                    strikes = 0
+                    if (f(androidx.webkit.WebViewFeature.WEB_VIEW_RENDERER_TERMINATE)) runCatching { renderer?.terminate() }
+                }
+                override fun onRenderProcessResponsive(view: WebView, renderer: androidx.webkit.WebViewRenderProcess?) { strikes = 0 }
+            })
+        }
+    }
+
+    private fun openedByViewer(t: BTab) = System.currentTimeMillis() - t.openedAt < 10_000
 
     private fun fetchText(url: String, headers: Map<String, String>): String? = runCatching {
         val b = okhttp3.Request.Builder().url(url)
@@ -276,30 +439,67 @@ object Browser {
         t0.ua.takeIf { it.isNotBlank() }?.let { h["User-Agent"] = it }
         // What the page itself sent wins: an embedded player checks its own Referer and Origin.
         s.headers.forEach { (k, v) -> if (k.lowercase() !in setOf("range", "accept-encoding", "host")) h[k] = v }
-        CookieManager.getInstance().getCookie(s.url)?.takeIf { it.isNotBlank() }?.let { h["Cookie"] = it }
+        cookiesOf(t0).getCookie(s.url)?.takeIf { it.isNotBlank() }?.let { h["Cookie"] = it }
         return h
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     fun view(context: Context, t: BTab = tab): WebView {
-        t.web?.let { return it }
+        t.usedAt = System.currentTimeMillis()
+        t.web?.takeIf { it !in dead }?.let { return it }
+        t.web = null
+        trimPages(keep = t)
+        // A window the page opened, already on its way: kept as it is, not loaded again from scratch.
+        val adopted = t.adopt
+        t.adopt = null
+        val w = adopted ?: WebView(context).also { prepare(it, t.incognito) }
+        finishView(context, w, t)
+        if (t.url.isNotEmpty() && adopted == null) w.loadUrl(t.url)
+        if (adopted != null) {
+            adopted.url?.takeIf { it.isNotBlank() && it != "about:blank" }?.let { t.url = it }
+            t.title = adopted.title.orEmpty()
+            t.progress = adopted.progress
+            t.loading = adopted.progress < 100
+            nav(t, adopted)
+        }
+        return w
+    }
+
+    /** A new page's WebView made ready before it loads: the tab's profile, settings, and the shield and media watch. */
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun prepare(w: WebView, incognito: Boolean) {
         CookieManager.getInstance().setAcceptCookie(true)
-        val w = WebView(context)
+        if (incognito) {
+            if (trulyPrivate) runCatching {
+                androidx.webkit.ProfileStore.getInstance().getOrCreateProfile(PRIVATE)
+                androidx.webkit.WebViewCompat.setProfile(w, PRIVATE)
+            }
+            w.settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+        }
         w.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = true
-            // No pop-up windows (most are ads), unless turned off in Settings.
-            setSupportMultipleWindows(false)
-            javaScriptCanOpenWindowsAutomatically = !Prefs.blockPopups
+            // Pop-ups are caught in a window of their own (catchPopup), never loaded over this page.
+            setSupportMultipleWindows(true)
+            javaScriptCanOpenWindowsAutomatically = true
             builtInZoomControls = true
             displayZoomControls = false
             loadWithOverviewMode = true
             useWideViewPort = true
         }
         darken(w.settings)
+        if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            if (Prefs.blockAds) runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(w, AdBlock.SHIELD_SCRIPT, setOf("*")) }
+            runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(w, MEDIA_SPY, setOf("*")) }
+        }
+    }
+
+    /** The tab's own watchers on its WebView: requests, pages, windows, downloads, scrolling. */
+    private fun finishView(context: Context, w: WebView, t: BTab) {
+        watchEngine(w)
         t.ua = w.settings.userAgentString.orEmpty()
-        CookieManager.getInstance().setAcceptThirdPartyCookies(w, true)
+        cookiesOf(t).setAcceptThirdPartyCookies(w, true)
         w.webViewClient = object : WebViewClient() {
             // Runs on a background thread for every request: it must never throw.
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? = try {
@@ -308,7 +508,13 @@ object Browser {
                     main.post { t.blocked++ }
                     WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                 } else {
-                    sniff(t, u.toString(), request.requestHeaders.orEmpty())
+                    val url = u.toString()
+                    val sent = request.requestHeaders.orEmpty()
+                    sniff(t, url, sent)
+                    // A player asking for a range of an address that doesn't say what it is: asked what it is.
+                    if (Prefs.sniffMedia && !request.isForMainFrame && kindOf(url) == null && url.startsWith("http", true) && !NOT_MEDIA.containsMatchIn(url) &&
+                        sent.keys.any { it.equals("Range", true) } && probed.add(url)
+                    ) probe(t, url, sent)
                     null
                 }
             } catch (e: Throwable) {
@@ -317,6 +523,8 @@ object Browser {
 
             // The page's renderer crashed or was killed for memory: rebuild this tab instead of closing the app.
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                if (fullScreen) runCatching { exitFull?.invoke() }
+                dead += view
                 runCatching { (view.parent as? ViewGroup)?.removeView(view) }
                 runCatching { view.destroy() }
                 if (t.web === view) t.web = null
@@ -337,14 +545,24 @@ object Browser {
                     return true
                 }
                 if (u.scheme != "http" && u.scheme != "https") return true
-                if (Prefs.blockAds && blockedHost(u.host.orEmpty())) { t.blocked++; return true }
+                // The block list stops a page too, but says so ("Open anyway"), and never what the viewer just opened.
+                if (Prefs.blockAds && !openedByViewer(t) && blockedHost(u.host.orEmpty())) {
+                    t.blocked++
+                    if (request.isForMainFrame) t.stopped = u.toString()
+                    return true
+                }
                 if (stopJump(t, request)) { t.stopped = u.toString(); return true }
                 return false
             }
 
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                // Older WebViews without start-of-page scripts: the shield and media watch as early as they allow.
+                if (!androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                    if (Prefs.blockAds) runCatching { view.evaluateJavascript(AdBlock.SHIELD_SCRIPT, null) }
+                    runCatching { view.evaluateJavascript(MEDIA_SPY, null) }
+                }
                 val u = if (url == "about:blank") "" else url
-                if (u != t.url) t.found.clear()
+                if (u != t.url) { t.found.clear(); t.children.clear() }
                 t.url = u
                 t.loading = true
                 t.blocked = 0
@@ -352,12 +570,19 @@ object Browser {
                 nav(t, view)
             }
 
+            // Leftover ad boxes hidden as soon as the page shows, and again when it's done.
+            override fun onPageCommitVisible(view: WebView, url: String) {
+                if (Prefs.blockAds) runCatching { view.evaluateJavascript(AdBlock.HIDE_SCRIPT, null) }
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
+                if (Prefs.blockAds) runCatching { view.evaluateJavascript(AdBlock.HIDE_SCRIPT, null) }
                 t.url = if (url == "about:blank") "" else url
                 t.loading = false
                 t.title = view.title.orEmpty()
                 nav(t, view)
-                Places.visited(t.url, t.title)
+                // Incognito keeps no history.
+                if (!t.incognito) Places.visited(t.url, t.title)
             }
 
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
@@ -367,6 +592,9 @@ object Browser {
         }
         w.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView, newProgress: Int) { t.progress = newProgress }
+            // A page opening a window: caught here, never loaded over this page.
+            override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message): Boolean =
+                catchPopup(view, t, isUserGesture, resultMsg)
             override fun onReceivedTitle(view: WebView, title: String?) { t.title = title.orEmpty() }
 
             // Full screen for a page's video player: its view laid over the whole window, back out with Back.
@@ -418,6 +646,8 @@ object Browser {
         w.addJavascriptInterface(object {
             @android.webkit.JavascriptInterface fun take(text: String) { takeConf(context, text) }
         }, "GrabberConf")
+        w.addJavascriptInterface(MediaSpy(t), "GrabberMedia")
+        watchWorkers()
         // Which way the page is being read: the address bar hides going down and comes back going up.
         var travel = 0
         val step = (24 * context.resources.displayMetrics.density).toInt()
@@ -427,10 +657,62 @@ object Browser {
             travel = if (travel != 0 && (d > 0) != (travel > 0)) d else travel + d
             if (travel <= -step) { goingUp++; travel = 0 } else if (travel >= step) { goingDown++; travel = 0 }
         }
-        // Nothing loaded until something is searched or typed: a blank start. A rebuilt tab reloads its page.
         t.web = w
-        if (t.url.isNotEmpty()) w.loadUrl(t.url)
-        return w
+    }
+
+    /**
+     * A window a page opens, read in an unseen WebView until its address is known: an ad, betting or pop-under site,
+     * or a window opened without a tap (with pop-up blocking on), is dropped; the same site's click-through page is
+     * followed in this tab; a tapped link to a real page becomes a new tab.
+     */
+    private fun catchPopup(opener: WebView, t: BTab, tapped: Boolean, msg: android.os.Message): Boolean {
+        if (Prefs.blockPopups && !tapped) { main.post { t.blocked++ }; return false }
+        val probe = WebView(opener.context)
+        prepare(probe, t.incognito)
+        var kept = false
+        probe.webViewClient = object : WebViewClient() {
+            private var done: Boolean? = null
+
+            private fun decide(url: String): Boolean {
+                done?.let { return it }
+                val host = android.net.Uri.parse(url).host.orEmpty().lowercase()
+                val ad = url.startsWith("about:") || host.isEmpty() || (Prefs.blockAds && blockedHost(host)) || BAD_JUMP.containsMatchIn(host)
+                val sameSite = !ad && siteOf(host).isNotEmpty() && siteOf(host) == siteOf(android.net.Uri.parse(t.url).host)
+                done = ad || sameSite
+                main.post {
+                    if (ad || sameSite) {
+                        dead += probe
+                        runCatching { probe.stopLoading(); probe.destroy() }
+                        if (ad) t.blocked++
+                        else {
+                            t.openedAt = System.currentTimeMillis()
+                            t.pass = url
+                            t.web?.loadUrl(url, mapOf("Referer" to t.url))
+                        }
+                    } else {
+                        kept = true
+                        newTab(incognito = t.incognito)
+                        tab.url = url
+                        tab.openedAt = System.currentTimeMillis()
+                        if (probe !in dead) tab.adopt = probe
+                    }
+                }
+                return ad || sameSite
+            }
+
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = decide(request.url.toString())
+            override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) { if (url != "about:blank" && decide(url)) view.stopLoading() }
+            override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                dead += view
+                runCatching { view.destroy() }
+                return true
+            }
+        }
+        (msg.obj as? WebView.WebViewTransport)?.webView = probe
+        msg.sendToTarget()
+        // Nothing came (a window that stays blank): let go after a moment, unless it became a tab.
+        main.postDelayed({ if (!kept) { dead += probe; runCatching { probe.destroy() } } }, 8_000)
+        return true
     }
 
     /** A new tab, blank, made current. */
@@ -456,17 +738,26 @@ object Browser {
         openNow = true
     }
 
-    fun newTab() {
-        tabs.add(BTab((tabs.maxOfOrNull { it.id } ?: 0) + 1))
+    fun newTab(incognito: Boolean = false) {
+        tabs.add(BTab((tabs.maxOfOrNull { it.id } ?: 0) + 1, incognito))
         current = tabs.lastIndex
     }
 
-    fun select(i: Int) { current = i.coerceIn(0, tabs.lastIndex) }
+    fun select(i: Int) {
+        current = i.coerceIn(0, tabs.lastIndex)
+        tab.usedAt = System.currentTimeMillis()
+    }
 
     fun close(i: Int) {
         val t = tabs.getOrNull(i) ?: return
-        t.web?.apply { (parent as? ViewGroup)?.removeView(this); destroy() }
+        t.web?.apply {
+            if (t.incognito) { clearHistory(); clearCache(true) }
+            dead += this
+            (parent as? ViewGroup)?.removeView(this)
+            destroy()
+        }
         tabs.removeAt(i)
+        if (t.incognito && tabs.none { it.incognito }) forgetIncognito()
         if (tabs.isEmpty()) tabs.add(BTab(1))
         current = when {
             i < current -> current - 1
@@ -489,13 +780,13 @@ object Browser {
             !t.contains(' ') && t.contains('.') -> "https://$t"
             else -> (ENGINES.firstOrNull { it.first == Prefs.searchEngine } ?: ENGINES.first()).second + java.net.URLEncoder.encode(t, "UTF-8")
         }
+        tab.openedAt = System.currentTimeMillis()
         tab.web?.loadUrl(target)
     }
 
     fun applySettings() {
         tabs.forEach { t ->
             t.web?.settings?.let { s ->
-                s.javaScriptCanOpenWindowsAutomatically = !Prefs.blockPopups
                 darken(s)
             }
         }

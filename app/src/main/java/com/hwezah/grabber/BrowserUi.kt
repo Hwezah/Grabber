@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -90,9 +91,25 @@ fun BrowserPage() {
             Box(Modifier.fillMaxSize().statusBarsPadding()) {
                 // The current tab's page, swapped in when the tab changes.
 
+                // Pulled down at the top of a page, it loads again: the page sits in a frame inside the platform's
+                // pull-to-refresh, which asks the page itself whether it can still scroll up.
+                val pullColor = Ink.green.toArgb()
+                val pullFace = Ink.surface.toArgb()
                 AndroidView(
-                    factory = { android.widget.FrameLayout(it) },
-                    update = { frame ->
+                    factory = { ctx ->
+                        androidx.swiperefreshlayout.widget.SwipeRefreshLayout(ctx).apply {
+                            addView(android.widget.FrameLayout(ctx).apply { tag = "page" }, android.view.ViewGroup.LayoutParams(-1, -1))
+                            setColorSchemeColors(pullColor)
+                            setProgressBackgroundColorSchemeColor(pullFace)
+                            setOnChildScrollUpCallback { _, _ -> Browser.tab.web?.canScrollVertically(-1) ?: false }
+                            setOnRefreshListener {
+                                Browser.reload()
+                                postDelayed({ isRefreshing = false }, 900)
+                            }
+                        }
+                    },
+                    update = { pull ->
+                        val frame = pull.findViewWithTag<android.widget.FrameLayout>("page") ?: return@AndroidView
                         Browser.rebuilt // a crashed page's tab gets its new view here
                         val w = Browser.view(frame.context, Browser.tab)
                         if (w.parent !== frame) {
@@ -105,7 +122,13 @@ fun BrowserPage() {
                 )
                 // Nothing open yet: a bare, dark frosted page.
                 // Bookmarks live behind ⋮ › Bookmarks, not on the page.
-                if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0f, grain = 0.6f))
+                if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0f, grain = 0.6f)) {
+                    if (Browser.tab.incognito) Note(
+                        "Incognito. Pages you visit here aren't kept in history" +
+                            if (Browser.trulyPrivate) ", and their cookies and sign-ins are forgotten when you close the last incognito tab." else ". This phone's WebView can't keep sign-ins apart: they're shared with your other tabs.",
+                        Modifier.padding(start = 18.dp, end = 18.dp, top = 90.dp),
+                    )
+                }
             }
         // Over the page's top: the address bar (sliding up reading down, back going up), the load line and the stopped-jump bar.
         Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding()) {
@@ -115,23 +138,26 @@ fun BrowserPage() {
                 enter = androidx.compose.animation.slideInVertically { -it } + androidx.compose.animation.fadeIn(),
                 exit = androidx.compose.animation.slideOutVertically { -it } + androidx.compose.animation.fadeOut(),
             ) {
+            // One frosted container for the whole bar, barely rounded; the address has no box, only its green cursor.
+            val barShape = RoundedCornerShape(14.dp)
             Row(
-                Modifier.background(Ink.bg).padding(start = EDGE + 2.dp, end = 2.dp, top = 6.dp, bottom = 6.dp).fillMaxWidth().height(BAR),
+                Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 8.dp).fillMaxWidth().height(58.dp)
+                    .clip(barShape).background(Ink.surface).frost(barShape).padding(start = 6.dp, end = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Tabs: a squircle with how many are open.
-                Tap({ tabsOpen = true }, Modifier.size(40.dp), RoundedCornerShape(8.dp)) {
+                // Tabs: a squircle with how many are open; an incognito tab shows the mask instead.
+                Tap({ tabsOpen = true }, Modifier.size(42.dp), RoundedCornerShape(8.dp)) {
                     Box(contentAlignment = Alignment.Center) {
-                        Box(
-                            Modifier.size(28.dp).border(2.dp, Ink.text, RoundedCornerShape(7.dp)),
+                        if (Browser.tab.incognito) Lc(L.drawable.lucide_ic_venetian_mask, tint = Ink.red, size = 26.dp)
+                        else Box(
+                            Modifier.size(28.dp).border(1.6.dp, Ink.text, RoundedCornerShape(7.dp)),
                             contentAlignment = Alignment.Center,
                         ) { Text("${Browser.tabs.size}", style = Type.meta.copy(color = Ink.text, fontWeight = FontWeight.Bold)) }
                     }
                 }
                 Spacer(Modifier.width(8.dp))
-                val pill = RoundedCornerShape(14.dp)
                 Row(
-                    Modifier.weight(1f).height(46.dp).clip(pill).background(Ink.surface).padding(start = 16.dp, end = 4.dp),
+                    Modifier.weight(1f).padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(Modifier.weight(1f)) {
@@ -139,15 +165,18 @@ fun BrowserPage() {
                         BasicTextField(
                             input, { input = it },
                             Modifier.fillMaxWidth().onFocusChanged { typing = it.isFocused },
-                            singleLine = true, textStyle = Type.label, cursorBrush = SolidColor(Ink.red),
+                            singleLine = true, textStyle = Type.label, cursorBrush = SolidColor(Ink.green),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
                             keyboardActions = KeyboardActions(onGo = { Browser.go(input); focus.clearFocus() }),
                         )
                     }
-                    if (input.isNotEmpty()) Icon(L.drawable.lucide_ic_x, true) { input = "" }
+                    // The clear X, bigger.
+                    if (input.isNotEmpty()) Tap({ input = "" }, Modifier.size(44.dp), CircleShape) {
+                        Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_x, tint = Ink.text, size = 24.dp) }
+                    }
                 }
                 // What this page has that can be downloaded, with a count.
-                Tap({ picking = true }, Modifier.size(width = 42.dp, height = 44.dp), CircleShape) {
+                Tap({ picking = true }, Modifier.size(width = 44.dp, height = 46.dp), CircleShape) {
                     Box(contentAlignment = Alignment.Center) {
                         Lc(L.drawable.lucide_ic_download, tint = if (Browser.found.isNotEmpty() || site) Ink.green else Ink.text, size = 22.dp)
                         if (Browser.found.isNotEmpty()) Box(
@@ -214,7 +243,7 @@ fun BrowserPage() {
         ) {
             Column(Modifier.padding(horizontal = CARD)) {
                 StretchRow {
-                    Button("New tab", { Browser.newTab(); menu = false }, icon = L.drawable.lucide_ic_plus, compact = true)
+                    Button("New tab", { Browser.newTab(incognito = Browser.tab.incognito); menu = false }, icon = if (Browser.tab.incognito) L.drawable.lucide_ic_venetian_mask else L.drawable.lucide_ic_plus, compact = true)
                     Button("Close tab", { Browser.close(Browser.current); menu = false }, icon = L.drawable.lucide_ic_x, compact = true)
                 }
                 Spacer(Modifier.height(8.dp))
@@ -254,7 +283,12 @@ fun BrowserPage() {
                 }
             }
         }
-        if (tabsOpen) BottomSheet("Tabs", { tabsOpen = false }, icon = L.drawable.lucide_ic_copy) {
+        // The incognito mask at the heading's far end: a new incognito tab.
+        if (tabsOpen) BottomSheet("Tabs", { tabsOpen = false }, icon = L.drawable.lucide_ic_copy, actions = {
+            Tap({ Browser.newTab(incognito = true); tabsOpen = false }, Modifier.size(44.dp), CircleShape) {
+                Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_venetian_mask, tint = Ink.text, size = 24.dp) }
+            }
+        }) {
             Column(Modifier.padding(horizontal = CARD)) {
                 Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
                     Browser.tabs.forEachIndexed { i, t ->
@@ -264,10 +298,10 @@ fun BrowserPage() {
                                 Modifier.background(if (on) Ink.text.copy(alpha = 0.07f) else Color.Transparent).padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Lc(L.drawable.lucide_ic_globe, tint = if (on) Ink.red else Ink.muted, size = 18.dp)
+                                Lc(if (t.incognito) L.drawable.lucide_ic_venetian_mask else L.drawable.lucide_ic_globe, tint = if (on) Ink.red else Ink.muted, size = 18.dp)
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
-                                    Text(t.title.ifBlank { if (t.url.isBlank()) "New tab" else t.url }, style = Type.label.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(t.title.ifBlank { if (t.url.isBlank()) (if (t.incognito) "Incognito tab" else "New tab") else t.url }, style = Type.label.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     if (t.url.isNotBlank()) Text(t.url, style = Type.meta, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 Icon(L.drawable.lucide_ic_x, true) { Browser.close(i) }
@@ -276,7 +310,7 @@ fun BrowserPage() {
                     }
                 }
                 Spacer(Modifier.height(10.dp))
-                Button("New tab", { Browser.newTab(); tabsOpen = false }, Modifier.solo(), icon = L.drawable.lucide_ic_plus)
+                Button("New tab", { Browser.newTab(incognito = Browser.tab.incognito); tabsOpen = false }, Modifier.solo(), icon = if (Browser.tab.incognito) L.drawable.lucide_ic_venetian_mask else L.drawable.lucide_ic_plus)
             }
         }
         if (picking) BottomSheet("On this page", { picking = false }, icon = L.drawable.lucide_ic_radar, iconTint = Ink.green) {

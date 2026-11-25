@@ -77,6 +77,15 @@ fun App() {
         // The browser is full screen with no tab bar; Back leaves it once the page has nowhere to go back to.
         val navShown = if (tab == Tab.Browser) false else barShown
         androidx.activity.compose.BackHandler(tab == Tab.Browser && !Browser.canBack && !Browser.fullScreen) { tab = Tab.Downloads }
+        // An incognito tab on screen: no screenshots, and a blank card in Recents.
+        val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+        val secret = tab == Tab.Browser && Browser.tab.incognito
+        LaunchedEffect(secret) {
+            activity?.window?.let { w ->
+                if (secret) w.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                else w.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            }
+        }
         // Hidden only while the list moves down; back as soon as scrolling stops.
         var scrollTick by remember { mutableStateOf(0) }
         LaunchedEffect(scrollTick) {

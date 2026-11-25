@@ -97,9 +97,9 @@ fun SettingsPage() {
             Overline("Browser")
             Group {
                 ChipRow("Search engine", Browser.ENGINES.map { it.first to it.first }, Prefs.searchEngine, Prefs::useSearchEngine)
-                SettingRow("Block ads", "Drops requests to ad and tracker networks") { Toggle(Prefs.blockAds, Prefs::useBlockAds) }
+                SettingRow("Block ads", (if (AdBlock.count > 0) "%,d".format(AdBlock.count) + " ad, tracker and pop-under sites, updated weekly" else "Drops requests to ad and tracker networks") + "; ads in players skipped") { Toggle(Prefs.blockAds, Prefs::useBlockAds) }
                 SettingRow("Dark pages", "Shows light websites dark") { Toggle(Prefs.darkPages, Prefs::useDarkPages) }
-                SettingRow("Block pop-ups", "Pages can't open new windows") { Toggle(Prefs.blockPopups, Prefs::useBlockPopups) }
+                SettingRow("Block pop-ups", "Windows a page opens without a tap are dropped; a tapped link opens as a new tab") { Toggle(Prefs.blockPopups, Prefs::useBlockPopups) }
                 SettingRow("Block redirects", "Stops pages jumping to ad and betting sites; a bar offers Open anyway") { Toggle(Prefs.blockRedirects, Prefs::useBlockRedirects) }
                 SettingRow("Spot videos and files", "Watches what pages load and offers it to download") { Toggle(Prefs.sniffMedia, Prefs::useSniffMedia) }
                 SettingRow("Clear browsing data", "Cookies, history and cache. Site sign-ins in the browser go too") {

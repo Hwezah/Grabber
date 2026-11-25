@@ -29,6 +29,8 @@ class MainActivity : ComponentActivity() {
         Places.init(this)
         // A VPN left on comes back on.
         Vpn.init(this)
+        // The Browser's big ad and tracker list, read in the background (fetched afresh weekly).
+        AdBlock.init(this)
         Ink.use(Prefs.dark)
         // Downloads left waiting when the app was closed carry on.
         Downloads.kick()
