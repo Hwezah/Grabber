@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalConfiguration
@@ -136,7 +137,15 @@ fun Button(
         val base = if (fill != null) Modifier.background(fill).grain()
         else Modifier.frost(RoundedCornerShape(10.dp), alpha = if (LocalQuiet.current) (if (pressed) 0.1f else 0.05f) else if (pressed) 0.18f else 0.09f, grain = if (LocalQuiet.current) 0.7f else 1f)
         Row(
-            base.height(if (compact) 34.dp else 44.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
+            base.then(
+                // Compact stays 34dp only while it's thin: stretched across a row (140dp or more) it matches the others at 44dp.
+                if (!compact) Modifier.height(44.dp)
+                else Modifier.layout { m, c ->
+                    val h = (if (c.minWidth >= 140.dp.roundToPx()) 44.dp else 34.dp).roundToPx()
+                    val pl = m.measure(c.copy(minHeight = h, maxHeight = h))
+                    layout(pl.width, pl.height) { pl.place(0, 0) }
+                },
+            ).padding(horizontal = if (compact) 14.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
