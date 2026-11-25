@@ -173,17 +173,8 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
                 LinkPicker(found, off)
             }
             if (!single) {
-                Spacer(Modifier.height(14.dp))
-                StretchRow {
-                    Button("Copy", {
-                        context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("Grabber", text))
-                        Capture.seen(context, text)
-                        onDismiss()
-                    }, icon = L.drawable.lucide_ic_copy, compact = true)
-                    Button("Close", onDismiss, icon = L.drawable.lucide_ic_x, compact = true)
-                }
+                Spacer(Modifier.height(8.dp))
                 if (found.isNotEmpty()) {
-                    Spacer(Modifier.height(10.dp))
                     val ready = Prefs.folder != null && web.isNotEmpty()
                     fun go(start: Boolean) {
                         if (!ready) return
@@ -193,11 +184,15 @@ fun CaptureSheet(text: String, title: String? = null, headers: Map<String, Strin
                     }
                     // Add puts them on the list without starting; Download starts them. Side by side, the same size.
                     val n = if (web.size > 1) " ${web.size}" else ""
-                    StretchRow {
-                        Button("Add$n", { go(false) }, icon = L.drawable.lucide_ic_plus, accent = if (ready) Ink.red else null)
-                        Button("Download$n", { go(true) }, icon = L.drawable.lucide_ic_download, accent = if (ready) Ink.green else null)
-                    }
+                    com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_download, "Download$n", { go(true) }, tint = Ink.green, enabled = ready)
+                    com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_plus, "Add$n to the list", { go(false) }, hint = "Without starting", enabled = ready)
                 }
+                com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_copy, "Copy", {
+                    context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("Grabber", text))
+                    Capture.seen(context, text)
+                    onDismiss()
+                })
+                com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_x, "Close", onDismiss)
             }
         }
     }
@@ -311,8 +306,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
     if (error != null && site != null && Media.needsSignIn(error)) {
         Spacer(Modifier.height(8.dp))
         Text("Sign in to ${site.label} in the Browser once, then try again. A VPN can cause this too: Instagram blocks them.", style = Type.meta)
-        Spacer(Modifier.height(8.dp))
-        Button("Sign in to ${site.label} in the Browser", { openInGrabberBrowser(context, url); onDismiss() }, Modifier.solo(), accent = Ink.red)
+        com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_log_in, "Sign in to ${site.label} in the Browser", { openInGrabberBrowser(context, url); onDismiss() }, tint = Ink.red)
     }
     media?.let { m ->
         val video = m.heights.filter { it in setOf(2160, 1440, 1080, 720, 480, 360, 240) }.ifEmpty { m.heights.take(4) }
@@ -343,12 +337,7 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
     Field(name, { name = it }, "File name")
     Spacer(Modifier.height(8.dp))
     Field(referer, { referer = it }, "Referer page (leave empty if not sure)")
-    Spacer(Modifier.height(12.dp))
-    StretchRow {
-        Button("Cancel", onDismiss, compact = true)
-        Button(if (checking) "Checking…" else "Check again", { tries++ }, icon = L.drawable.lucide_ic_rotate_cw, compact = true)
-    }
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(6.dp))
     /** [start]: download now; otherwise just put it on the list, paused, to start later. */
     fun queue(start: Boolean) {
         if (Prefs.folder == null || checking) return
@@ -368,13 +357,13 @@ private fun OneLink(url: String, onDismiss: () -> Unit, title: String? = null, g
     }
     val ready = Prefs.folder != null && !checking
     // Add puts it on the list without starting; Download starts it now. Side by side, the same size.
-    StretchRow {
-        Button("Add", { queue(false) }, icon = L.drawable.lucide_ic_plus)
-        Button(
-            if (media != null && pick.startsWith("a:")) "Download ${pick.removePrefix("a:").uppercase()}" else "Download",
-            { queue(true) }, icon = L.drawable.lucide_ic_download, accent = if (ready) Ink.green else null,
-        )
-    }
+    com.hwezah.grabber.design.SheetRow(
+        L.drawable.lucide_ic_download, if (media != null && pick.startsWith("a:")) "Download ${pick.removePrefix("a:").uppercase()}" else "Download",
+        { queue(true) }, tint = Ink.green, enabled = ready,
+    )
+    com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_plus, "Add to the list", { queue(false) }, hint = "Without starting", enabled = ready)
+    com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_rotate_cw, if (checking) "Checking…" else "Check again", { tries++ })
+    com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_x, "Cancel", onDismiss)
 }
 
 /** A text box on frosted glass. */
@@ -414,8 +403,7 @@ private fun OneMagnet(magnet: String, onDismiss: () -> Unit) {
         m == null && error == null -> Text("Asking peers for the file list…", style = Type.meta)
         m == null -> {
             Text(error!!, style = Type.meta.copy(color = Ink.orange))
-            Spacer(Modifier.height(8.dp))
-            Button("Try again", { tries++ }, icon = L.drawable.lucide_ic_rotate_cw, compact = true)
+            com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_rotate_cw, "Try again", { tries++ })
         }
         else -> {
             val chosen = m.files.filter { it.index !in off }
@@ -444,20 +432,12 @@ private fun OneMagnet(magnet: String, onDismiss: () -> Unit) {
             }
         }
     }
-    Spacer(Modifier.height(12.dp))
-    StretchRow {
-        Button("Cancel", onDismiss, compact = true)
-        Button("Copy", {
-            context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("magnet", magnet))
-            Capture.seen(context, magnet)
-        }, icon = L.drawable.lucide_ic_copy, compact = true)
-    }
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(6.dp))
     val ready = meta != null && Prefs.folder != null && meta!!.files.any { it.index !in off }
-    Button(
-        "Download torrent", {
-            val mm = meta ?: return@Button
-            if (Prefs.folder == null) return@Button
+    com.hwezah.grabber.design.SheetRow(
+        L.drawable.lucide_ic_magnet, "Download torrent", {
+            val mm = meta ?: return@SheetRow
+            if (Prefs.folder == null) return@SheetRow
             if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 notify.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -465,8 +445,13 @@ private fun OneMagnet(magnet: String, onDismiss: () -> Unit) {
             Downloads.add(listOf(magnet), name = mm.name, kind = Kind.Torrent, files = files, sequential = sequential)
             onDismiss()
         },
-        Modifier.solo(), icon = L.drawable.lucide_ic_magnet, accent = if (ready) Ink.orange else null,
+        tint = Ink.orange, enabled = ready,
     )
+    com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_copy, "Copy magnet", {
+        context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("magnet", magnet))
+        Capture.seen(context, magnet)
+    })
+    com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_x, "Cancel", onDismiss)
 }
 
 /** Copy and share for a link, as small buttons beside a sheet's heading. */

@@ -58,6 +58,7 @@ import androidx.core.content.ContextCompat
 import com.composables.icons.lucide.R as L
 import com.hwezah.grabber.design.BottomSheet
 import com.hwezah.grabber.design.Button
+import com.hwezah.grabber.design.SheetRow
 import com.hwezah.grabber.design.Chip
 import com.hwezah.grabber.design.EDGE
 import com.hwezah.grabber.design.Heading
@@ -301,102 +302,79 @@ private fun DownloadRow(item: Item, live: Live?, onRemove: () -> Unit, onClick: 
     }
 }
 
-/** Open, share, pause/resume, copy link, delete. */
+/** Everything one download offers, as a list of rows: open, share, pause or resume, links, properties, delete. */
 @Composable
 private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var confirm by remember { mutableStateOf(false) }
-    BottomSheet(item.name, onDismiss, icon = iconOf(item.category), iconTint = tintOf(item.category)) {
-        Column(Modifier.padding(horizontal = CARD)) {
-            Text(item.url, style = Type.meta, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(14.dp))
-            StretchRow {
-                if (item.state == State.Done && item.doc != null) {
-                    Button("Open", {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(item.doc), mimeOf(item)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
-                        }
-                    }, icon = L.drawable.lucide_ic_play, accent = Ink.green, compact = true)
-                    Button("Share", {
-                        val send = Intent(Intent.ACTION_SEND).setType(mimeOf(item)).putExtra(Intent.EXTRA_STREAM, Uri.parse(item.doc)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        runCatching { context.startActivity(Intent.createChooser(send, item.name)) }
-                    }, icon = L.drawable.lucide_ic_share_2, compact = true)
-                } else if (item.state == State.Running || item.state == State.Queued) {
-                    Button("Pause", { Downloads.pause(item.id) }, icon = com.hwezah.grabber.design.R.drawable.pause_bars, compact = true)
-                } else {
-                    Button("Resume", { Downloads.resume(item.id) }, icon = L.drawable.lucide_ic_play, accent = Ink.green, compact = true)
-                }
-                Button("Copy", {
-                    context.getSystemService(android.content.ClipboardManager::class.java)
-                        ?.setPrimaryClip(android.content.ClipData.newPlainText("link", item.url))
-                }, icon = L.drawable.lucide_ic_copy, compact = true)
+    var converting by remember { mutableStateOf(false) }
+    val linkable = item.state != State.Done && item.kind == Kind.Http
+    var props by remember { mutableStateOf(false) }
+    var refreshing by remember { mutableStateOf(item.error?.startsWith("Link expired") == true) }
+    fun copy(text: String, what: String) {
+        context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText(what, text))
+        android.widget.Toast.makeText(context, "Copied", android.widget.Toast.LENGTH_SHORT).show()
+    }
+    BottomSheet(item.name, onDismiss) {
+        Column(Modifier.padding(horizontal = CARD).verticalScroll(rememberScrollState())) {
+            if (item.state == State.Done && item.doc != null) {
+                SheetRow(L.drawable.lucide_ic_play, "Open", {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(item.doc), mimeOf(item)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
+                    onDismiss()
+                }, tint = Ink.green)
+                SheetRow(L.drawable.lucide_ic_share_2, "Share", {
+                    val send = Intent(Intent.ACTION_SEND).setType(mimeOf(item)).putExtra(Intent.EXTRA_STREAM, Uri.parse(item.doc)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    runCatching { context.startActivity(Intent.createChooser(send, item.name)) }
+                })
+            } else if (item.state == State.Running || item.state == State.Queued) {
+                SheetRow(com.hwezah.grabber.design.R.drawable.pause_bars, "Pause", { Downloads.pause(item.id); onDismiss() })
+            } else {
+                SheetRow(L.drawable.lucide_ic_play, "Resume", { Downloads.resume(item.id); onDismiss() }, tint = Ink.green)
             }
-            if (item.state == State.Failed && item.error?.contains("Start over") == true) {
-                Spacer(Modifier.height(10.dp))
-                Button("Start over", { Downloads.startOver(item.id); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_rotate_cw, accent = Ink.orange)
-            }
-            if (item.state != State.Done && item.state != State.Running) {
-                Spacer(Modifier.height(10.dp))
-                // Starts it now from its saved parts, ahead of the queue and past any wait.
-                Button("Force start", { Downloads.forceStart(item.id); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_play, accent = Ink.green)
-            }
-            // Properties and Refresh link share a row, spread apart; Find it again sits centred under them.
-            val linkable = item.state != State.Done && item.kind == Kind.Http
-            var props by remember { mutableStateOf(false) }
-            var refreshing by remember { mutableStateOf(item.error?.startsWith("Link expired") == true) }
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = if (linkable) Arrangement.SpaceEvenly else Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                com.hwezah.grabber.design.Action(if (props) "Hide properties" else "Properties", L.drawable.lucide_ic_info, { props = !props }, wide = false)
-                if (linkable) com.hwezah.grabber.design.Action("Refresh link", L.drawable.lucide_ic_rotate_cw, { refreshing = !refreshing }, wide = false)
-            }
-            if (linkable && Rescue.pageOf(item) != null) {
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    // The same file again from its page: Grabber carries on from where it stopped.
-                    if (Rescue.target == item.id) com.hwezah.grabber.design.Action("Stop looking for a fresh link", L.drawable.lucide_ic_x, { Rescue.target = null }, wide = false)
-                    else com.hwezah.grabber.design.Action("Find it again on its page", L.drawable.lucide_ic_globe, { Rescue.findOnPage(item); onDismiss() }, wide = false)
-                }
-            }
-            if (props) Properties(item)
+            if (item.state == State.Failed && item.error?.contains("Start over") == true)
+                SheetRow(L.drawable.lucide_ic_rotate_cw, "Start over", { Downloads.startOver(item.id); onDismiss() }, hint = "From the beginning, the parts so far dropped", tint = Ink.orange)
+            // Starts it now from its saved parts, ahead of the queue and past any wait.
+            if (item.state != State.Done && item.state != State.Running)
+                SheetRow(L.drawable.lucide_ic_zap, "Force start", { Downloads.forceStart(item.id); onDismiss() }, hint = "Start again from where it is, ahead of the queue")
+            SheetRow(L.drawable.lucide_ic_copy, "Copy download link", { copy(item.url, "link") })
+            SheetRow(L.drawable.lucide_ic_clipboard_copy, "Copy download link + file name", { copy(item.url + "\n" + item.name, "link") })
+            if (linkable) SheetRow(L.drawable.lucide_ic_rotate_cw, "Refresh link", { refreshing = !refreshing }, hint = "Paste a fresh link for the same file; it carries on")
             if (linkable && refreshing) RefreshLink(item) { refreshing = false }
+            if (linkable && Rescue.pageOf(item) != null) {
+                // The same file again from its page: Grabber carries on from where it stopped.
+                if (Rescue.target == item.id) SheetRow(L.drawable.lucide_ic_x, "Stop looking for a fresh link", { Rescue.target = null })
+                else SheetRow(L.drawable.lucide_ic_globe, "Find it again on its page", { Rescue.findOnPage(item); onDismiss() }, hint = "Tap its download there and Grabber carries on")
+            }
             if (linkable) {
                 // What's there already, as a file you can play now; the download stays to finish later.
                 val got = com.hwezah.grabber.engine.Segments.sections(item.segments, item.done).sumOf { it.last - it.first + 1 }
-                if (item.doc != null && got > 0 && item.state != State.Running) {
-                    Spacer(Modifier.height(10.dp))
-                    Text("Join every section downloaded so far (${Fmt.bytes(got)}) into a playable file; the download carries on", style = Type.meta)
-                    Spacer(Modifier.height(6.dp))
-                    Button(if (item.id in Rescue.saving) "Merging…" else "Force merge", { Rescue.saveCopy(context, item) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
-                }
+                if (item.doc != null && got > 0 && item.state != State.Running)
+                    SheetRow(L.drawable.lucide_ic_merge, if (item.id in Rescue.saving) "Merging…" else "Force merge", { Rescue.saveCopy(context, item) },
+                        hint = "Join the ${Fmt.bytes(got)} so far into a playable file; it carries on", tint = Ink.green)
             }
+            SheetRow(L.drawable.lucide_ic_info, "Properties", { props = !props }, hint = "Link, size, folder, source")
+            if (props) Properties(item)
             if (item.state == State.Done && item.doc != null && item.category == Category.Video) {
-                Spacer(Modifier.height(10.dp))
-                Text("Convert to audio", style = Type.meta)
-                StretchRow(Modifier.padding(top = 6.dp)) {
-                    listOf("mp3", "m4a", "opus").sortedByDescending { it == Prefs.audioFormat }.forEach { fmt ->
-                        Button(fmt.uppercase(), {
-                            val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
-                            scope.launch {
-                                runCatching {
-                                    val f = Media.stage(context, item.doc, item.name)
-                                    Downloads.add(listOf("file://" + f.absolutePath), name = item.name.substringBeforeLast('.'), kind = Kind.Media, format = "a:$fmt")
-                                }
+                SheetRow(L.drawable.lucide_ic_music, "Convert to audio", { converting = !converting }, hint = "MP3, M4A or Opus, beside the video")
+                if (converting) listOf("mp3", "m4a", "opus").sortedByDescending { it == Prefs.audioFormat }.forEach { fmt ->
+                    SheetRow(L.drawable.lucide_ic_file_audio, fmt.uppercase(), {
+                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                            runCatching {
+                                val f = Media.stage(context, item.doc, item.name)
+                                Downloads.add(listOf("file://" + f.absolutePath), name = item.name.substringBeforeLast('.'), kind = Kind.Media, format = "a:$fmt")
                             }
-                            onDismiss()
-                        }, compact = true)
-                    }
+                        }
+                        onDismiss()
+                    }, modifier = Modifier.padding(start = 42.dp), tint = Ink.orange)
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            if (!confirm) {
-                Button("Delete…", { confirm = true }, Modifier.solo(), icon = L.drawable.lucide_ic_trash_2)
-            } else {
-                // Remove from the list only, or the file too: into the Bin (30 days), or for good. Both wait with Undo.
-                Button("Remove from list", { Downloads.delete(item.id, false); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_list_x)
-                Spacer(Modifier.height(8.dp))
-                StretchRow {
-                    Button("Move to Bin", { Downloads.trash(item.id, permanent = false); onDismiss() }, icon = L.drawable.lucide_ic_trash_2, compact = true)
-                    Button("Delete permanently", { Downloads.trash(item.id, permanent = true); onDismiss() }, accent = Ink.red, compact = true)
+            SheetRow(L.drawable.lucide_ic_trash_2, "Delete…", { confirm = !confirm }, danger = true)
+            if (confirm) {
+                // The list only, or the file too: into the Bin (30 days), or for good. Both wait with Undo.
+                SheetRow(L.drawable.lucide_ic_list_x, "Remove from list", { Downloads.delete(item.id, false); onDismiss() }, hint = "The file stays", modifier = Modifier.padding(start = 42.dp))
+                if (item.doc != null) {
+                    SheetRow(L.drawable.lucide_ic_trash_2, "Move to Bin", { Downloads.trash(item.id, permanent = false); onDismiss() }, hint = "Kept 30 days; restore it from Files › Bin", modifier = Modifier.padding(start = 42.dp))
+                    SheetRow(L.drawable.lucide_ic_trash_2, "Delete permanently", { Downloads.trash(item.id, permanent = true); onDismiss() }, hint = "Gone for good", danger = true, modifier = Modifier.padding(start = 42.dp))
                 }
             }
         }
@@ -406,11 +384,11 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
 /** Pause all, resume all, clear finished. */
 @Composable
 private fun AllSheet(onDismiss: () -> Unit) {
-    BottomSheet("All downloads", onDismiss, icon = L.drawable.lucide_ic_sliders_horizontal) {
-        StretchRow(Modifier.padding(horizontal = CARD)) {
-            Button("Pause all", { Downloads.pauseAll(); onDismiss() }, icon = com.hwezah.grabber.design.R.drawable.pause_bars, compact = true)
-            Button("Resume all", { Downloads.resumeAll(); onDismiss() }, icon = L.drawable.lucide_ic_play, accent = Ink.green, compact = true)
-            Button("Clear", { Downloads.clearFinished(); onDismiss() }, icon = L.drawable.lucide_ic_check, compact = true)
+    BottomSheet("All downloads", onDismiss) {
+        Column(Modifier.padding(horizontal = CARD)) {
+            SheetRow(com.hwezah.grabber.design.R.drawable.pause_bars, "Pause all", { Downloads.pauseAll(); onDismiss() })
+            SheetRow(L.drawable.lucide_ic_play, "Resume all", { Downloads.resumeAll(); onDismiss() }, tint = Ink.green)
+            SheetRow(L.drawable.lucide_ic_check, "Clear finished", { Downloads.clearFinished(); onDismiss() }, hint = "From the list; the files stay")
         }
     }
 }
@@ -455,7 +433,9 @@ private fun AddSheet(onDismiss: () -> Unit) {
     val off = remember { mutableStateListOf<String>() }
     val chosen = found.map { it.text }.filter { it !in off }
     val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    BottomSheet("Add downloads", onDismiss, icon = L.drawable.lucide_ic_plus) {
+    BottomSheet("Add downloads", onDismiss, actions = {
+        com.hwezah.grabber.design.Glyph(L.drawable.lucide_ic_clipboard_paste, "Paste", { text = readClipboard(context) })
+    }) {
         Column(Modifier.padding(horizontal = CARD)) {
             if (Prefs.folder == null) {
                 Text("First, choose where downloads go.", style = Type.body.copy(color = Ink.text))
@@ -476,12 +456,8 @@ private fun AddSheet(onDismiss: () -> Unit) {
                     }),
                 )
             }
-            Spacer(Modifier.height(10.dp))
-            StretchRow {
-                Button("Paste", { text = readClipboard(context) }, icon = L.drawable.lucide_ic_clipboard_paste, compact = true)
-                Button("Clear", { text = "" }, icon = L.drawable.lucide_ic_x, compact = true)
-            }
-            Spacer(Modifier.height(12.dp))
+            if (text.isNotEmpty()) SheetRow(L.drawable.lucide_ic_x, "Clear", { text = "" })
+            Spacer(Modifier.height(8.dp))
             Overline(if (found.isEmpty()) "No links found" else "${chosen.size} of ${found.size} selected", center = found.isEmpty())
             Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
                 found.forEach { f ->
@@ -500,22 +476,18 @@ private fun AddSheet(onDismiss: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             val ready = chosen.isNotEmpty() && Prefs.folder != null
             val n = if (chosen.size > 1) " ${chosen.size}" else ""
-            StretchRow {
-                Button("Add$n", {
-                    if (!ready) return@Button
-                    Downloads.add(chosen, start = false)
-                    android.widget.Toast.makeText(context, "Added to the list", android.widget.Toast.LENGTH_SHORT).show()
-                    onDismiss()
-                }, icon = L.drawable.lucide_ic_plus, accent = if (ready) Ink.red else null)
-                Button("Download$n", {
-                    if (!ready) return@Button
-                    if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                        notify.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                    Downloads.add(chosen)
-                    onDismiss()
-                }, icon = L.drawable.lucide_ic_download, accent = if (ready) Ink.green else null)
-            }
+            SheetRow(L.drawable.lucide_ic_download, "Download$n", {
+                if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    notify.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                Downloads.add(chosen)
+                onDismiss()
+            }, tint = Ink.green, enabled = ready)
+            SheetRow(L.drawable.lucide_ic_plus, "Add$n to the list", {
+                Downloads.add(chosen, start = false)
+                android.widget.Toast.makeText(context, "Added to the list", android.widget.Toast.LENGTH_SHORT).show()
+                onDismiss()
+            }, hint = "Without starting", enabled = ready)
         }
     }
 }
@@ -533,12 +505,11 @@ private fun RefreshLink(item: Item, onDone: () -> Unit) {
     Spacer(Modifier.height(8.dp))
     Field(link, { link = it }, "New link")
     note?.let { Text(it, Modifier.padding(top = 6.dp), style = Type.meta.copy(color = Ink.orange)) }
-    Spacer(Modifier.height(8.dp))
-    StretchRow {
-        Button("Paste", { link = readClipboard(context).trim() }, icon = L.drawable.lucide_ic_clipboard_paste, compact = true)
-        Button(if (busy) "Checking…" else "Use it", {
+    Spacer(Modifier.height(4.dp))
+    SheetRow(L.drawable.lucide_ic_clipboard_paste, "Paste", { link = readClipboard(context).trim() })
+    SheetRow(L.drawable.lucide_ic_check, if (busy) "Checking…" else "Use this link", {
             val url = LinkFinder.find(link).firstOrNull { it is Found.Web }?.text
-            if (url == null) { note = "That isn't a link"; return@Button }
+            if (url == null) { note = "That isn't a link"; return@SheetRow }
             busy = true
             scope.launch {
                 val r = runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.hwezah.grabber.engine.Http.probe(url, item.headers) } }
@@ -554,8 +525,7 @@ private fun RefreshLink(item: Item, onDone: () -> Unit) {
                     }
                 }.onFailure { note = "That link doesn't work either: ${it.message}" }
             }
-        }, accent = Ink.green, compact = true)
-    }
+        }, tint = Ink.green)
 }
 
 /** What Grabber knows about a download: the link's host only (never the full link, which can carry tokens). */

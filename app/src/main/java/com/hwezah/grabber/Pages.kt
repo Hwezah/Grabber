@@ -155,11 +155,9 @@ fun SettingsPage() {
                     Text("The User-Agent sent with every download. Leave empty for Chrome on Android.", style = Type.body)
                     Spacer(Modifier.height(10.dp))
                     Field(ua, { ua = it }, "Mozilla/5.0 …")
-                    Spacer(Modifier.height(12.dp))
-                    StretchRow {
-                        Button("Reset", { Prefs.useUserAgent(""); sheet = null }, compact = true)
-                        Button("Save", { Prefs.useUserAgent(ua.trim()); sheet = null }, accent = Ink.green, compact = true)
-                    }
+                    Spacer(Modifier.height(6.dp))
+                    com.hwezah.grabber.design.SheetRow(com.composables.icons.lucide.R.drawable.lucide_ic_check, "Save", { Prefs.useUserAgent(ua.trim()); sheet = null }, tint = Ink.green)
+                    com.hwezah.grabber.design.SheetRow(com.composables.icons.lucide.R.drawable.lucide_ic_rotate_ccw, "Reset", { Prefs.useUserAgent(""); sheet = null }, hint = "Chrome on Android")
                 }
             }
         }
@@ -170,22 +168,18 @@ fun SettingsPage() {
                     Text("Cobalt servers fetch social videos for Grabber; only the post's address is sent. Grabber tries a list of public ones and remembers the one that works. Put your own here to use only it (the surest for Instagram); leave empty for the list.", style = Type.body)
                     Spacer(Modifier.height(10.dp))
                     Field(r, { r = it }, "https://your-cobalt.example")
-                    Spacer(Modifier.height(12.dp))
-                    StretchRow {
-                        Button("Use the list", { Prefs.useResolver(""); sheet = null }, compact = true)
-                        Button("Save", { Prefs.useResolver(r.trim()); sheet = null }, accent = Ink.green, compact = true)
-                    }
+                    Spacer(Modifier.height(6.dp))
+                    com.hwezah.grabber.design.SheetRow(com.composables.icons.lucide.R.drawable.lucide_ic_check, "Save", { Prefs.useResolver(r.trim()); sheet = null }, tint = Ink.green)
+                    com.hwezah.grabber.design.SheetRow(com.composables.icons.lucide.R.drawable.lucide_ic_list, "Use the list", { Prefs.useResolver(""); sheet = null }, hint = "Grabber's public helpers")
                 }
             }
         }
         "clear" -> com.hwezah.grabber.design.BottomSheet("Clear clipboard history?", { sheet = null }, icon = com.composables.icons.lucide.R.drawable.lucide_ic_trash_2) {
             Column(Modifier.padding(horizontal = CARD)) {
                 Text("Every clip goes except pinned ones. This can't be undone.", style = Type.body)
-                Spacer(Modifier.height(12.dp))
-                StretchRow {
-                    Button("Cancel", { sheet = null }, compact = true)
-                    Button("Clear", { Clips.clearUnpinned(); sheet = null }, accent = Ink.red, compact = true)
-                }
+                Spacer(Modifier.height(6.dp))
+                com.hwezah.grabber.design.SheetRow(com.composables.icons.lucide.R.drawable.lucide_ic_trash_2, "Clear", { Clips.clearUnpinned(); sheet = null }, danger = true)
+                com.hwezah.grabber.design.SheetRow(com.composables.icons.lucide.R.drawable.lucide_ic_x, "Cancel", { sheet = null })
             }
         }
         "licences" -> com.hwezah.grabber.design.BottomSheet("Open-source licences", { sheet = null }, icon = com.composables.icons.lucide.R.drawable.lucide_ic_file_text) {

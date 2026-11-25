@@ -57,6 +57,7 @@ import com.hwezah.grabber.design.Ink
 import com.hwezah.grabber.design.Lc
 import com.hwezah.grabber.design.Note
 import com.hwezah.grabber.design.StretchRow
+import com.hwezah.grabber.design.SheetRow
 import com.hwezah.grabber.design.Tap
 import com.hwezah.grabber.design.Type
 import com.hwezah.grabber.design.grain
@@ -474,10 +475,8 @@ fun FilesPage() {
             Column(Modifier.padding(horizontal = CARD)) {
                 Field(name, { name = it; error = null }, "Name")
                 error?.let { Text(it, Modifier.padding(top = 6.dp), style = Type.meta.copy(color = Ink.danger)) }
-                Spacer(Modifier.height(12.dp))
-                StretchRow {
-                    Button("Cancel", { renaming = null }, compact = true)
-                    Button("Rename", {
+                Spacer(Modifier.height(6.dp))
+                SheetRow(L.drawable.lucide_ic_check, "Rename", {
                         // The extension always goes back on: a rename can't change the type.
                         val n = Folders.safe(name).trimStart('.').ifBlank { "Download" } + keepExt
                         if (n == e.name) renaming = null
@@ -489,8 +488,8 @@ fun FilesPage() {
                             }
                             main.post { if (msg != null) error = msg else { renaming = null; reload++ } }
                         }
-                    }, accent = Ink.red, compact = true)
-                }
+                    }, tint = Ink.green)
+                SheetRow(L.drawable.lucide_ic_x, "Cancel", { renaming = null })
             }
         }
     }
@@ -502,10 +501,8 @@ fun FilesPage() {
             Column(Modifier.padding(horizontal = CARD)) {
                 Field(name, { name = it; error = null }, "Name")
                 error?.let { Text(it, Modifier.padding(top = 6.dp), style = Type.meta.copy(color = Ink.danger)) }
-                Spacer(Modifier.height(12.dp))
-                StretchRow {
-                    Button("Cancel", { making = false }, compact = true)
-                    Button("Create", {
+                Spacer(Modifier.height(6.dp))
+                SheetRow(L.drawable.lucide_ic_folder_plus, "Create", {
                         if (name.isNotBlank()) {
                             val n = Folders.safe(name).trimStart('.').ifBlank { "Download" }
                             kotlin.concurrent.thread {
@@ -517,8 +514,8 @@ fun FilesPage() {
                                 main.post { if (msg != null) error = msg else { making = false; reload++ } }
                             }
                         }
-                    }, accent = Ink.red, compact = true)
-                }
+                    }, tint = Ink.green)
+                SheetRow(L.drawable.lucide_ic_x, "Cancel", { making = false })
             }
         }
     }
@@ -560,20 +557,10 @@ fun FilesPage() {
     }
 }
 
-/** A row in an action sheet: icon, label, and a quiet hint under it. */
+/** A row in an action sheet: icon, label, and a quiet hint under it (the shared SheetRow). */
 @Composable
-private fun ActionRow(icon: Int, label: String, hint: String?, danger: Boolean = false, onClick: () -> Unit) {
-    Tap(onClick, Modifier.fillMaxWidth(), RoundedCornerShape(9.dp)) {
-        Row(Modifier.padding(vertical = 12.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Lc(icon, tint = if (danger) Ink.danger else Ink.red, size = 22.dp)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(label, style = Type.label.copy(fontWeight = FontWeight.SemiBold, color = if (danger) Ink.danger else Ink.text))
-                if (hint != null) Text(hint, style = Type.meta.copy(fontSize = 12.sp))
-            }
-        }
-    }
-}
+private fun ActionRow(icon: Int, label: String, hint: String?, danger: Boolean = false, onClick: () -> Unit) =
+    SheetRow(icon, label, onClick, hint = hint, danger = danger)
 
 /** Opens a file with whichever app the person picks; videos too, as Grabber has no player of its own. */
 private fun openFile(context: Context, uri: Uri, e: Entry) {

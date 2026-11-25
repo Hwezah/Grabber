@@ -52,6 +52,7 @@ import com.hwezah.grabber.design.Note
 import com.hwezah.grabber.design.SpreadOut
 import com.hwezah.grabber.design.Tap
 import com.hwezah.grabber.design.SwipeRow
+import com.hwezah.grabber.design.SheetRow
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
 import com.hwezah.grabber.design.Type
@@ -151,23 +152,18 @@ private fun ClipSheet(clip: Clip, onDismiss: () -> Unit) {
     BottomSheet("Clip", onDismiss, icon = L.drawable.lucide_ic_clipboard_list) {
         Column(Modifier.padding(horizontal = CARD)) {
             Text(clip.text, style = Type.body.copy(color = Ink.text), maxLines = 8, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(14.dp))
-            StretchRow {
-                Button("Copy", {
-                    context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("Grabber", clip.text))
-                    Capture.seen(context, clip.text)
-                    onDismiss()
-                }, icon = L.drawable.lucide_ic_copy, compact = true)
-                Button("Share", {
-                    runCatching { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, clip.text), null)) }
-                }, icon = L.drawable.lucide_ic_share_2, compact = true)
-                Button(if (clip.pinned) "Unpin" else "Pin", { Clips.pin(clip.id); onDismiss() }, icon = L.drawable.lucide_ic_pin, compact = true)
-                Button("", { Clips.delete(clip.id); onDismiss() }, icon = L.drawable.lucide_ic_trash_2, compact = true)
-            }
-            if (links) {
-                Spacer(Modifier.height(10.dp))
-                Button("Download links", { onDismiss(); Capture.offer(clip.text, clip.title) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
-            }
+            Spacer(Modifier.height(10.dp))
+            if (links) SheetRow(L.drawable.lucide_ic_download, "Download links", { onDismiss(); Capture.offer(clip.text, clip.title) }, tint = Ink.green)
+            SheetRow(L.drawable.lucide_ic_copy, "Copy", {
+                context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("Grabber", clip.text))
+                Capture.seen(context, clip.text)
+                onDismiss()
+            })
+            SheetRow(L.drawable.lucide_ic_share_2, "Share", {
+                runCatching { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, clip.text), null)) }
+            })
+            SheetRow(if (clip.pinned) L.drawable.lucide_ic_pin_off else L.drawable.lucide_ic_pin, if (clip.pinned) "Unpin" else "Pin", { Clips.pin(clip.id); onDismiss() })
+            SheetRow(L.drawable.lucide_ic_trash_2, "Delete", { Clips.delete(clip.id); onDismiss() }, danger = true)
         }
     }
 }
@@ -203,16 +199,14 @@ fun CatchRows() {
             Spacer(Modifier.height(10.dp))
             Text("1. Tap Open settings, find Grabber (under Installed apps / Downloaded apps), switch it on.", style = Type.body.copy(color = Ink.text))
             Text("2. If it's greyed out (\"Restricted setting\"): tap App info below, then ⋮ (top right) → Allow restricted settings, and try again.", Modifier.padding(top = 6.dp), style = Type.body.copy(color = Ink.text))
-            Spacer(Modifier.height(14.dp))
-            StretchRow {
-                Button("App info", {
-                    runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))) }
-                }, compact = true)
-                Button("Open settings", {
-                    runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-                    help = false
-                }, accent = Ink.red, compact = true)
-            }
+            Spacer(Modifier.height(8.dp))
+            SheetRow(L.drawable.lucide_ic_settings, "Open settings", {
+                runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                help = false
+            }, hint = "Accessibility › Grabber", tint = Ink.green)
+            SheetRow(L.drawable.lucide_ic_info, "App info", {
+                runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))) }
+            }, hint = "For ⋮ › Allow restricted settings")
         }
     }
 }

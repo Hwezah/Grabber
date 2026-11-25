@@ -279,8 +279,8 @@ fun BinSheet(onDismiss: () -> Unit, onChanged: () -> Unit) {
                 }
             }
             if (items.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                Button("Empty Bin", { Hold.start("Emptying the Bin (${items.size})") { Bin.empty(context) }; onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_trash_2, accent = Ink.red)
+                Spacer(Modifier.height(6.dp))
+                com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_trash_2, "Empty Bin", { Hold.start("Emptying the Bin (${items.size})") { Bin.empty(context) }; onDismiss() }, hint = "Erase everything in it for good", danger = true)
             }
         }
     }

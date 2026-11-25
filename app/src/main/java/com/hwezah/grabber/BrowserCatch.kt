@@ -128,11 +128,9 @@ fun TakeSheet(file: String, page: String?, browser: String, onGrabber: () -> Uni
                 "Grabber opens the page in its browser: tap the download there once more and Grabber takes it.",
                 Modifier.padding(top = 6.dp), style = Type.body,
             )
-            Spacer(Modifier.height(14.dp))
-            StretchRow {
-                Button("Keep in $browser", onKeep, compact = true)
-                Button("Get it in Grabber", onGrabber, accent = Ink.red, compact = true)
-            }
+            Spacer(Modifier.height(8.dp))
+            com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_download, "Get it in Grabber", onGrabber, hint = "Faster, resumable; the browser's copy stops", tint = Ink.green)
+            com.hwezah.grabber.design.SheetRow(L.drawable.lucide_ic_globe, "Keep in $browser", onKeep)
         }
     }
 }

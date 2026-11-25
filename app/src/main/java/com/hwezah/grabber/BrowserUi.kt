@@ -3,6 +3,7 @@ package com.hwezah.grabber
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import com.hwezah.grabber.design.StretchRow
+import com.hwezah.grabber.design.SheetRow
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -250,25 +251,19 @@ fun BrowserPage() {
             },
         ) {
             Column(Modifier.padding(horizontal = CARD)) {
-                StretchRow {
-                    Button("New tab", { Browser.newTab(incognito = Browser.tab.incognito); menu = false }, icon = if (Browser.tab.incognito) L.drawable.lucide_ic_venetian_mask else L.drawable.lucide_ic_plus, compact = true)
-                    Button("Close tab", { Browser.close(Browser.current); menu = false }, icon = L.drawable.lucide_ic_x, compact = true)
-                }
-                Spacer(Modifier.height(8.dp))
-                StretchRow {
-                    Button("Bookmarks", { menu = false; places = "bookmarks" }, icon = L.drawable.lucide_ic_bookmark, compact = true)
-                    Button("History", { menu = false; places = "history" }, icon = L.drawable.lucide_ic_history, compact = true)
-                }
+                if (Browser.url.isNotBlank())
+                    SheetRow(L.drawable.lucide_ic_download, "Grab this page's video", { menu = false; Capture.offer(Browser.url, Browser.title, browser = true) }, tint = Ink.green)
+                SheetRow(if (Browser.tab.incognito) L.drawable.lucide_ic_venetian_mask else L.drawable.lucide_ic_plus, if (Browser.tab.incognito) "New incognito tab" else "New tab", { Browser.newTab(incognito = Browser.tab.incognito); menu = false })
+                SheetRow(L.drawable.lucide_ic_x, "Close tab", { Browser.close(Browser.current); menu = false })
+                SheetRow(L.drawable.lucide_ic_bookmark, "Bookmarks", { menu = false; places = "bookmarks" })
+                SheetRow(L.drawable.lucide_ic_history, "History", { menu = false; places = "history" })
                 if (Browser.url.isNotBlank()) {
                     val here = Browser.siteOf(android.net.Uri.parse(Browser.url).host)
                     val allowed = here in Browser.allowJumps
-                    Spacer(Modifier.height(8.dp))
-                    Button(if (allowed) "Stop redirects on $here" else "Allow redirects on $here", {
-                        if (allowed) Browser.allowJumps.remove(here) else Browser.allowJumps.add(here)
-                        menu = false
-                    }, Modifier.solo(), icon = L.drawable.lucide_ic_shield)
-                    Spacer(Modifier.height(8.dp))
-                    Button("Grab this page's video", { menu = false; Capture.offer(Browser.url, Browser.title, browser = true) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
+                    // A setting, so a switch: flipping it (or the row) lets this site's jumps through or stops them.
+                    val flip = { if (allowed) Browser.allowJumps.remove(here) else Browser.allowJumps.add(here); Unit }
+                    SheetRow(L.drawable.lucide_ic_shield, "Allow redirects on $here", flip, hint = "Let this site send you to other sites",
+                        trailing = { Toggle(allowed, { flip() }) })
                 }
             }
         }
@@ -285,8 +280,8 @@ fun BrowserPage() {
                         }
                     }
                     if (which == "history" && list.isNotEmpty()) {
-                        Spacer(Modifier.height(10.dp))
-                        Button("Clear history", { Places.clearHistory() }, Modifier.solo(), icon = L.drawable.lucide_ic_trash_2)
+                        Spacer(Modifier.height(6.dp))
+                        SheetRow(L.drawable.lucide_ic_trash_2, "Clear history", { Places.clearHistory() }, danger = true)
                     }
                 }
             }
@@ -317,18 +312,19 @@ fun BrowserPage() {
                         }
                     }
                 }
-                Spacer(Modifier.height(10.dp))
-                Button("New tab", { Browser.newTab(incognito = Browser.tab.incognito); tabsOpen = false }, Modifier.solo(), icon = if (Browser.tab.incognito) L.drawable.lucide_ic_venetian_mask else L.drawable.lucide_ic_plus)
+                Spacer(Modifier.height(6.dp))
+                SheetRow(L.drawable.lucide_ic_plus, "New tab", { Browser.newTab(); tabsOpen = false })
+                SheetRow(L.drawable.lucide_ic_venetian_mask, "New incognito tab", { Browser.newTab(incognito = true); tabsOpen = false })
             }
         }
         if (picking) BottomSheet("On this page", { picking = false }, icon = L.drawable.lucide_ic_radar, iconTint = Ink.green) {
             Column(Modifier.padding(horizontal = CARD)) {
                 if (site) {
-                    Button("Grab this page's video", {
+                    SheetRow(L.drawable.lucide_ic_download, "Grab this page's video", {
                         picking = false
                         Capture.offer(Browser.url, Browser.title, browser = true)
-                    }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
-                    Spacer(Modifier.height(10.dp))
+                    }, tint = Ink.green)
+                    Spacer(Modifier.height(4.dp))
                 }
                 if (Browser.found.isEmpty()) Note("Nothing loaded yet. Start the video playing and it will show up here.")
                 Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {

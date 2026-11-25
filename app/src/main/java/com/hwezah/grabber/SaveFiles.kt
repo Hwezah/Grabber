@@ -106,10 +106,10 @@ fun SaveFilesSheet(uris: List<Uri>, onDismiss: () -> Unit) {
                 }
             }
             note?.let { Text(it, Modifier.padding(top = 6.dp), style = Type.meta.copy(color = Ink.orange)) }
-            Spacer(Modifier.height(12.dp))
-            Button(
-                if (busy) "Saving…" else "Save", {
-                    if (busy || Prefs.folder == null) return@Button
+            Spacer(Modifier.height(6.dp))
+            com.hwezah.grabber.design.SheetRow(
+                L.drawable.lucide_ic_download, if (busy) "Saving…" else "Save", {
+                    if (busy || Prefs.folder == null) return@SheetRow
                     busy = true
                     scope.launch {
                         val failed = withContext(Dispatchers.IO) { shared.mapNotNull { s -> runCatching { saveShared(context, s) }.exceptionOrNull()?.message } }
@@ -120,7 +120,7 @@ fun SaveFilesSheet(uris: List<Uri>, onDismiss: () -> Unit) {
                         } else note = failed.first()
                     }
                 },
-                Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = if (Prefs.folder != null) Ink.green else null,
+                tint = Ink.green, enabled = Prefs.folder != null,
             )
         }
     }

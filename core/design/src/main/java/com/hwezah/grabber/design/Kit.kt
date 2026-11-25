@@ -335,19 +335,52 @@ fun BottomSheet(
                     .navigationBarsPadding().padding(bottom = 24.dp),
             ) {
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(36.dp, 4.dp).clip(CircleShape).background(Ink.stroke))
-                // The heading, with the sheet's icon beside it.
-                Row(Modifier.padding(start = CARD, end = CARD, top = 14.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (icon != null) {
-                        Box(Modifier.size(36.dp).clip(CircleShape).background(iconTint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-                            Lc(icon, tint = iconTint, size = 19.dp)
+                // The heading, centred; a sheet without words shows its icon there instead. Small buttons sit at the right.
+                Box(Modifier.fillMaxWidth().padding(start = CARD, end = CARD, top = 14.dp, bottom = 10.dp), contentAlignment = Alignment.Center) {
+                    // With buttons beside it, the title starts at the left so the two never meet.
+                    if (actions != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        if (title.isNotEmpty()) Text(title, Modifier.weight(1f), style = Type.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        else {
+                            if (icon != null) Lc(icon, tint = iconTint, size = 24.dp)
+                            Spacer(Modifier.weight(1f))
                         }
-                        Spacer(Modifier.width(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { actions() }
                     }
-                    Text(title, Modifier.weight(1f), style = Type.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (actions != null) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { actions() }
+                    else if (title.isNotEmpty()) Text(
+                        title, style = Type.title.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
+                    else if (icon != null) Lc(icon, tint = iconTint, size = 24.dp)
                 }
                 androidx.compose.runtime.CompositionLocalProvider(LocalInSheet provides true, LocalQuiet provides false) { content() }
             }
+        }
+    }
+}
+
+/**
+ * One choice in a sheet, as a list row: an icon, its label, and a quiet hint under it. Sheets offer their actions
+ * this way rather than as buttons. [danger] reds the icon (deleting); [tint] colours it otherwise.
+ */
+@Composable
+fun SheetRow(
+    @DrawableRes icon: Int, label: String, onClick: () -> Unit, hint: String? = null,
+    tint: Color = Ink.text, danger: Boolean = false, enabled: Boolean = true, modifier: Modifier = Modifier,
+    /** At the right end: a setting's switch. */
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Tap({ if (enabled) onClick() }, modifier.fillMaxWidth(), RoundedCornerShape(9.dp)) {
+        Row(
+            Modifier.graphicsLayer { alpha = if (enabled) 1f else 0.4f }.padding(vertical = 13.dp, horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Lc(icon, tint = if (danger) Ink.red else tint, size = 24.dp)
+            Spacer(Modifier.width(18.dp))
+            Column(Modifier.weight(1f)) {
+                Text(label, style = Type.label.copy(fontSize = 17.sp, color = Ink.text), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (!hint.isNullOrBlank()) Text(hint, style = Type.meta, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (trailing != null) { Spacer(Modifier.width(12.dp)); trailing() }
         }
     }
 }
