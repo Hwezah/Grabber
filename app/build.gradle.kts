@@ -71,6 +71,8 @@ dependencies {
     implementation("androidx.documentfile:documentfile:1.1.0")
     // Dark pages in the browser (algorithmic darkening).
     implementation("androidx.webkit:webkit:1.12.1")
+    // The in-app VPN: WireGuard's own Android tunnel library (GoBackend), with a config from Mullvad, Proton or similar.
+    implementation("com.wireguard.android:tunnel:1.0.20260102")
     // Video from YouTube and ~1,800 sites (yt-dlp, Unlicense; wrapper GPL-3.0), and FFmpeg for audio conversion.
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
     implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")

@@ -107,10 +107,13 @@ fun SettingsPage() {
                 }
             }
             Spacer(Modifier.height(20.dp))
+            Overline("VPN")
+            Group { VpnSettings() }
+            Spacer(Modifier.height(20.dp))
             Overline("Video sites")
             Group {
                 YtDlpRow()
-                SettingRow("Social video helper", if (Prefs.resolver.isBlank()) "Off: yt-dlp on this phone does it all" else Prefs.resolver.removePrefix("https://") + ". Fetches Instagram, TikTok and co. on its servers, so no login") {
+                SettingRow("Social video helper", (if (Prefs.resolver.isBlank()) "Grabber's list of public helpers" else Prefs.resolver.removePrefix("https://")) + ". Fetches Instagram, TikTok and co. on its servers, so no login") {
                     com.hwezah.grabber.design.Glyph(com.composables.icons.lucide.R.drawable.lucide_ic_sliders_horizontal, "Change the helper", { sheet = "resolver" })
                 }
                 ChipRow("Default quality", listOf("v:best" to "Best", "v:1080" to "1080p", "v:720" to "720p", "v:480" to "480p"), Prefs.videoQuality, Prefs::useVideoQuality)
@@ -164,12 +167,12 @@ fun SettingsPage() {
             var r by remember { mutableStateOf(Prefs.resolver) }
             com.hwezah.grabber.design.BottomSheet("Social video helper", { sheet = null }, icon = com.composables.icons.lucide.R.drawable.lucide_ic_globe) {
                 Column(Modifier.padding(horizontal = CARD)) {
-                    Text("A Cobalt server that fetches social videos for Grabber. Only the post's address is sent. Leave empty to turn it off.", style = Type.body)
+                    Text("Cobalt servers fetch social videos for Grabber; only the post's address is sent. Grabber tries a list of public ones and remembers the one that works. Put your own here to use only it (the surest for Instagram); leave empty for the list.", style = Type.body)
                     Spacer(Modifier.height(10.dp))
-                    Field(r, { r = it }, Resolver.DEFAULT)
+                    Field(r, { r = it }, "https://your-cobalt.example")
                     Spacer(Modifier.height(12.dp))
                     StretchRow {
-                        Button("Reset", { Prefs.useResolver(Resolver.DEFAULT); sheet = null }, compact = true)
+                        Button("Use the list", { Prefs.useResolver(""); sheet = null }, compact = true)
                         Button("Save", { Prefs.useResolver(r.trim()); sheet = null }, accent = Ink.green, compact = true)
                     }
                 }

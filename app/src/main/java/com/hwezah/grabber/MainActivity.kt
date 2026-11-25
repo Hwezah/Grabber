@@ -27,6 +27,8 @@ class MainActivity : ComponentActivity() {
         Downloads.init(this)
         Clips.init(this)
         Places.init(this)
+        // A VPN left on comes back on.
+        Vpn.init(this)
         Ink.use(Prefs.dark)
         // Downloads left waiting when the app was closed carry on.
         Downloads.kick()

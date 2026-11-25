@@ -74,12 +74,22 @@ fun BrowserPage() {
     BackHandler(enabled = Browser.canBack && !Browser.fullScreen) { Browser.back() }
     BackHandler(enabled = Browser.fullScreen) { Browser.exitFull?.invoke() }
     val site = Browser.url.isNotBlank() && Media.looksLikeSite(Browser.url)
+    // The address bar slides away as the page is read down and comes back on the way up; always there while typing,
+    // on a blank tab, and the moment a new page opens.
+    val startDown = remember { Browser.goingDown }
+    val startUp = remember { Browser.goingUp }
+    var barShown by remember { mutableStateOf(true) }
+    LaunchedEffect(Browser.goingDown) { if (Browser.goingDown != startDown) barShown = false }
+    LaunchedEffect(Browser.goingUp) { if (Browser.goingUp != startUp) barShown = true }
+    LaunchedEffect(Browser.url, Browser.current) { barShown = true }
+    val showBar = barShown || typing || Browser.url.isBlank()
     // One frosted dark background for the whole tab: behind the bar and the blank page alike.
     Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f)) {
-        Column(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
             // The bar: tabs, the address, what's on the page to download, and the menu.
+            androidx.compose.animation.AnimatedVisibility(visible = showBar) {
             Row(
-                Modifier.statusBarsPadding().padding(start = EDGE + 2.dp, end = 2.dp, top = 6.dp, bottom = 6.dp).fillMaxWidth().height(BAR),
+                Modifier.padding(start = EDGE + 2.dp, end = 2.dp, top = 6.dp, bottom = 6.dp).fillMaxWidth().height(BAR),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Tabs: a squircle with how many are open.
@@ -123,6 +133,7 @@ fun BrowserPage() {
                     Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_ellipsis_vertical, tint = Ink.text, size = 22.dp) }
                 }
             }
+            }
             Box(Modifier.fillMaxWidth().height(2.dp)) {
                 if (Browser.loading) Box(Modifier.fillMaxWidth(Browser.progress / 100f).height(2.dp).background(Ink.red))
             }
@@ -165,27 +176,36 @@ fun BrowserPage() {
                 if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0f, grain = 0.6f))
             }
         }
+        // A globe heads it in place of a word; back, forward, reload, the VPN switch and the bookmark mark beside it.
         if (menu) BottomSheet(
-            "Browser", { menu = false }, icon = L.drawable.lucide_ic_globe,
-            // Bookmark this page: the icon fills with the accent once it's saved.
-            actions = if (Browser.url.isNotEmpty()) ({
-                val marked = Places.isBookmarked(Browser.url)
+            "", { menu = false }, icon = L.drawable.lucide_ic_globe, iconTint = Ink.text,
+            actions = {
                 val context = androidx.compose.ui.platform.LocalContext.current
-                Tap({
-                    Places.toggleBookmark(Browser.url, Browser.title)
-                    android.widget.Toast.makeText(context, if (marked) "Bookmark removed" else "Bookmarked", android.widget.Toast.LENGTH_SHORT).show()
-                }, Modifier.size(44.dp), CircleShape) {
-                    Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_bookmark, tint = if (marked) Ink.red else Ink.text, size = 24.dp) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    listOf(
+                        L.drawable.lucide_ic_arrow_left to { Browser.back() },
+                        L.drawable.lucide_ic_arrow_right to { Browser.forward() },
+                        L.drawable.lucide_ic_rotate_cw to { Browser.reload() },
+                    ).forEach { (icon, go) ->
+                        Tap({ go(); menu = false }, Modifier.size(40.dp), CircleShape) {
+                            Box(contentAlignment = Alignment.Center) { Lc(icon, tint = Ink.text, size = 21.dp) }
+                        }
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    VpnSwitch(onNoConfig = { android.widget.Toast.makeText(context, "Add a VPN config first: Settings › VPN", android.widget.Toast.LENGTH_LONG).show() })
+                    if (Browser.url.isNotEmpty()) {
+                        val marked = Places.isBookmarked(Browser.url)
+                        Tap({
+                            Places.toggleBookmark(Browser.url, Browser.title)
+                            android.widget.Toast.makeText(context, if (marked) "Bookmark removed" else "Bookmarked", android.widget.Toast.LENGTH_SHORT).show()
+                        }, Modifier.size(44.dp), CircleShape) {
+                            Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_bookmark, tint = if (marked) Ink.red else Ink.text, size = 22.dp) }
+                        }
+                    }
                 }
-            }) else null,
+            },
         ) {
             Column(Modifier.padding(horizontal = CARD)) {
-                StretchRow {
-                    Button("Back", { Browser.back(); menu = false }, icon = L.drawable.lucide_ic_arrow_left, compact = true)
-                    Button("Forward", { Browser.forward(); menu = false }, icon = L.drawable.lucide_ic_arrow_right, compact = true)
-                    Button("Reload", { Browser.reload(); menu = false }, icon = L.drawable.lucide_ic_rotate_cw, compact = true)
-                }
-                Spacer(Modifier.height(8.dp))
                 StretchRow {
                     Button("New tab", { Browser.newTab(); menu = false }, icon = L.drawable.lucide_ic_plus, compact = true)
                     Button("Close tab", { Browser.close(Browser.current); menu = false }, icon = L.drawable.lucide_ic_x, compact = true)
@@ -195,13 +215,14 @@ fun BrowserPage() {
                     Button("Bookmarks", { menu = false; places = "bookmarks" }, icon = L.drawable.lucide_ic_bookmark, compact = true)
                     Button("History", { menu = false; places = "history" }, icon = L.drawable.lucide_ic_history, compact = true)
                 }
-                if (site && Prefs.blockRedirects) {
+                if (Browser.url.isNotBlank()) {
                     val here = Browser.siteOf(android.net.Uri.parse(Browser.url).host)
-                    SettingRow("Allow redirects on this site", "Let $here send you to other sites") {
-                        Toggle(here in Browser.allowJumps, { on -> if (on) Browser.allowJumps.add(here) else Browser.allowJumps.remove(here) })
-                    }
-                }
-                if (site) {
+                    val allowed = here in Browser.allowJumps
+                    Spacer(Modifier.height(8.dp))
+                    Button(if (allowed) "Stop redirects on $here" else "Allow redirects on $here", {
+                        if (allowed) Browser.allowJumps.remove(here) else Browser.allowJumps.add(here)
+                        menu = false
+                    }, Modifier.solo(), icon = L.drawable.lucide_ic_shield)
                     Spacer(Modifier.height(8.dp))
                     Button("Grab this page's video", { menu = false; Capture.offer(Browser.url, Browser.title, browser = true) }, Modifier.solo(), icon = L.drawable.lucide_ic_download, accent = Ink.green)
                 }

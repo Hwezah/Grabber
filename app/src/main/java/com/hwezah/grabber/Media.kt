@@ -66,6 +66,8 @@ object Media {
         ensure(context)
         fun ask(cookies: File?): VideoInfo {
             val req = YoutubeDLRequest(url).addOption("--no-playlist").addOption("--no-update")
+            // Instagram and Facebook show a public post to a browser but send yt-dlp's own agent to the login wall.
+            if (Resolver.wanted(url)) req.addOption("--user-agent", Resolver.UA)
             cookies?.let { req.addOption("--cookies", it.absolutePath) }
             return try { YoutubeDL.getInstance().getInfo(req) } finally { cookies?.delete() }
         }
@@ -111,6 +113,7 @@ object Media {
             .addOption("-N", if (item.kind == Kind.Hls) Prefs.connections.coerceIn(4, 16) else 8)
             .addOption("-o", File(work, (base ?: "%(title).120B") + ".%(ext)s").absolutePath)
         item.headers.forEach { (k, v) -> req.addOption("--add-header", "$k:$v") }
+        if (Resolver.wanted(item.url) && item.headers.keys.none { it.equals("User-Agent", true) }) req.addOption("--user-agent", Resolver.UA)
         // Many connections per file through aria2c, sized like Grabber's own downloads.
         if (aria2c && !item.url.startsWith("file://") && item.kind != Kind.Hls) {
             val n = Prefs.connections.coerceIn(4, 16)

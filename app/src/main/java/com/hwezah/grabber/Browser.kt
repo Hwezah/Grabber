@@ -402,8 +402,30 @@ object Browser {
         // A file the site hands over: straight to Grabber's download sheet, with this page's headers.
         w.setDownloadListener { url, ua, disposition, mime, _ ->
             val name = URLUtil.guessFileName(url, disposition, mime)
+            // A WireGuard config goes straight into the VPN (Settings › VPN), read in the page when it made it itself.
+            if (name.endsWith(".conf", true)) {
+                if (url.startsWith("blob:") || url.startsWith("data:")) {
+                    w.evaluateJavascript("fetch('" + url.replace("'", "\\'") + "').then(r=>r.text()).then(t=>GrabberConf.take(t))", null)
+                } else kotlin.concurrent.thread(name = "grabber-conf") {
+                    val text = fetchText(url, headersFor(Sniffed(url, "File", t.url, name)) + ("User-Agent" to ua))
+                    if (text != null && "[Interface]" in text) takeConf(context, text)
+                    else main.post { Capture.offer(url, name, headersFor(Sniffed(url, "File", t.url, name)) + ("User-Agent" to ua), browser = true) }
+                }
+                return@setDownloadListener
+            }
             val s = Sniffed(url, "File", t.url, name)
             Capture.offer(url, name, headersFor(s) + ("User-Agent" to ua), browser = true)
+        }
+        w.addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface fun take(text: String) { takeConf(context, text) }
+        }, "GrabberConf")
+        // Which way the page is being read: the address bar hides going down and comes back going up.
+        var travel = 0
+        val step = (24 * context.resources.displayMetrics.density).toInt()
+        w.setOnScrollChangeListener { _, _, y, _, oldY ->
+            val d = y - oldY
+            travel = if (travel != 0 && (d > 0) != (travel > 0)) d else travel + d
+            if (travel <= -step) { goingUp++; travel = 0 } else if (travel >= step) { goingDown++; travel = 0 }
         }
         // Nothing loaded until something is searched or typed: a blank start. A rebuilt tab reloads its page.
         t.web = w
@@ -412,6 +434,18 @@ object Browser {
     }
 
     /** A new tab, blank, made current. */
+    /** Counted up as the page scrolls up or down, for the address bar. */
+    var goingUp by mutableIntStateOf(0)
+    var goingDown by mutableIntStateOf(0)
+
+    /** A WireGuard config downloaded in the browser, into the VPN. */
+    private fun takeConf(context: Context, text: String) {
+        val problem = Vpn.import(text)
+        main.post {
+            android.widget.Toast.makeText(context, problem ?: "VPN config added. Turn the VPN on in ⋮ or Settings › VPN.", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
     /** Set when a link should open in the browser: the app switches to the Browser tab and clears it. */
     var openNow by mutableStateOf(false)
 
