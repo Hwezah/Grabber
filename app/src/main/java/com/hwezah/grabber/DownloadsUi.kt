@@ -333,15 +333,26 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                 // Starts it now from its saved parts, ahead of the queue and past any wait.
                 Button("Force start", { Downloads.forceStart(item.id); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_play, accent = Ink.green)
             }
-            Properties(item)
-            if (item.state != State.Done && item.kind == Kind.Http) {
-                RefreshLink(item)
-                // The same file again from its page: Grabber carries on from where it stopped.
-                if (Rescue.pageOf(item) != null) {
-                    Spacer(Modifier.height(8.dp))
-                    if (Rescue.target == item.id) com.hwezah.grabber.design.Action("Stop looking for a fresh link", L.drawable.lucide_ic_x, { Rescue.target = null })
-                    else com.hwezah.grabber.design.Action("Find it again on its page", L.drawable.lucide_ic_globe, { Rescue.findOnPage(item); onDismiss() })
+            // Properties and Refresh link share a row, spread apart; Find it again sits centred under them.
+            val linkable = item.state != State.Done && item.kind == Kind.Http
+            var props by remember { mutableStateOf(false) }
+            var refreshing by remember { mutableStateOf(item.error?.startsWith("Link expired") == true) }
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = if (linkable) Arrangement.SpaceEvenly else Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                com.hwezah.grabber.design.Action(if (props) "Hide properties" else "Properties", L.drawable.lucide_ic_info, { props = !props }, wide = false)
+                if (linkable) com.hwezah.grabber.design.Action("Refresh link", L.drawable.lucide_ic_rotate_cw, { refreshing = !refreshing }, wide = false)
+            }
+            if (linkable && Rescue.pageOf(item) != null) {
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    // The same file again from its page: Grabber carries on from where it stopped.
+                    if (Rescue.target == item.id) com.hwezah.grabber.design.Action("Stop looking for a fresh link", L.drawable.lucide_ic_x, { Rescue.target = null }, wide = false)
+                    else com.hwezah.grabber.design.Action("Find it again on its page", L.drawable.lucide_ic_globe, { Rescue.findOnPage(item); onDismiss() }, wide = false)
                 }
+            }
+            if (props) Properties(item)
+            if (linkable && refreshing) RefreshLink(item) { refreshing = false }
+            if (linkable) {
                 // What's there already, as a file you can play now; the download stays to finish later.
                 val got = com.hwezah.grabber.engine.Segments.sections(item.segments, item.done).sumOf { it.last - it.first + 1 }
                 if (item.doc != null && got > 0 && item.state != State.Running) {
@@ -501,18 +512,13 @@ private fun AddSheet(onDismiss: () -> Unit) {
 
 /** 1DM's "refresh link": a fresh link to the same file carries on from where the old one stopped. */
 @Composable
-private fun RefreshLink(item: Item) {
-    var open by remember { mutableStateOf(item.error?.startsWith("Link expired") == true) }
+private fun RefreshLink(item: Item, onDone: () -> Unit) {
     var link by remember { mutableStateOf("") }
     var note by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val context = LocalContext.current
-    Spacer(Modifier.height(10.dp))
-    if (!open) {
-        com.hwezah.grabber.design.Action("Refresh link", L.drawable.lucide_ic_rotate_cw, { open = true })
-        return
-    }
+    Spacer(Modifier.height(14.dp))
     Text("Paste a new link to the same file (get it again from the site). Progress is kept.", style = Type.meta)
     Spacer(Modifier.height(8.dp))
     Field(link, { link = it }, "New link")
@@ -534,7 +540,7 @@ private fun RefreshLink(item: Item) {
                         Downloads.edit(item.id) { it.copy(url = info.finalUrl, resumable = info.resumable || it.resumable, state = State.Queued, error = null) }
                         Downloads.kick()
                         note = "Carrying on with the new link"
-                        open = false
+                        onDone()
                     }
                 }.onFailure { note = "That link doesn't work either: ${it.message}" }
             }
@@ -545,9 +551,7 @@ private fun RefreshLink(item: Item) {
 /** What Grabber knows about a download: the link's host only (never the full link, which can carry tokens). */
 @Composable
 private fun Properties(item: Item) {
-    var open by remember { mutableStateOf(false) }
-    Spacer(Modifier.height(10.dp))
-    if (!open) { com.hwezah.grabber.design.Action("Properties", L.drawable.lucide_ic_info, { open = true }); return }
+    Spacer(Modifier.height(14.dp))
     val parts = com.hwezah.grabber.engine.Segments.decode(item.segments)
     listOf(
         "Site" to (runCatching { Uri.parse(item.url).host }.getOrNull() ?: "?"),

@@ -171,10 +171,10 @@ fun Glyph(@DrawableRes icon: Int, description: String, onClick: () -> Unit, tint
  * about 44dp tall, dimming while pressed.
  */
 @Composable
-fun Action(label: String, @DrawableRes icon: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Tap(onClick, modifier.fillMaxWidth(), RoundedCornerShape(10.dp)) { pressed ->
+fun Action(label: String, @DrawableRes icon: Int, onClick: () -> Unit, modifier: Modifier = Modifier, wide: Boolean = true) {
+    Tap(onClick, if (wide) modifier.fillMaxWidth() else modifier, RoundedCornerShape(10.dp)) { pressed ->
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 11.dp).graphicsLayer { alpha = if (pressed) 0.55f else 1f },
+            (if (wide) Modifier.fillMaxWidth() else Modifier.padding(horizontal = 12.dp)).padding(vertical = 11.dp).graphicsLayer { alpha = if (pressed) 0.55f else 1f },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
