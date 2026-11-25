@@ -225,15 +225,15 @@ fun Pipe(color: Color = Ink.red) {
 /** An on/off switch: a flat pill, red when on. */
 @Composable
 fun Toggle(checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, accent: Color = Ink.red) {
-    val travel by animateDpAsState(if (checked) 18.dp else 0.dp, tween(160), label = "toggle")
+    val travel by animateDpAsState(if (checked) 14.dp else 0.dp, tween(160), label = "toggle")
     val track by animateColorAsState(if (checked) accent else Ink.text.copy(alpha = 0.16f), tween(160), label = "track")
     val thumb by animateColorAsState(if (checked) Ink.on(accent) else Ink.muted, tween(160), label = "thumb")
     Box(
-        modifier.size(width = 44.dp, height = 26.dp).clip(RoundedCornerShape(50)).background(track)
+        modifier.size(width = 34.dp, height = 20.dp).clip(RoundedCornerShape(50)).background(track)
             .toggleable(checked, remember { MutableInteractionSource() }, indication = null, role = Role.Switch, onValueChange = onChange)
-            .padding(4.dp),
+            .padding(3.dp),
     ) {
-        Box(Modifier.offset(x = travel).size(18.dp).clip(CircleShape).background(thumb))
+        Box(Modifier.offset(x = travel).size(14.dp).clip(CircleShape).background(thumb))
     }
 }
 
