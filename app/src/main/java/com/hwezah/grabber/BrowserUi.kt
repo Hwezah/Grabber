@@ -238,15 +238,7 @@ fun BrowserPage() {
                     }
                     Spacer(Modifier.width(6.dp))
                     VpnSwitch(onNoConfig = { android.widget.Toast.makeText(context, "Add a VPN config first: Settings › VPN", android.widget.Toast.LENGTH_LONG).show() })
-                    if (Browser.url.isNotEmpty()) {
-                        val marked = Places.isBookmarked(Browser.url)
-                        Tap({
-                            Places.toggleBookmark(Browser.url, Browser.title)
-                            android.widget.Toast.makeText(context, if (marked) "Bookmark removed" else "Bookmarked", android.widget.Toast.LENGTH_SHORT).show()
-                        }, Modifier.size(44.dp), CircleShape) {
-                            Box(contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_bookmark, tint = if (marked) Ink.red else Ink.text, size = 22.dp) }
-                        }
-                    }
+
                 }
             },
         ) {
@@ -255,6 +247,12 @@ fun BrowserPage() {
                     SheetRow(L.drawable.lucide_ic_download, "Grab this page's video", { menu = false; Capture.offer(Browser.url, Browser.title, browser = true) }, tint = Ink.green)
                 SheetRow(if (Browser.tab.incognito) L.drawable.lucide_ic_venetian_mask else L.drawable.lucide_ic_plus, if (Browser.tab.incognito) "New incognito tab" else "New tab", { Browser.newTab(incognito = Browser.tab.incognito); menu = false })
                 SheetRow(L.drawable.lucide_ic_x, "Close tab", { Browser.close(Browser.current); menu = false })
+                // This page bookmarked or not: a switch.
+                if (Browser.url.isNotEmpty()) {
+                    var marked by remember(Browser.url) { mutableStateOf(Places.isBookmarked(Browser.url)) }
+                    val flip = { Places.toggleBookmark(Browser.url, Browser.title); marked = !marked }
+                    SheetRow(L.drawable.lucide_ic_bookmark_plus, "Bookmark this page", flip, trailing = { Toggle(marked, { flip() }) })
+                }
                 SheetRow(L.drawable.lucide_ic_bookmark, "Bookmarks", { menu = false; places = "bookmarks" })
                 SheetRow(L.drawable.lucide_ic_history, "History", { menu = false; places = "history" })
                 if (Browser.url.isNotBlank()) {

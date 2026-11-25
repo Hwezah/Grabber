@@ -162,7 +162,10 @@ private fun ClipSheet(clip: Clip, onDismiss: () -> Unit) {
             SheetRow(L.drawable.lucide_ic_share_2, "Share", {
                 runCatching { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, clip.text), null)) }
             })
-            SheetRow(if (clip.pinned) L.drawable.lucide_ic_pin_off else L.drawable.lucide_ic_pin, if (clip.pinned) "Unpin" else "Pin", { Clips.pin(clip.id); onDismiss() })
+            // On or off, so a switch.
+            var pinned by remember(clip) { mutableStateOf(clip.pinned) }
+            SheetRow(L.drawable.lucide_ic_pin, "Pinned", { Clips.pin(clip.id); pinned = !pinned }, hint = "Kept when the history is cleared",
+                trailing = { com.hwezah.grabber.design.Toggle(pinned, { Clips.pin(clip.id); pinned = it }) })
             SheetRow(L.drawable.lucide_ic_trash_2, "Delete", { Clips.delete(clip.id); onDismiss() }, danger = true)
         }
     }

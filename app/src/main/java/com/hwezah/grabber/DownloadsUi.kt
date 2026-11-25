@@ -357,7 +357,7 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
             if (item.state == State.Done && item.doc != null && item.category == Category.Video) {
                 SheetRow(L.drawable.lucide_ic_music, "Convert to audio", { converting = !converting }, hint = "MP3, M4A or Opus, beside the video")
                 if (converting) listOf("mp3", "m4a", "opus").sortedByDescending { it == Prefs.audioFormat }.forEach { fmt ->
-                    SheetRow(L.drawable.lucide_ic_file_audio, fmt.uppercase(), {
+                    SheetRow(L.drawable.lucide_ic_music, fmt.uppercase(), {
                         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                             runCatching {
                                 val f = Media.stage(context, item.doc, item.name)
