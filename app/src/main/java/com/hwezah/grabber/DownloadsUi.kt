@@ -339,8 +339,8 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                 // The same file again from its page: Grabber carries on from where it stopped.
                 if (Rescue.pageOf(item) != null) {
                     Spacer(Modifier.height(8.dp))
-                    if (Rescue.target == item.id) Button("Stop looking for a fresh link", { Rescue.target = null }, Modifier.solo(), compact = true)
-                    else Button("Find it again on its page", { Rescue.findOnPage(item); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_globe)
+                    if (Rescue.target == item.id) com.hwezah.grabber.design.Action("Stop looking for a fresh link", L.drawable.lucide_ic_x, { Rescue.target = null })
+                    else com.hwezah.grabber.design.Action("Find it again on its page", L.drawable.lucide_ic_globe, { Rescue.findOnPage(item); onDismiss() })
                 }
                 // What's there already, as a file you can play now; the download stays to finish later.
                 val got = com.hwezah.grabber.engine.Segments.sections(item.segments, item.done).sumOf { it.last - it.first + 1 }
@@ -508,7 +508,7 @@ private fun RefreshLink(item: Item) {
     val context = LocalContext.current
     Spacer(Modifier.height(10.dp))
     if (!open) {
-        Button("Refresh link", { open = true }, Modifier.solo(), icon = L.drawable.lucide_ic_rotate_cw)
+        com.hwezah.grabber.design.Action("Refresh link", L.drawable.lucide_ic_rotate_cw, { open = true })
         return
     }
     Text("Paste a new link to the same file (get it again from the site). Progress is kept.", style = Type.meta)
@@ -545,7 +545,7 @@ private fun RefreshLink(item: Item) {
 private fun Properties(item: Item) {
     var open by remember { mutableStateOf(false) }
     Spacer(Modifier.height(10.dp))
-    if (!open) { Button("Properties", { open = true }, Modifier.solo(), icon = L.drawable.lucide_ic_info); return }
+    if (!open) { com.hwezah.grabber.design.Action("Properties", L.drawable.lucide_ic_info, { open = true }); return }
     val parts = com.hwezah.grabber.engine.Segments.decode(item.segments)
     listOf(
         "Site" to (runCatching { Uri.parse(item.url).host }.getOrNull() ?: "?"),

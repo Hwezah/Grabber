@@ -120,7 +120,7 @@ fun Button(
     // Flat colour with grain, no gradient, no border.
     // Accent: mixed 12% toward black (28% pressed). Green: #1E9E52 mixed 46% toward black (56% pressed).
     val green = accent == Ink.green || accent == Ink.greenButton
-    Tap(onClick, modifier, RoundedCornerShape(5.dp)) { pressed ->
+    Tap(onClick, modifier, RoundedCornerShape(10.dp)) { pressed ->
         val fill = when {
             accent == null -> null
             green -> androidx.compose.ui.graphics.lerp(Color(0xFF1E9E52), Color.Black, if (pressed) 0.56f else 0.46f)
@@ -132,9 +132,9 @@ fun Button(
             else -> Ink.on(accent)
         }
         val base = if (fill != null) Modifier.background(fill).grain()
-        else Modifier.frost(RoundedCornerShape(5.dp), alpha = if (LocalQuiet.current) (if (pressed) 0.1f else 0.05f) else if (pressed) 0.18f else 0.09f, grain = if (LocalQuiet.current) 0.7f else 1f)
+        else Modifier.frost(RoundedCornerShape(10.dp), alpha = if (LocalQuiet.current) (if (pressed) 0.1f else 0.05f) else if (pressed) 0.18f else 0.09f, grain = if (LocalQuiet.current) 0.7f else 1f)
         Row(
-            base.height(if (LocalInSheet.current) (if (compact) 38.dp else 44.dp) else if (compact) 42.dp else 50.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
+            base.height(if (compact) 34.dp else 44.dp).padding(horizontal = if (compact) 14.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
@@ -143,6 +143,25 @@ fun Button(
                 if (label.isNotEmpty()) Spacer(Modifier.width(3.dp))
             }
             if (label.isNotEmpty()) Text(label, style = Type.label.copy(fontWeight = FontWeight.SemiBold, color = fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/**
+ * A secondary action inside a card or under a list: no fill, a green icon and SemiBold words, centred,
+ * about 44dp tall, dimming while pressed.
+ */
+@Composable
+fun Action(label: String, @DrawableRes icon: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Tap(onClick, modifier.fillMaxWidth(), RoundedCornerShape(10.dp)) { pressed ->
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 11.dp).graphicsLayer { alpha = if (pressed) 0.55f else 1f },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Lc(icon, tint = Ink.green, size = 18.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(label, style = Type.label.copy(fontWeight = FontWeight.SemiBold, color = Ink.text), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

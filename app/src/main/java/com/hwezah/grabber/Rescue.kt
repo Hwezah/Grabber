@@ -28,7 +28,7 @@ object Rescue {
     /** Copies being saved, by download id. */
     var saving by mutableStateOf<Set<Long>>(emptySet())
 
-    private fun say(text: String) = main.post { Updater.app?.let { Toast.makeText(it, text, Toast.LENGTH_LONG).show() } }
+    private fun say(text: String) { main.post { Updater.app?.let { Toast.makeText(it, text, Toast.LENGTH_LONG).show() } } }
 
     /** The page the file came from (its Referer), or the site it's on. */
     fun pageOf(item: Item): String? =

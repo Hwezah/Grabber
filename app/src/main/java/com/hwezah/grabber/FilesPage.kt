@@ -550,7 +550,7 @@ fun FilesPage() {
 @Composable
 private fun ActionRow(icon: Int, label: String, hint: String?, danger: Boolean = false, onClick: () -> Unit) {
     Tap(onClick, Modifier.fillMaxWidth(), RoundedCornerShape(9.dp)) {
-        Row(Modifier.padding(vertical = 12.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(vertical = 12.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Lc(icon, tint = if (danger) Ink.danger else Ink.red, size = 22.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
