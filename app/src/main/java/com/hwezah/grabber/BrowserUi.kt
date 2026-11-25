@@ -85,11 +85,38 @@ fun BrowserPage() {
     val showBar = barShown || typing || Browser.url.isBlank()
     // One frosted dark background for the whole tab: behind the bar and the blank page alike.
     Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0.03f)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+            // The page keeps one steady full-screen size; the bar floats over its top rather than resizing it,
+            // so hiding the bar never reflows the page (which fed scroll events back and made the bars fight).
+            Box(Modifier.fillMaxSize().statusBarsPadding()) {
+                // The current tab's page, swapped in when the tab changes.
+
+                AndroidView(
+                    factory = { android.widget.FrameLayout(it) },
+                    update = { frame ->
+                        Browser.rebuilt // a crashed page's tab gets its new view here
+                        val w = Browser.view(frame.context, Browser.tab)
+                        if (w.parent !== frame) {
+                            (w.parent as? android.view.ViewGroup)?.removeView(w)
+                            frame.removeAllViews()
+                            frame.addView(w, android.view.ViewGroup.LayoutParams(-1, -1))
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                // Nothing open yet: a bare, dark frosted page.
+                // Bookmarks live behind ⋮ › Bookmarks, not on the page.
+                if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0f, grain = 0.6f))
+            }
+        // Over the page's top: the address bar (sliding up reading down, back going up), the load line and the stopped-jump bar.
+        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding()) {
             // The bar: tabs, the address, what's on the page to download, and the menu.
-            androidx.compose.animation.AnimatedVisibility(visible = showBar) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showBar,
+                enter = androidx.compose.animation.slideInVertically { -it } + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.slideOutVertically { -it } + androidx.compose.animation.fadeOut(),
+            ) {
             Row(
-                Modifier.padding(start = EDGE + 2.dp, end = 2.dp, top = 6.dp, bottom = 6.dp).fillMaxWidth().height(BAR),
+                Modifier.background(Ink.bg).padding(start = EDGE + 2.dp, end = 2.dp, top = 6.dp, bottom = 6.dp).fillMaxWidth().height(BAR),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Tabs: a squircle with how many are open.
@@ -154,26 +181,6 @@ fun BrowserPage() {
                     }
                     Icon(L.drawable.lucide_ic_x, true) { Browser.tab.stopped = null }
                 }
-            }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                // The current tab's page, swapped in when the tab changes.
-
-                AndroidView(
-                    factory = { android.widget.FrameLayout(it) },
-                    update = { frame ->
-                        Browser.rebuilt // a crashed page's tab gets its new view here
-                        val w = Browser.view(frame.context, Browser.tab)
-                        if (w.parent !== frame) {
-                            (w.parent as? android.view.ViewGroup)?.removeView(w)
-                            frame.removeAllViews()
-                            frame.addView(w, android.view.ViewGroup.LayoutParams(-1, -1))
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
-                // Nothing open yet: a bare, dark frosted page.
-                // Bookmarks live behind ⋮ › Bookmarks, not on the page.
-                if (Browser.url.isEmpty()) Box(Modifier.fillMaxSize().background(Ink.bg).frost(RoundedCornerShape(0.dp), alpha = 0f, grain = 0.6f))
             }
         }
         // A globe heads it in place of a word; back, forward, reload, the VPN switch and the bookmark mark beside it.

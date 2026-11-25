@@ -398,7 +398,6 @@ object Browser {
                 exitFull = null
             }
         }
-        w.setOnScrollChangeListener { _, _, y, _, oldY -> if (y != oldY) scrollTick++ }
         // A file the site hands over: straight to Grabber's download sheet, with this page's headers.
         w.setDownloadListener { url, ua, disposition, mime, _ ->
             val name = URLUtil.guessFileName(url, disposition, mime)
@@ -423,6 +422,7 @@ object Browser {
         var travel = 0
         val step = (24 * context.resources.displayMetrics.density).toInt()
         w.setOnScrollChangeListener { _, _, y, _, oldY ->
+            if (y != oldY) scrollTick++
             val d = y - oldY
             travel = if (travel != 0 && (d > 0) != (travel > 0)) d else travel + d
             if (travel <= -step) { goingUp++; travel = 0 } else if (travel >= step) { goingDown++; travel = 0 }

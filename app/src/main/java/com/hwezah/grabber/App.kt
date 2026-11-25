@@ -74,17 +74,9 @@ fun App() {
         }
         // The floating bar slips away while you scroll down and comes back when you scroll up.
         var barShown by remember { mutableStateOf(true) }
-        // In the browser the tab bar keeps out of the way: shown while the page scrolls, gone 1.5 s after it stops.
-        // On the blank start page it stays, so the tab can always be left.
-        var browserNav by remember { mutableStateOf(false) }
-        LaunchedEffect(Browser.scrollTick) {
-            if (Browser.scrollTick > 0) {
-                browserNav = true
-                kotlinx.coroutines.delay(1500)
-                browserNav = false
-            }
-        }
-        val navShown = if (tab == Tab.Browser) browserNav || Browser.url.isEmpty() else barShown
+        // The browser is full screen with no tab bar; Back leaves it once the page has nowhere to go back to.
+        val navShown = if (tab == Tab.Browser) false else barShown
+        androidx.activity.compose.BackHandler(tab == Tab.Browser && !Browser.canBack && !Browser.fullScreen) { tab = Tab.Downloads }
         // Hidden only while the list moves down; back as soon as scrolling stops.
         var scrollTick by remember { mutableStateOf(0) }
         LaunchedEffect(scrollTick) {
