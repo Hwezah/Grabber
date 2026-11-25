@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -85,7 +86,9 @@ fun UpdateBar(modifier: Modifier = Modifier) {
             // The tab bar's near-black (paper in the light theme), flat with grain, reaching up behind the status bar.
             .background(if (Ink.isDark) Color(0xFF0E0E0E) else Ink.surface2).grain()
             .statusBarsPadding()
-            .padding(start = 16.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 16.dp, end = 10.dp, top = 8.dp, bottom = 8.dp)
+            // Same height in every phase, with or without the buttons.
+            .heightIn(min = 34.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
