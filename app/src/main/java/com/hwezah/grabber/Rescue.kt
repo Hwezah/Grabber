@@ -102,10 +102,16 @@ object Rescue {
             val result = runCatching {
                 val out = Folders.create(app, tree, item.category, name, browser = item.browser) ?: error("couldn't make the file")
                 try {
-                    app.contentResolver.openFileDescriptor(Uri.parse(doc), "r")!!.use { pfd ->
-                        val input = java.io.FileInputStream(pfd.fileDescriptor).channel
-                        val length = input.size()
-                        app.contentResolver.openOutputStream(out, "w")!!.buffered(1 shl 16).use { output ->
+                    // Each section at its own place in the file, the gaps left empty (as 1DM does): the video's index
+                    // still points at the right bytes, so seeking works and only the missing stretches glitch.
+                    app.contentResolver.openFileDescriptor(Uri.parse(doc), "r")!!.use { src ->
+                        app.contentResolver.openFileDescriptor(out, "rw")!!.use { dst ->
+                            val input = java.io.FileInputStream(src.fileDescriptor).channel
+                            val output = java.io.FileOutputStream(dst.fileDescriptor).channel
+                            val length = input.size()
+                            val extent = minOf(sections.last().last + 1, length)
+                            // Full length up front: a sparse file where the storage allows.
+                            android.system.Os.ftruncate(dst.fileDescriptor, extent)
                             val buf = java.nio.ByteBuffer.allocate(1 shl 16)
                             for (r in sections) {
                                 var pos = r.first
@@ -114,10 +120,13 @@ object Rescue {
                                     buf.clear(); buf.limit(minOf(buf.capacity().toLong(), end - pos).toInt())
                                     val got = input.read(buf, pos)
                                     if (got <= 0) break
-                                    output.write(buf.array(), 0, got)
+                                    buf.flip()
+                                    var at = pos
+                                    while (buf.hasRemaining()) at += output.write(buf, at)
                                     pos += got
                                 }
                             }
+                            output.force(false)
                         }
                     }
                 } catch (e: Throwable) {
@@ -130,7 +139,7 @@ object Rescue {
             saving = saving - item.id
             result.onSuccess { out ->
                 // Listed as finished, beside the download that carries on.
-                main.post { Downloads.addFinished(item.url, name, item.mime, item.category, out.toString(), n) }
+                main.post { Downloads.addFinished(item.url, name, item.mime, item.category, out.toString(), sections.last().last + 1) }
                 say("Saved $name (${Fmt.bytes(n)}). The download carries on.")
             }
                 .onFailure { say("Couldn't merge: ${it.message}") }
