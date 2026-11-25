@@ -165,7 +165,15 @@ fun BrowserPage() {
                         BasicTextField(
                             input, { input = it },
                             Modifier.fillMaxWidth().onFocusChanged { typing = it.isFocused },
-                            singleLine = true, textStyle = Type.label, cursorBrush = SolidColor(Ink.green),
+                            singleLine = true, cursorBrush = SolidColor(Ink.green),
+                            // A taller line, so the blinking cursor stands taller; the text stays centred in it.
+                            textStyle = Type.label.copy(
+                                lineHeight = 28.sp,
+                                lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                                    androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                                    androidx.compose.ui.text.style.LineHeightStyle.Trim.None,
+                                ),
+                            ),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
                             keyboardActions = KeyboardActions(onGo = { Browser.go(input); focus.clearFocus() }),
                         )
