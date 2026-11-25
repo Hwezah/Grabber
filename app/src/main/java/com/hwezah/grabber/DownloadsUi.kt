@@ -146,7 +146,7 @@ fun DownloadsPage() {
                 filters.forEachIndexed { i, c -> if (i > 0) Pipe(com.hwezah.grabber.design.pipeColor(i - 1)); Chip(c, c == filter, { filter = c }) }
             }
             if (items.isNotEmpty()) com.hwezah.grabber.design.Note(
-                "Swipe left to remove · right to pause or open",
+                "Swipe left to delete · right to pause or open",
                 Modifier.padding(start = EDGE * 2, end = EDGE * 2, top = 8.dp), small = true,
             )
             if (shown.isEmpty()) {
@@ -190,6 +190,13 @@ fun DownloadsPage() {
                             },
                             leftColor = Ink.red, rightColor = if (active) Ink.orange else Ink.green,
                             shape = RoundedCornerShape(14.dp), modifier = Modifier.animateItem(),
+                            // With a file: swiped left, the row hangs open on its two deletes (each held with Undo).
+                            leftReveal = if (item.doc == null) null else ({ close ->
+                                Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Button("Bin", { close(); Downloads.trash(item.id, permanent = false) }, Modifier.weight(1f), icon = L.drawable.lucide_ic_trash_2, compact = true)
+                                    Button("Delete", { close(); Downloads.trash(item.id, permanent = true) }, Modifier.weight(1f), accent = Ink.red, compact = true)
+                                }
+                            }),
                         ) { DownloadRow(item, live[item.id], { Downloads.delete(item.id, false); removed = item }) { picked = item.id } }
                     }
                 }

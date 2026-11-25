@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.selection.toggleable
@@ -387,14 +388,27 @@ fun SwipeRow(
     rightColor: Color,
     shape: Shape,
     modifier: Modifier = Modifier,
+    /**
+     * Given, a swipe left doesn't run [onLeft]: the row hangs open by [revealWidth], showing these choices beneath it
+     * to tap ([close] puts the row back). Swiping it back, or tapping the row, closes it too.
+     */
+    leftReveal: (@Composable (close: () -> Unit) -> Unit)? = null,
+    revealWidth: Dp = 196.dp,
     content: @Composable () -> Unit,
 ) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val offset = remember { androidx.compose.animation.core.Animatable(0f) }
     var width by remember { mutableStateOf(1f) }
+    val reveal = with(androidx.compose.ui.platform.LocalDensity.current) { revealWidth.toPx() }
+    val close: () -> Unit = { scope.launch { offset.animateTo(0f, Motion.spatial()) } }
     Box(modifier.onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }) {
         val x = offset.value
-        if (x != 0f) {
+        if (x < 0f && leftReveal != null) {
+            // The choices, waiting beneath the row's right end.
+            Box(Modifier.matchParentSize().clip(shape), contentAlignment = Alignment.CenterEnd) {
+                Box(Modifier.width(revealWidth).fillMaxHeight().graphicsLayer { alpha = (-x / reveal).coerceIn(0f, 1f) }, contentAlignment = Alignment.Center) { leftReveal(close) }
+            }
+        } else if (x != 0f) {
             val right = x > 0
             Box(
                 Modifier.matchParentSize().clip(shape).background((if (right) rightColor else leftColor).copy(alpha = (kotlin.math.abs(x) / (width / 3)).coerceIn(0.25f, 1f))),
@@ -411,7 +425,10 @@ fun SwipeRow(
                     onDragStopped = {
                         val v = offset.value
                         scope.launch {
-                            if (kotlin.math.abs(v) > width / 3) {
+                            if (v < 0 && leftReveal != null) {
+                                // Hangs open past half the choices' width; else back.
+                                offset.animateTo(if (-v > reveal / 2) -reveal else 0f, Motion.spatial())
+                            } else if (kotlin.math.abs(v) > width / 3) {
                                 offset.animateTo(if (v > 0) width else -width, tween(160))
                                 if (v > 0) onRight() else onLeft()
                                 offset.snapTo(0f)
@@ -421,6 +438,12 @@ fun SwipeRow(
                         }
                     },
                 ),
-        ) { content() }
+        ) {
+            content()
+            // Open: a tap on the row closes it rather than opening it.
+            if (offset.value != 0f && leftReveal != null) Box(
+                Modifier.matchParentSize().clickable(remember { MutableInteractionSource() }, indication = null) { close() },
+            )
+        }
     }
 }
