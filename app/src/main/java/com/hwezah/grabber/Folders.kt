@@ -299,6 +299,7 @@ object Folders {
 
     /** All the tidying, in order; returns how many videos were sorted. */
     fun housekeep(context: Context): Int {
+        runCatching { Bin.purge(context) }
         runCatching { mergeDuplicates(context) }
         runCatching { ensureLayout(context) }
         runCatching { tidyRoot(context) }

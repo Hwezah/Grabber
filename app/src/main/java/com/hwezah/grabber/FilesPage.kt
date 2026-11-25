@@ -253,6 +253,7 @@ fun FilesPage() {
     var renaming by remember { mutableStateOf<Entry?>(null) }
     var making by remember { mutableStateOf(false) }
     var carry by remember { mutableStateOf<Carry?>(null) }
+    var binOpen by remember { mutableStateOf(false) }
     val items by Downloads.items.collectAsState()
     val doneKey = items.count { it.state == State.Done } to items.size
     val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -286,7 +287,7 @@ fun FilesPage() {
         }
         if (n > 0) reload++
     }
-    LaunchedEffect(here, reload, doneKey, FileJob.finished) {
+    LaunchedEffect(here, reload, doneKey, FileJob.finished, Hold.done, Bin.version) {
         entries = withContext(Dispatchers.IO) { Browse.list(context, tree, here) }
     }
     fun go(i: Int) { ids = ids.take(i + 1); names = names.take(i + 1); entries = null }
@@ -346,6 +347,10 @@ fun FilesPage() {
 
     Column(Modifier.fillMaxSize()) {
         Heading("Files") {
+            // The Bin: deleted files kept 30 days.
+            Tap({ binOpen = true }, Modifier.semantics { contentDescription = "Bin" }, CircleShape) {
+                Box(Modifier.padding(8.dp), contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_trash_2, tint = Ink.text, size = 24.dp) }
+            }
             Tap({ making = true }, Modifier.semantics { contentDescription = "New Folder" }, CircleShape) {
                 Box(Modifier.padding(8.dp), contentAlignment = Alignment.Center) { Lc(L.drawable.lucide_ic_folder_plus, tint = Ink.text, size = 24.dp) }
             }
@@ -407,7 +412,7 @@ fun FilesPage() {
                 }
             }
         }
-        val list = entries
+        val list = entries?.filterNot { it.id in Hold.hidden }
         if (list != null && list.isEmpty()) {
             Note(
                 if (ids.size == 1) "Finished downloads land here, sorted into folders." else "This folder is empty.",
@@ -443,6 +448,8 @@ fun FilesPage() {
             }
         }
     }
+
+    if (binOpen) BinSheet({ binOpen = false }) { reload++ }
 
     acting?.let { e ->
         val fx = fixed(e)
@@ -527,19 +534,26 @@ fun FilesPage() {
             { asked = null }, icon = L.drawable.lucide_ic_trash_2, iconTint = Ink.danger,
         ) {
             Column(Modifier.padding(horizontal = CARD)) {
-                ActionRow(L.drawable.lucide_ic_trash_2, if (empty) "Delete everything in it" else "Delete from this phone", null, danger = true) {
+                /** Held with Undo, then done: into the Bin (kept 30 days) or for good. */
+                fun remove(permanent: Boolean) {
                     asked = null
                     val gone = e.id
-                    kotlin.concurrent.thread(name = "grabber-files-delete") {
-                        Browse.delete(context, tree, e, empty)
+                    val targets = if (empty) Browse.raw(context, tree, e.id, all = true) else listOf(e)
+                    val label = (if (empty) "Everything in ${e.name}" else e.name) + if (permanent) " deleted permanently" else " moved to the Bin"
+                    Hold.start(label, ids = targets.map { it.id }.toSet()) {
+                        targets.forEach { t ->
+                            val inBin = !permanent && Bin.put(context, t.id, t.name, if (t.folder) Browse.sizeOf(context, tree, t) else t.size, t.folder)
+                            if (!inBin) runCatching { DocumentsContract.deleteDocument(context.contentResolver, Browse.uri(tree, t.id)) }
+                        }
                         // Gone from the downloads list too.
                         Downloads.items.value.filter { item ->
                             val id = item.doc?.let { runCatching { DocumentsContract.getDocumentId(Uri.parse(it)) }.getOrNull() } ?: return@filter false
                             if (empty) id.startsWith("$gone/") else id == gone || id.startsWith("$gone/")
                         }.forEach { Downloads.delete(it.id, false) }
-                        main.post { reload++ }
                     }
                 }
+                ActionRow(L.drawable.lucide_ic_trash_2, if (empty) "Move everything to the Bin" else "Move to Bin", "Kept 30 days; restore it from the Bin") { remove(false) }
+                ActionRow(L.drawable.lucide_ic_trash_2, if (empty) "Delete everything permanently" else "Delete permanently", "Gone for good", danger = true) { remove(true) }
                 ActionRow(L.drawable.lucide_ic_check, "Keep it", null) { asked = null }
             }
         }

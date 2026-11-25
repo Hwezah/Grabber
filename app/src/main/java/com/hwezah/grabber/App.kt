@@ -140,6 +140,8 @@ fun App() {
                 ) { PillBar(tab, { tab = it; barShown = true }) }
             }
             UpdateBar(Modifier.align(Alignment.TopCenter))
+            // A delete waiting with Undo, above the tab bar.
+            HoldBar(Modifier.align(Alignment.BottomCenter).padding(bottom = if (navShown && Sheets.open == 0) 76.dp else 0.dp))
             Capture.pending?.let { CaptureSheet(it, title = Capture.pendingTitle, headers = Capture.pendingHeaders) { Capture.pending = null; Capture.pendingTitle = null; Capture.pendingHeaders = emptyMap() } }
         }
     }

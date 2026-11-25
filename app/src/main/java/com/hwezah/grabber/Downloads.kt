@@ -232,6 +232,26 @@ object Downloads {
         if (withFile && item.kind == Kind.Torrent) Torrents.forget(ctx, item)
     }
 
+    /**
+     * Deletes [id]'s file, held a few seconds with Undo first: into the Bin, or [permanent]ly. It leaves the list
+     * straight away and comes back on Undo.
+     */
+    fun trash(id: Long, permanent: Boolean) {
+        val item = get(id) ?: return
+        _items.update { list -> list.filterNot { it.id == id } }
+        save()
+        val docId = item.doc?.let { runCatching { android.provider.DocumentsContract.getDocumentId(android.net.Uri.parse(it)) }.getOrNull() }
+        Hold.start(
+            if (permanent) "Deleting ${item.name} permanently" else "${item.name} moved to the Bin",
+            ids = setOfNotNull(docId),
+            undo = { restore(item) },
+        ) {
+            if (permanent || docId == null) item.doc?.let { Folders.delete(ctx, it) }
+            else if (!Bin.put(ctx, docId, item.name, item.size, false)) item.doc?.let { Folders.delete(ctx, it) }
+            if (permanent && item.kind == Kind.Torrent) Torrents.forget(ctx, item)
+        }
+    }
+
     /** Undo a removal from the list. */
     fun restore(item: Item) {
         val back = if (item.state == State.Running) item.copy(state = State.Queued) else item

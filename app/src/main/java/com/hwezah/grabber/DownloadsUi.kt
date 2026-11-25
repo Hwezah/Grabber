@@ -384,9 +384,12 @@ private fun ItemSheet(item: Item, onDismiss: () -> Unit) {
             if (!confirm) {
                 Button("Delete…", { confirm = true }, Modifier.solo(), icon = L.drawable.lucide_ic_trash_2)
             } else {
+                // Remove from the list only, or the file too: into the Bin (30 days), or for good. Both wait with Undo.
+                Button("Remove from list", { Downloads.delete(item.id, false); onDismiss() }, Modifier.solo(), icon = L.drawable.lucide_ic_list_x)
+                Spacer(Modifier.height(8.dp))
                 StretchRow {
-                    Button("Remove from list", { Downloads.delete(item.id, false); onDismiss() }, compact = true)
-                    Button("Delete file too", { Downloads.delete(item.id, true); onDismiss() }, accent = Ink.red, compact = true)
+                    Button("Move to Bin", { Downloads.trash(item.id, permanent = false); onDismiss() }, icon = L.drawable.lucide_ic_trash_2, compact = true)
+                    Button("Delete permanently", { Downloads.trash(item.id, permanent = true); onDismiss() }, accent = Ink.red, compact = true)
                 }
             }
         }
