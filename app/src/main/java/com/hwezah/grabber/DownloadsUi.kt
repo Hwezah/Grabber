@@ -419,7 +419,7 @@ fun FolderRow() {
             )
         }
         // Opens at Grabber! when the current pick is a folder inside it.
-        Button(if (Prefs.folder == null) "Choose" else if (wrong) "Fix" else "Change", { pick.launch(Folders.suggestedRoot(Prefs.folder)) }, icon = L.drawable.lucide_ic_folder_open, accent = if (Prefs.folder == null || wrong) Ink.red else null, compact = true)
+        Button(if (Prefs.folder == null) "Choose" else if (wrong) "Fix" else "Change", { pick.launch(Folders.suggestedRoot(Prefs.folder)) }, icon = L.drawable.lucide_ic_folder, accent = if (Prefs.folder == null || wrong) Ink.red else null, compact = true)
     }
 }
 
